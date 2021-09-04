@@ -1,0 +1,19 @@
+[package]
+name = "m68000"
+version = "0.1.0"
+authors = ["Stovent <StoventTAS@gmail.com>"]
+edition = "2018"
+description = "A Motorola 68000 interpreter"
+repository = "https://github.com/Stovent/m68000"
+keywords = ["motorola", "68000", "m68k", "interpreter"]
+categories = ["compilers", "emulators"]
+
+[[bin]]
+name = "decoder"
+path = "src/bin/decoder.rs"
+edition = "2018"
+
+[profile.release]
+lto = true
+
+[dependencies]
