@@ -10,15 +10,12 @@ use std::fs::File;
 use std::io::Write;
 use std::str;
 
-const FILE_BEGIN: &[u8] = b"use super::{M68000, MemoryAccess};
-use super::isa::{ISA, ISA::*};
+const FILE_BEGIN: &[u8] = b"use super::isa::{ISA, ISA::*};
 
-impl<M: MemoryAccess> M68000<M> {
-    pub(super) const DECODER: [ISA; 65536] = [";
+pub(super) const DECODER: [ISA; 65536] = [";
 
 const FILE_END: &[u8] = b"
-    ];
-}
+];
 ";
 
 fn main() {
@@ -34,7 +31,7 @@ fn main() {
 
     for i in 0..65536 {
         let str = if i % 16 == 0 {
-            format!("\n        {:7?}, ", opcodes[i])
+            format!("\n    {:7?}, ", opcodes[i])
         } else {
             format!("{:7?}, ", opcodes[i])
         };

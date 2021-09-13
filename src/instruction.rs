@@ -1,5 +1,6 @@
 // use super::addressing_modes::AddressingMode;
-use super::{M68000, MemoryAccess};
+use super::MemoryAccess;
+use super::decoder::DECODER;
 use super::isa::ISA;
 use super::operand::*;
 use super::utils::SliceAs;
@@ -52,7 +53,7 @@ impl Instruction {
     pub(super) fn new<M: MemoryAccess>(pc: u32, mut d: &[u8]) -> (Self, u32) {
         let opcode = d.get_next_word();
         let mut width = 2;
-        let isa = M68000::<M>::DECODER[opcode as usize];
+        let isa = DECODER[opcode as usize];
         (Self {
             isa,
             opcode,
