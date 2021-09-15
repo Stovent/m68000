@@ -1,9 +1,9 @@
 use super::{M68000, MemoryAccess};
-use super::operand::Size;
+use super::instruction::Size;
 use super::utils::{AsArray, Bits, SliceAs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum AddressingMode {
+pub(super) enum AddressingMode {
     /// Data Register Direct
     Drd = 0,
     // Address Register Direct
@@ -39,7 +39,7 @@ impl From<u16> for AddressingMode {
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct EffectiveAddress {
+pub(super) struct EffectiveAddress {
     /// The address of the operand. None if the value is not in memory.
     pub address: Option<u32>,
     /// The addressing mode.
@@ -47,7 +47,7 @@ pub struct EffectiveAddress {
     /// The addressing register.
     pub reg: usize,
     /// The size of the data.
-    pub size: Size,
+    pub size: Option<Size>,
     /// The extension words.
     pub ext: Box<[u8]>
 }
@@ -67,7 +67,7 @@ impl std::fmt::Display for EffectiveAddress {
                 1 => write!(f, "({:#X}).L", self.ext.u32_be()),
                 2 => write!(f, "({}, PC)", self.ext.u16_be() as i16),
                 3 => write!(f, "({}, PC, {}", self.ext[1] as i8, disassemble_index_register(self.ext.u16_be())),
-                4 => write!(f, "#{}", self.ext.i32_be_sized(self.size)),
+                4 => write!(f, "#{}", self.ext.i32_be_sized(self.size.expect("No associated size with immediate operand"))),
                 _ => write!(f, "Unknown addressing mode {} reg {}", self.mode as usize, self.reg),
             },
         }
@@ -85,11 +85,11 @@ impl<M: MemoryAccess> M68000<M> {
     /// Returns the effective address based on the addressing mode.
     ///
     /// Self::address contains the effective address, or None if the addressing mode is not in memory.
-    pub(super) fn get_effective_address(&mut self, mode: AddressingMode, reg: usize, size: Size) -> EffectiveAddress {
+    pub(super) fn get_effective_address(&mut self, mode: AddressingMode, reg: usize, size: Option<Size>) -> EffectiveAddress {
         let (address, ext): (Option<u32>, Box<[u8]>) = match mode {
             AddressingMode::Ari => (Some(self.a(reg)), Box::new([])),
-            AddressingMode::Ariwpo => (Some(self.ariwpo(reg, size)), Box::new([])),
-            AddressingMode::Ariwpr => (Some(self.ariwpr(reg, size)), Box::new([])),
+            AddressingMode::Ariwpo => (Some(self.ariwpo(reg, size.expect("No size associated with ariwpo"))), Box::new([])),
+            AddressingMode::Ariwpr => (Some(self.ariwpr(reg, size.expect("No size associated with ariwpr"))), Box::new([])),
             AddressingMode::Ariwd  => {
                 let (a, ext) = self.ariwd(reg);
                 (Some(a), Box::new(ext.as_array_be()))

@@ -337,7 +337,9 @@ fn generate_opcodes(opcodes: &mut [ISA; 65536], format: &str, values: &[&[u8]], 
             } else {
                 format!("{}{}", left, bin_str)
             };
-            opcodes[bin_string_to_int(&index)] = isa;
+            let index = bin_string_to_int(&index);
+            assert_eq!(opcodes[index], ISA::Unknown, "Overwriting an existing opcode: {:#X}", index);
+            opcodes[index] = isa;
         }
     } else {
         let mut pos = 0;

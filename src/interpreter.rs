@@ -1,9 +1,8 @@
 use super::{M68000, MemoryAccess};
-use super::addressing_modes::AddressingMode;
-use super::disassembler::DISASSEMBLE;
+// use super::addressing_modes::AddressingMode;
+// use super::disassembler::DISASSEMBLE;
 use super::isa::ISA::Size_;
-use super::instruction::Instruction;
-use super::operand::Size;
+// use super::instruction::Size;
 use super::status_register::StatusRegister;
 use super::utils::Bits;
 
@@ -12,12 +11,12 @@ impl<M: MemoryAccess> M68000<M> {
         // self.current_pc = self.pc;
         // self.current_opcode = self.get_next_word();
 
-        let (inst, width) = Instruction::new::<M>(self.pc, self.memory.get_slice(self.pc));
-        self.pc += width;
+        // let (inst, width) = Instruction::new::<M>(self.pc, self.memory.get_slice(self.pc));
+        // self.pc += width;
 
-        #[cfg(debug_assertions)]
-        println!("{}", DISASSEMBLE[inst.isa as usize](&inst));
-        Self::EXECUTE[inst.isa as usize](self);
+        // #[cfg(debug_assertions)]
+        // println!("{}", DISASSEMBLE[inst.isa as usize](&inst));
+        // Self::EXECUTE[inst.isa as usize](self);
     }
 
     fn unknown_instruction(&mut self) -> usize {
@@ -33,7 +32,7 @@ impl<M: MemoryAccess> M68000<M> {
         let eamode = self.current_opcode.bits::<3, 5>();
         let eareg = self.current_opcode.bits::<0, 2>() as usize;
         // if size == Size::Byte {}
-        let _operand = self.get_operand(AddressingMode::from(eamode), eareg, Size::from(size));
+        // let _operand = self.get_operand(AddressingMode::from(eamode), eareg, Size::from(size));
         0
     }
 

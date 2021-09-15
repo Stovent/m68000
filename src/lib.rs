@@ -1,9 +1,10 @@
 //! Motorola 68000 emulator.
 //!
 //! # TODO:
-//! - Calculation times.
 //! - Exceptions.
 //! - Documentation.
+//! - Calculation times.
+//! - Read-Modify-Write cycles to only have get/set_word.
 
 mod addressing_modes;
 mod decoder;
@@ -19,12 +20,12 @@ mod utils;
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
-#[derive(Debug)]
+#[derive(Copy, Clone, Debug)]
 pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
     a_: [u32; 7],
     usp: u32,
-    ssp: u32,
+    pub ssp: u32,
     sr: StatusRegister,
     pub pc: u32,
 

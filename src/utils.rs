@@ -1,4 +1,4 @@
-use super::operand::Size;
+use super::instruction::Size;
 
 /// Trait to directly access bits of an integer.
 pub trait Bits {

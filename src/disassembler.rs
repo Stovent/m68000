@@ -1,6 +1,4 @@
-use crate::instruction::Instruction;
-
-use super::{M68000, MemoryAccess};
+use super::instruction::{Instruction, Operands};
 use super::isa::ISA::Size_;
 use super::utils::Bits;
 
@@ -37,39 +35,39 @@ pub(super) fn disassemble_abcd(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_add(inst: &Instruction) -> String {
-    format!("")
+    format!("ADD")
 }
 
 pub(super) fn disassemble_adda(inst: &Instruction) -> String {
-    format!("")
+    format!("ADDA")
 }
 
 pub(super) fn disassemble_addi(inst: &Instruction) -> String {
-    format!("")
+    format!("ADDI")
 }
 
 pub(super) fn disassemble_addq(inst: &Instruction) -> String {
-    format!("")
+    format!("ADDQ")
 }
 
 pub(super) fn disassemble_addx(inst: &Instruction) -> String {
-    format!("")
+    format!("ADDX")
 }
 
 pub(super) fn disassemble_and(inst: &Instruction) -> String {
-    format!("")
+    format!("AND")
 }
 
 pub(super) fn disassemble_andi(inst: &Instruction) -> String {
-    format!("")
+    format!("ANDI")
 }
 
 pub(super) fn disassemble_andiccr(inst: &Instruction) -> String {
-    format!("")
+    format!("ANDI , CCR")
 }
 
 pub(super) fn disassemble_andisr(inst: &Instruction) -> String {
-    format!("")
+    format!("ANDI , SR")
 }
 
 pub(super) fn disassemble_asm(inst: &Instruction) -> String {
@@ -81,91 +79,95 @@ pub(super) fn disassemble_asr(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_bcc(inst: &Instruction) -> String {
-    format!("B{}", disassemble_conditional_test(inst.opcode.bits::<8, 11>()))
+    let (condition, displacement) = match inst.operands {
+        Operands::ConditionDisplacement(c, d) => (c, d),
+        _ => panic!("Wrong operands enum for Bcc"),
+    };
+    format!("B{} {:#X}", disassemble_conditional_test(condition as u16), inst.pc as i32 + 2 + displacement as i32)
 }
 
 pub(super) fn disassemble_bchg(inst: &Instruction) -> String {
-    format!("")
+    format!("BCHG")
 }
 
 pub(super) fn disassemble_bclr(inst: &Instruction) -> String {
-    format!("")
+    format!("BCLR")
 }
 
 pub(super) fn disassemble_bra(inst: &Instruction) -> String {
-    format!("")
+    format!("BRA")
 }
 
 pub(super) fn disassemble_bset(inst: &Instruction) -> String {
-    format!("")
+    format!("BSET")
 }
 
 pub(super) fn disassemble_bsr(inst: &Instruction) -> String {
-    format!("")
+    format!("BSR")
 }
 
 pub(super) fn disassemble_btst(inst: &Instruction) -> String {
-    format!("")
+    format!("BTST")
 }
 
 pub(super) fn disassemble_chk(inst: &Instruction) -> String {
-    format!("")
+    format!("CHK")
 }
 
 pub(super) fn disassemble_clr(inst: &Instruction) -> String {
-    format!("")
+    format!("CLR")
 }
 
 pub(super) fn disassemble_cmp(inst: &Instruction) -> String {
-    format!("")
+    format!("CMP")
 }
 
 pub(super) fn disassemble_cmpa(inst: &Instruction) -> String {
-    format!("")
+    format!("CMPA")
 }
 
 pub(super) fn disassemble_cmpi(inst: &Instruction) -> String {
-    format!("")
+    format!("CMPI")
 }
 
 pub(super) fn disassemble_cmpm(inst: &Instruction) -> String {
-    format!("")
+    format!("CMPM")
 }
 
 pub(super) fn disassemble_dbcc(inst: &Instruction) -> String {
-    format!("")
+    format!("DB")
 }
 
 pub(super) fn disassemble_divs(inst: &Instruction) -> String {
-    format!("")
+    format!("DIVS")
 }
 
 pub(super) fn disassemble_divu(inst: &Instruction) -> String {
-    format!("")
+    format!("DIVU")
 }
 
 pub(super) fn disassemble_eor(inst: &Instruction) -> String {
-    format!("")
+    format!("EOR")
 }
 
 pub(super) fn disassemble_eori(inst: &Instruction) -> String {
-    format!("")
+    format!("EORI")
 }
 
 pub(super) fn disassemble_eoriccr(inst: &Instruction) -> String {
-    format!("")
+    format!("EORI , CCR")
 }
 
 pub(super) fn disassemble_eorisr(inst: &Instruction) -> String {
-    format!("")
+    format!("EORI , SR")
 }
 
 pub(super) fn disassemble_exg(inst: &Instruction) -> String {
-    format!("")
+    format!("EXG")
 }
 
 pub(super) fn disassemble_ext(inst: &Instruction) -> String {
-    format!("")
+    format!("EXT")
 }
 
 pub(super) fn disassemble_illegal(inst: &Instruction) -> String {
@@ -173,19 +175,19 @@ pub(super) fn disassemble_illegal(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_jmp(inst: &Instruction) -> String {
-    format!("")
+    format!("JMP")
 }
 
 pub(super) fn disassemble_jsr(inst: &Instruction) -> String {
-    format!("")
+    format!("JSR")
 }
 
 pub(super) fn disassemble_lea(inst: &Instruction) -> String {
-    format!("")
+    format!("LEA")
 }
 
 pub(super) fn disassemble_link(inst: &Instruction) -> String {
-    format!("")
+    format!("LINK")
 }
 
 pub(super) fn disassemble_lsm(inst: &Instruction) -> String {
@@ -197,59 +199,59 @@ pub(super) fn disassemble_lsr(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_move(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVE")
 }
 
 pub(super) fn disassemble_movea(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVEA")
 }
 
 pub(super) fn disassemble_moveccr(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVE , CCR")
 }
 
 pub(super) fn disassemble_movefsr(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVE SR, ")
 }
 
 pub(super) fn disassemble_movesr(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVE , SR")
 }
 
 pub(super) fn disassemble_moveusp(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVE , USP")
 }
 
 pub(super) fn disassemble_movem(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVEM")
 }
 
 pub(super) fn disassemble_movep(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVEP")
 }
 
 pub(super) fn disassemble_moveq(inst: &Instruction) -> String {
-    format!("")
+    format!("MOVEQ")
 }
 
 pub(super) fn disassemble_muls(inst: &Instruction) -> String {
-    format!("")
+    format!("MULS")
 }
 
 pub(super) fn disassemble_mulu(inst: &Instruction) -> String {
-    format!("")
+    format!("MULU")
 }
 
 pub(super) fn disassemble_nbcd(inst: &Instruction) -> String {
-    format!("")
+    format!("NBCD")
 }
 
 pub(super) fn disassemble_neg(inst: &Instruction) -> String {
-    format!("")
+    format!("NEG")
 }
 
 pub(super) fn disassemble_negx(inst: &Instruction) -> String {
-    format!("")
+    format!("NEGX")
 }
 
 pub(super) fn disassemble_nop(inst: &Instruction) -> String {
@@ -257,11 +259,11 @@ pub(super) fn disassemble_nop(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_not(inst: &Instruction) -> String {
-    format!("")
+    format!("NOT")
 }
 
 pub(super) fn disassemble_or(inst: &Instruction) -> String {
-    format!("")
+    format!("OR")
 }
 
 pub(super) fn disassemble_ori(inst: &Instruction) -> String {
@@ -269,19 +271,19 @@ pub(super) fn disassemble_ori(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_oriccr(inst: &Instruction) -> String {
-    format!("")
+    format!("ORI , CCR")
 }
 
 pub(super) fn disassemble_orisr(inst: &Instruction) -> String {
-    format!("")
+    format!("ORI , SR")
 }
 
 pub(super) fn disassemble_pea(inst: &Instruction) -> String {
-    format!("")
+    format!("PEA")
 }
 
 pub(super) fn disassemble_reset(inst: &Instruction) -> String {
-    format!("")
+    format!("RESET")
 }
 
 pub(super) fn disassemble_rom(inst: &Instruction) -> String {
@@ -301,71 +303,71 @@ pub(super) fn disassemble_roxr(inst: &Instruction) -> String {
 }
 
 pub(super) fn disassemble_rte(inst: &Instruction) -> String {
-    format!("")
+    format!("RTE")
 }
 
 pub(super) fn disassemble_rtr(inst: &Instruction) -> String {
-    format!("")
+    format!("RTR")
 }
 
 pub(super) fn disassemble_rts(inst: &Instruction) -> String {
-    format!("")
+    format!("RTS")
 }
 
 pub(super) fn disassemble_sbcd(inst: &Instruction) -> String {
-    format!("")
+    format!("SBCD")
 }
 
 pub(super) fn disassemble_scc(inst: &Instruction) -> String {
-    format!("")
+    format!("S")
 }
 
 pub(super) fn disassemble_stop(inst: &Instruction) -> String {
-    format!("")
+    format!("STOP")
 }
 
 pub(super) fn disassemble_sub(inst: &Instruction) -> String {
-    format!("")
+    format!("SUB")
 }
 
 pub(super) fn disassemble_suba(inst: &Instruction) -> String {
-    format!("")
+    format!("SUBA")
 }
 
 pub(super) fn disassemble_subi(inst: &Instruction) -> String {
-    format!("")
+    format!("SUBI")
 }
 
 pub(super) fn disassemble_subq(inst: &Instruction) -> String {
-    format!("")
+    format!("SUBQ")
 }
 
 pub(super) fn disassemble_subx(inst: &Instruction) -> String {
-    format!("")
+    format!("SUBX")
 }
 
 pub(super) fn disassemble_swap(inst: &Instruction) -> String {
-    format!("")
+    format!("SWAP")
 }
 
 pub(super) fn disassemble_tas(inst: &Instruction) -> String {
-    format!("")
+    format!("TAS")
 }
 
 pub(super) fn disassemble_trap(inst: &Instruction) -> String {
-    format!("")
+    format!("TRAP")
 }
 
 pub(super) fn disassemble_trapv(inst: &Instruction) -> String {
-    format!("")
+    format!("TRAPV")
 }
 
 pub(super) fn disassemble_tst(inst: &Instruction) -> String {
-    format!("")
+    format!("TST")
 }
 
 pub(super) fn disassemble_unlk(inst: &Instruction) -> String {
-    format!("")
+    format!("UNLK")
 }
 
 pub(super) const DISASSEMBLE: [fn(&Instruction) -> String; Size_ as usize] = [
