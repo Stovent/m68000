@@ -15,5 +15,3 @@ edition = "2018"
 
 [profile.release]
 lto = true
-
-[dependencies]

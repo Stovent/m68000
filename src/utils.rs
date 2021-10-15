@@ -1,4 +1,4 @@
-use super::instruction::Size;
+use super::operands::Size;
 
 /// Trait to directly access bits of an integer.
 pub trait Bits {
@@ -65,8 +65,3 @@ impl AsArray<4> for u32 {
         [(self >> 24) as u8, (self >> 16) as u8, (self >> 8) as u8, self as u8]
     }
 }
-
-// /// Sets bits in an integer.
-// pub fn set_bits<const POS: usize>(data: u16, value: u16) -> u16 {
-//     data | (value << POS)
-// }

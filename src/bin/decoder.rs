@@ -4,15 +4,15 @@
 //!
 //! Because I don't know if macros and templates could do the job for me, I instead do it with a dedicated program.
 
-use m68000::isa::ISA;
+use m68000::isa::Isa;
 
 use std::fs::File;
 use std::io::Write;
 use std::str;
 
-const FILE_BEGIN: &[u8] = b"use super::isa::{ISA, ISA::*};
+const FILE_BEGIN: &[u8] = b"use super::isa::{Isa, Isa::*};
 
-pub(super) const DECODER: [ISA; 65536] = [";
+pub(super) const DECODER: [Isa; 65536] = [";
 
 const FILE_END: &[u8] = b"
 ];
@@ -20,7 +20,7 @@ const FILE_END: &[u8] = b"
 
 fn main() {
     let mut file = File::create("decoder.rs").expect("Unable to create file decoder.rs");
-    let mut opcodes = [ISA::Unknown; 65536];
+    let mut opcodes = [Isa::Unknown; 65536];
 
     generate_isa(&mut opcodes);
 
@@ -48,259 +48,259 @@ fn main() {
     }
 }
 
-fn generate_isa(opcodes: &mut [ISA; 65536]) {
-    generate_opcodes(opcodes, "1100aaa10000bccc", &[&V0_7, &V0_1, &V0_7], ISA::Abcd);
+fn generate_isa(opcodes: &mut [Isa; 65536]) {
+    generate_opcodes(opcodes, "1100aaa10000bccc", &[&V0_7, &V0_1, &V0_7], Isa::Abcd);
 
-    generate_opcodes(opcodes, "1101aaabbbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Add);
-    generate_opcodes(opcodes, "1101aaabbb001ddd", &[&V0_7, &V1_2, &V0_7], ISA::Add);
-    generate_opcodes(opcodes, "1101aaabbb111ddd", &[&V0_7, &V0_2, &V0_4], ISA::Add);
-    generate_opcodes(opcodes, "1101aaabbbcccddd", &[&V0_7, &V4_6, &V2_6, &V0_7], ISA::Add);
-    generate_opcodes(opcodes, "1101aaabbb111ddd", &[&V0_7, &V4_6, &V0_1], ISA::Add);
+    generate_opcodes(opcodes, "1101aaabbbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Add);
+    generate_opcodes(opcodes, "1101aaabbb001ddd", &[&V0_7, &V1_2, &V0_7], Isa::Add);
+    generate_opcodes(opcodes, "1101aaabbb111ddd", &[&V0_7, &V0_2, &V0_4], Isa::Add);
+    generate_opcodes(opcodes, "1101aaabbbcccddd", &[&V0_7, &V4_6, &V2_6, &V0_7], Isa::Add);
+    generate_opcodes(opcodes, "1101aaabbb111ddd", &[&V0_7, &V4_6, &V0_1], Isa::Add);
 
-    generate_opcodes(opcodes, "1101aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], ISA::Adda);
-    generate_opcodes(opcodes, "1101aaab11111ddd", &[&V0_7, &V0_1, &V0_4], ISA::Adda);
+    generate_opcodes(opcodes, "1101aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], Isa::Adda);
+    generate_opcodes(opcodes, "1101aaab11111ddd", &[&V0_7, &V0_1, &V0_4], Isa::Adda);
 
-    generate_opcodes(opcodes, "00000110aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Addi);
-    generate_opcodes(opcodes, "00000110aa111ccc", &[&V0_2, &V0_1], ISA::Addi);
+    generate_opcodes(opcodes, "00000110aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Addi);
+    generate_opcodes(opcodes, "00000110aa111ccc", &[&V0_2, &V0_1], Isa::Addi);
 
-    generate_opcodes(opcodes, "0101aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Addq);
-    generate_opcodes(opcodes, "0101aaa0bb111ddd", &[&V0_7, &V0_2, &V0_1], ISA::Addq);
-    generate_opcodes(opcodes, "0101aaa0bb001ddd", &[&V0_7, &V1_2, &V0_7], ISA::Addq);
+    generate_opcodes(opcodes, "0101aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Addq);
+    generate_opcodes(opcodes, "0101aaa0bb111ddd", &[&V0_7, &V0_2, &V0_1], Isa::Addq);
+    generate_opcodes(opcodes, "0101aaa0bb001ddd", &[&V0_7, &V1_2, &V0_7], Isa::Addq);
 
-    generate_opcodes(opcodes, "1101aaa1bb00cddd", &[&V0_7, &V0_2, &V0_1, &V0_7], ISA::Addx);
+    generate_opcodes(opcodes, "1101aaa1bb00cddd", &[&V0_7, &V0_2, &V0_1, &V0_7], Isa::Addx);
 
-    generate_opcodes(opcodes, "1100aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::And);
-    generate_opcodes(opcodes, "1100aaa0bb111ddd", &[&V0_7, &V0_2, &V0_4], ISA::And);
-    generate_opcodes(opcodes, "1100aaa1bbcccddd", &[&V0_7, &V0_2, &V2_6, &V0_7], ISA::And);
-    generate_opcodes(opcodes, "1100aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], ISA::And);
+    generate_opcodes(opcodes, "1100aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::And);
+    generate_opcodes(opcodes, "1100aaa0bb111ddd", &[&V0_7, &V0_2, &V0_4], Isa::And);
+    generate_opcodes(opcodes, "1100aaa1bbcccddd", &[&V0_7, &V0_2, &V2_6, &V0_7], Isa::And);
+    generate_opcodes(opcodes, "1100aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], Isa::And);
 
-    generate_opcodes(opcodes, "00000010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Andi);
-    generate_opcodes(opcodes, "00000010aa111ccc", &[&V0_2, &V0_1], ISA::Andi);
+    generate_opcodes(opcodes, "00000010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Andi);
+    generate_opcodes(opcodes, "00000010aa111ccc", &[&V0_2, &V0_1], Isa::Andi);
 
-    opcodes[0x023C] = ISA::Andiccr;
+    opcodes[0x023C] = Isa::Andiccr;
 
-    opcodes[0x027C] = ISA::Andisr;
+    opcodes[0x027C] = Isa::Andisr;
 
-    generate_opcodes(opcodes, "1110000a11bbbccc", &[&V0_1, &V2_6, &V0_7], ISA::Asm);
-    generate_opcodes(opcodes, "1110000a11111ccc", &[&V0_1, &V0_1], ISA::Asm);
+    generate_opcodes(opcodes, "1110000a11bbbccc", &[&V0_1, &V2_6, &V0_7], Isa::Asm);
+    generate_opcodes(opcodes, "1110000a11111ccc", &[&V0_1, &V0_1], Isa::Asm);
 
-    generate_opcodes(opcodes, "1110aaabccd00eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], ISA::Asr);
+    generate_opcodes(opcodes, "1110aaabccd00eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], Isa::Asr);
 
-    generate_opcodes(opcodes, "0110aaaabbbbbbbb", &[&V2_15, &VBYTE], ISA::Bcc);
+    generate_opcodes(opcodes, "0110aaaabbbbbbbb", &[&V2_15, &VBYTE], Isa::Bcc);
 
-    generate_opcodes(opcodes, "0000aaa101bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Bchg);
-    generate_opcodes(opcodes, "0000aaa101111ccc", &[&V0_7, &V0_1], ISA::Bchg);
-    generate_opcodes(opcodes, "0000100001aaabbb", &[&V0__2_6, &V0_7], ISA::Bchg);
-    opcodes[0x0878] = ISA::Bchg;
-    opcodes[0x0879] = ISA::Bchg;
+    generate_opcodes(opcodes, "0000aaa101bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Bchg);
+    generate_opcodes(opcodes, "0000aaa101111ccc", &[&V0_7, &V0_1], Isa::Bchg);
+    generate_opcodes(opcodes, "0000100001aaabbb", &[&V0__2_6, &V0_7], Isa::Bchg);
+    opcodes[0x0878] = Isa::Bchg;
+    opcodes[0x0879] = Isa::Bchg;
 
-    generate_opcodes(opcodes, "0000aaa110bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Bclr);
-    generate_opcodes(opcodes, "0000aaa110111ccc", &[&V0_7, &V0_1], ISA::Bclr);
-    generate_opcodes(opcodes, "0000100010aaabbb", &[&V0__2_6, &V0_7], ISA::Bclr);
-    opcodes[0x08B8] = ISA::Bclr;
-    opcodes[0x08B9] = ISA::Bclr;
+    generate_opcodes(opcodes, "0000aaa110bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Bclr);
+    generate_opcodes(opcodes, "0000aaa110111ccc", &[&V0_7, &V0_1], Isa::Bclr);
+    generate_opcodes(opcodes, "0000100010aaabbb", &[&V0__2_6, &V0_7], Isa::Bclr);
+    opcodes[0x08B8] = Isa::Bclr;
+    opcodes[0x08B9] = Isa::Bclr;
 
-    generate_opcodes(opcodes, "01100000aaaaaaaa", &[&VBYTE], ISA::Bra);
+    generate_opcodes(opcodes, "01100000aaaaaaaa", &[&VBYTE], Isa::Bra);
 
-    generate_opcodes(opcodes, "0000aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Bset);
-    generate_opcodes(opcodes, "0000aaa111111ccc", &[&V0_7, &V0_1], ISA::Bset);
-    generate_opcodes(opcodes, "0000100011aaabbb", &[&V0__2_6, &V0_7], ISA::Bset);
-    opcodes[0x08F8] = ISA::Bset;
-    opcodes[0x08F9] = ISA::Bset;
+    generate_opcodes(opcodes, "0000aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Bset);
+    generate_opcodes(opcodes, "0000aaa111111ccc", &[&V0_7, &V0_1], Isa::Bset);
+    generate_opcodes(opcodes, "0000100011aaabbb", &[&V0__2_6, &V0_7], Isa::Bset);
+    opcodes[0x08F8] = Isa::Bset;
+    opcodes[0x08F9] = Isa::Bset;
 
-    generate_opcodes(opcodes, "01100001aaaaaaaa", &[&VBYTE], ISA::Bsr);
+    generate_opcodes(opcodes, "01100001aaaaaaaa", &[&VBYTE], Isa::Bsr);
 
-    generate_opcodes(opcodes, "0000aaa100bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Btst);
-    generate_opcodes(opcodes, "0000aaa100111ccc", &[&V0_7, &V0_4], ISA::Btst);
-    generate_opcodes(opcodes, "0000100000aaabbb", &[&V0__2_6, &V0_7], ISA::Btst);
-    opcodes[0x0838] = ISA::Btst;
-    opcodes[0x0839] = ISA::Btst;
-    opcodes[0x083A] = ISA::Btst;
-    opcodes[0x083B] = ISA::Btst;
+    generate_opcodes(opcodes, "0000aaa100bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Btst);
+    generate_opcodes(opcodes, "0000aaa100111ccc", &[&V0_7, &V0_4], Isa::Btst);
+    generate_opcodes(opcodes, "0000100000aaabbb", &[&V0__2_6, &V0_7], Isa::Btst);
+    opcodes[0x0838] = Isa::Btst;
+    opcodes[0x0839] = Isa::Btst;
+    opcodes[0x083A] = Isa::Btst;
+    opcodes[0x083B] = Isa::Btst;
 
-    generate_opcodes(opcodes, "0100aaa110bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Chk);
-    generate_opcodes(opcodes, "0100aaa110111ccc", &[&V0_7, &V0_4], ISA::Chk);
+    generate_opcodes(opcodes, "0100aaa110bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Chk);
+    generate_opcodes(opcodes, "0100aaa110111ccc", &[&V0_7, &V0_4], Isa::Chk);
 
-    generate_opcodes(opcodes, "01000010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Clr);
-    generate_opcodes(opcodes, "01000010aa111ccc", &[&V0_2, &V0_1], ISA::Clr);
+    generate_opcodes(opcodes, "01000010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Clr);
+    generate_opcodes(opcodes, "01000010aa111ccc", &[&V0_2, &V0_1], Isa::Clr);
 
-    generate_opcodes(opcodes, "1011aaa000cccddd", &[&V0_7, &V0__2_6, &V0_7], ISA::Cmp);
-    generate_opcodes(opcodes, "1011aaa000111ddd", &[&V0_7, &V0_4], ISA::Cmp);
-    generate_opcodes(opcodes, "1011aaa0bbcccddd", &[&V0_7, &V1_2, &V0_6, &V0_7], ISA::Cmp);
-    generate_opcodes(opcodes, "1011aaa0bb111ddd", &[&V0_7, &V1_2, &V0_4], ISA::Cmp);
+    generate_opcodes(opcodes, "1011aaa000cccddd", &[&V0_7, &V0__2_6, &V0_7], Isa::Cmp);
+    generate_opcodes(opcodes, "1011aaa000111ddd", &[&V0_7, &V0_4], Isa::Cmp);
+    generate_opcodes(opcodes, "1011aaa0bbcccddd", &[&V0_7, &V1_2, &V0_6, &V0_7], Isa::Cmp);
+    generate_opcodes(opcodes, "1011aaa0bb111ddd", &[&V0_7, &V1_2, &V0_4], Isa::Cmp);
 
-    generate_opcodes(opcodes, "1011aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], ISA::Cmpa);
-    generate_opcodes(opcodes, "1011aaab11111ddd", &[&V0_7, &V0_1, &V0_4], ISA::Cmpa);
+    generate_opcodes(opcodes, "1011aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], Isa::Cmpa);
+    generate_opcodes(opcodes, "1011aaab11111ddd", &[&V0_7, &V0_1, &V0_4], Isa::Cmpa);
 
-    generate_opcodes(opcodes, "00001100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Cmpi);
-    generate_opcodes(opcodes, "00001100aa111ccc", &[&V0_2, &V0_1], ISA::Cmpi);
+    generate_opcodes(opcodes, "00001100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Cmpi);
+    generate_opcodes(opcodes, "00001100aa111ccc", &[&V0_2, &V0_1], Isa::Cmpi);
 
-    generate_opcodes(opcodes, "1011aaa1bb001ccc", &[&V0_7, &V0_2, &V0_7], ISA::Cmpm);
+    generate_opcodes(opcodes, "1011aaa1bb001ccc", &[&V0_7, &V0_2, &V0_7], Isa::Cmpm);
 
-    generate_opcodes(opcodes, "0101aaaa11001bbb", &[&V0_15, &V0_7], ISA::Dbcc);
+    generate_opcodes(opcodes, "0101aaaa11001bbb", &[&V0_15, &V0_7], Isa::Dbcc);
 
-    generate_opcodes(opcodes, "1000aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Divs);
-    generate_opcodes(opcodes, "1000aaa111111ccc", &[&V0_7, &V0_4], ISA::Divs);
+    generate_opcodes(opcodes, "1000aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Divs);
+    generate_opcodes(opcodes, "1000aaa111111ccc", &[&V0_7, &V0_4], Isa::Divs);
 
-    generate_opcodes(opcodes, "1000aaa011bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Divu);
-    generate_opcodes(opcodes, "1000aaa011111ccc", &[&V0_7, &V0_4], ISA::Divu);
+    generate_opcodes(opcodes, "1000aaa011bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Divu);
+    generate_opcodes(opcodes, "1000aaa011111ccc", &[&V0_7, &V0_4], Isa::Divu);
 
-    generate_opcodes(opcodes, "1011aaa1bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Eor);
-    generate_opcodes(opcodes, "1011aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], ISA::Eor);
+    generate_opcodes(opcodes, "1011aaa1bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Eor);
+    generate_opcodes(opcodes, "1011aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], Isa::Eor);
 
-    generate_opcodes(opcodes, "00001010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Eori);
-    generate_opcodes(opcodes, "00001010aa111ccc", &[&V0_2, &V0_1], ISA::Eori);
+    generate_opcodes(opcodes, "00001010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Eori);
+    generate_opcodes(opcodes, "00001010aa111ccc", &[&V0_2, &V0_1], Isa::Eori);
 
-    opcodes[0x0A3C] = ISA::Eoriccr;
+    opcodes[0x0A3C] = Isa::Eoriccr;
 
-    opcodes[0x0A7C] = ISA::Eorisr;
+    opcodes[0x0A7C] = Isa::Eorisr;
 
-    generate_opcodes(opcodes, "1100aaa1bbbbbccc", &[&V0_7, &V8_9__17, &V0_7], ISA::Exg);
+    generate_opcodes(opcodes, "1100aaa1bbbbbccc", &[&V0_7, &V8_9__17, &V0_7], Isa::Exg);
 
-    generate_opcodes(opcodes, "0100100aaa000bbb", &[&V2_3, &V0_7], ISA::Ext);
+    generate_opcodes(opcodes, "0100100aaa000bbb", &[&V2_3, &V0_7], Isa::Ext);
 
-    opcodes[0x4AFC] = ISA::Illegal;
+    opcodes[0x4AFC] = Isa::Illegal;
 
-    generate_opcodes(opcodes, "0100111011aaabbb", &[&V2__5_6, &V0_7], ISA::Jmp);
-    generate_opcodes(opcodes, "0100111011111bbb", &[&V0_3], ISA::Jmp);
+    generate_opcodes(opcodes, "0100111011aaabbb", &[&V2__5_6, &V0_7], Isa::Jmp);
+    generate_opcodes(opcodes, "0100111011111bbb", &[&V0_3], Isa::Jmp);
 
-    generate_opcodes(opcodes, "0100111010aaabbb", &[&V2__5_6, &V0_7], ISA::Jsr);
-    generate_opcodes(opcodes, "0100111010111bbb", &[&V0_3], ISA::Jsr);
+    generate_opcodes(opcodes, "0100111010aaabbb", &[&V2__5_6, &V0_7], Isa::Jsr);
+    generate_opcodes(opcodes, "0100111010111bbb", &[&V0_3], Isa::Jsr);
 
-    generate_opcodes(opcodes, "0100aaa111bbbccc", &[&V0_7, &V2__5_6, &V0_7], ISA::Lea);
-    generate_opcodes(opcodes, "0100aaa111111ccc", &[&V0_7, &V0_3], ISA::Lea);
+    generate_opcodes(opcodes, "0100aaa111bbbccc", &[&V0_7, &V2__5_6, &V0_7], Isa::Lea);
+    generate_opcodes(opcodes, "0100aaa111111ccc", &[&V0_7, &V0_3], Isa::Lea);
 
-    generate_opcodes(opcodes, "0100111001010aaa", &[&V0_7], ISA::Link);
+    generate_opcodes(opcodes, "0100111001010aaa", &[&V0_7], Isa::Link);
 
-    generate_opcodes(opcodes, "1110001a11bbbccc", &[&V0_1, &V2_6, &V0_7], ISA::Lsm);
-    generate_opcodes(opcodes, "1110001a11111ccc", &[&V0_1, &V0_1], ISA::Lsm);
+    generate_opcodes(opcodes, "1110001a11bbbccc", &[&V0_1, &V2_6, &V0_7], Isa::Lsm);
+    generate_opcodes(opcodes, "1110001a11111ccc", &[&V0_1, &V0_1], Isa::Lsm);
 
-    generate_opcodes(opcodes, "1110aaabccd01eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], ISA::Lsr);
+    generate_opcodes(opcodes, "1110aaabccd01eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], Isa::Lsr);
 
-    generate_opcodes(opcodes, "00aabbbcccdddeee", &[&V1_3, &V0_7, &V0__2_6, &V0__2_6, &V0_7], ISA::Move);
-    generate_opcodes(opcodes, "00aabbb111dddeee", &[&V1_3, &V0_1, &V0__2_6, &V0_7], ISA::Move);
-    generate_opcodes(opcodes, "00aabbbccc111eee", &[&V1_3, &V0_7, &V0__2_6, &V0_4], ISA::Move);
-    generate_opcodes(opcodes, "00aabbb111111eee", &[&V1_3, &V0_1, &V0_4], ISA::Move);
-    generate_opcodes(opcodes, "00aabbbccc001eee", &[&V2_3, &V0_7, &V0__2_6, &V0_7], ISA::Move);
-    generate_opcodes(opcodes, "00aabbb111001eee", &[&V2_3, &V0_1, &V0_7], ISA::Move);
+    generate_opcodes(opcodes, "00aabbbcccdddeee", &[&V1_3, &V0_7, &V0__2_6, &V0__2_6, &V0_7], Isa::Move);
+    generate_opcodes(opcodes, "00aabbb111dddeee", &[&V1_3, &V0_1, &V0__2_6, &V0_7], Isa::Move);
+    generate_opcodes(opcodes, "00aabbbccc111eee", &[&V1_3, &V0_7, &V0__2_6, &V0_4], Isa::Move);
+    generate_opcodes(opcodes, "00aabbb111111eee", &[&V1_3, &V0_1, &V0_4], Isa::Move);
+    generate_opcodes(opcodes, "00aabbbccc001eee", &[&V2_3, &V0_7, &V0__2_6, &V0_7], Isa::Move);
+    generate_opcodes(opcodes, "00aabbb111001eee", &[&V2_3, &V0_1, &V0_7], Isa::Move);
 
-    generate_opcodes(opcodes, "001abbb001cccddd", &[&V0_1, &V0_7, &V0_6, &V0_7], ISA::Movea);
-    generate_opcodes(opcodes, "001abbb001111ddd", &[&V0_1, &V0_7, &V0_4], ISA::Movea);
+    generate_opcodes(opcodes, "001abbb001cccddd", &[&V0_1, &V0_7, &V0_6, &V0_7], Isa::Movea);
+    generate_opcodes(opcodes, "001abbb001111ddd", &[&V0_1, &V0_7, &V0_4], Isa::Movea);
 
-    generate_opcodes(opcodes, "0100010011aaabbb", &[&V0__2_6, &V0_7], ISA::Moveccr);
-    generate_opcodes(opcodes, "0100010011111bbb", &[&V0_4], ISA::Moveccr);
+    generate_opcodes(opcodes, "0100010011aaabbb", &[&V0__2_6, &V0_7], Isa::Moveccr);
+    generate_opcodes(opcodes, "0100010011111bbb", &[&V0_4], Isa::Moveccr);
 
-    generate_opcodes(opcodes, "0100000011aaabbb", &[&V0__2_6, &V0_7], ISA::Movefsr);
-    opcodes[0x40F8] = ISA::Movefsr;
-    opcodes[0x40F9] = ISA::Movefsr;
+    generate_opcodes(opcodes, "0100000011aaabbb", &[&V0__2_6, &V0_7], Isa::Movefsr);
+    opcodes[0x40F8] = Isa::Movefsr;
+    opcodes[0x40F9] = Isa::Movefsr;
 
-    generate_opcodes(opcodes, "0100011011aaabbb", &[&V0__2_6, &V0_7], ISA::Movesr);
-    generate_opcodes(opcodes, "0100011011111bbb", &[&V0_4], ISA::Movesr);
+    generate_opcodes(opcodes, "0100011011aaabbb", &[&V0__2_6, &V0_7], Isa::Movesr);
+    generate_opcodes(opcodes, "0100011011111bbb", &[&V0_4], Isa::Movesr);
 
-    generate_opcodes(opcodes, "010011100110abbb", &[&V0_1, &V0_7], ISA::Moveusp);
+    generate_opcodes(opcodes, "010011100110abbb", &[&V0_1, &V0_7], Isa::Moveusp);
 
-    generate_opcodes(opcodes, "010010001bcccddd", &[&V0_1, &V2_6, &V0_7], ISA::Movem);
-    generate_opcodes(opcodes, "010010001b111ddd", &[&V0_1, &V0_1], ISA::Movem);
-    generate_opcodes(opcodes, "010011001bcccddd", &[&V0_1, &V2_6, &V0_7], ISA::Movem);
-    generate_opcodes(opcodes, "010011001b111ddd", &[&V0_1, &V0_3], ISA::Movem);
+    generate_opcodes(opcodes, "010010001bcccddd", &[&V0_1, &V2_6, &V0_7], Isa::Movem);
+    generate_opcodes(opcodes, "010010001b111ddd", &[&V0_1, &V0_1], Isa::Movem);
+    generate_opcodes(opcodes, "010011001bcccddd", &[&V0_1, &V2_6, &V0_7], Isa::Movem);
+    generate_opcodes(opcodes, "010011001b111ddd", &[&V0_1, &V0_3], Isa::Movem);
 
-    generate_opcodes(opcodes, "0000aaabbb001ccc", &[&V0_7, &V4_7, &V0_7], ISA::Movep);
+    generate_opcodes(opcodes, "0000aaabbb001ccc", &[&V0_7, &V4_7, &V0_7], Isa::Movep);
 
-    generate_opcodes(opcodes, "0111aaa0bbbbbbbb", &[&V0_7, &VBYTE], ISA::Moveq);
+    generate_opcodes(opcodes, "0111aaa0bbbbbbbb", &[&V0_7, &VBYTE], Isa::Moveq);
 
-    generate_opcodes(opcodes, "1100aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Muls);
-    generate_opcodes(opcodes, "1100aaa111111ccc", &[&V0_7, &V0_4], ISA::Muls);
+    generate_opcodes(opcodes, "1100aaa111bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Muls);
+    generate_opcodes(opcodes, "1100aaa111111ccc", &[&V0_7, &V0_4], Isa::Muls);
 
-    generate_opcodes(opcodes, "1100aaa011bbbccc", &[&V0_7, &V0__2_6, &V0_7], ISA::Mulu);
-    generate_opcodes(opcodes, "1100aaa011111ccc", &[&V0_7, &V0_4], ISA::Mulu);
+    generate_opcodes(opcodes, "1100aaa011bbbccc", &[&V0_7, &V0__2_6, &V0_7], Isa::Mulu);
+    generate_opcodes(opcodes, "1100aaa011111ccc", &[&V0_7, &V0_4], Isa::Mulu);
 
-    generate_opcodes(opcodes, "0100100000aaabbb", &[&V0__2_6, &V0_7], ISA::Nbcd);
-    opcodes[0x4838] = ISA::Nbcd;
-    opcodes[0x4839] = ISA::Nbcd;
+    generate_opcodes(opcodes, "0100100000aaabbb", &[&V0__2_6, &V0_7], Isa::Nbcd);
+    opcodes[0x4838] = Isa::Nbcd;
+    opcodes[0x4839] = Isa::Nbcd;
 
-    generate_opcodes(opcodes, "01000100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Neg);
-    generate_opcodes(opcodes, "01000100aa111ccc", &[&V0_2, &V0_1], ISA::Neg);
+    generate_opcodes(opcodes, "01000100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Neg);
+    generate_opcodes(opcodes, "01000100aa111ccc", &[&V0_2, &V0_1], Isa::Neg);
 
-    generate_opcodes(opcodes, "01000000aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Negx);
-    generate_opcodes(opcodes, "01000000aa111ccc", &[&V0_2, &V0_1], ISA::Negx);
+    generate_opcodes(opcodes, "01000000aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Negx);
+    generate_opcodes(opcodes, "01000000aa111ccc", &[&V0_2, &V0_1], Isa::Negx);
 
-    opcodes[0x4E71] = ISA::Nop;
+    opcodes[0x4E71] = Isa::Nop;
 
-    generate_opcodes(opcodes, "01000110aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Not);
-    generate_opcodes(opcodes, "01000110aa111ccc", &[&V0_2, &V0_1], ISA::Not);
+    generate_opcodes(opcodes, "01000110aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Not);
+    generate_opcodes(opcodes, "01000110aa111ccc", &[&V0_2, &V0_1], Isa::Not);
 
-    generate_opcodes(opcodes, "1000aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Or);
-    generate_opcodes(opcodes, "1000aaa0bb111ddd", &[&V0_7, &V0_2, &V0_4], ISA::Or);
-    generate_opcodes(opcodes, "1000aaa1bbcccddd", &[&V0_7, &V0_2, &V2_6, &V0_7], ISA::Or);
-    generate_opcodes(opcodes, "1000aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], ISA::Or);
+    generate_opcodes(opcodes, "1000aaa0bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Or);
+    generate_opcodes(opcodes, "1000aaa0bb111ddd", &[&V0_7, &V0_2, &V0_4], Isa::Or);
+    generate_opcodes(opcodes, "1000aaa1bbcccddd", &[&V0_7, &V0_2, &V2_6, &V0_7], Isa::Or);
+    generate_opcodes(opcodes, "1000aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], Isa::Or);
 
-    generate_opcodes(opcodes, "00000000aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Ori);
-    generate_opcodes(opcodes, "00000000aa111ccc", &[&V0_2, &V0_1], ISA::Ori);
+    generate_opcodes(opcodes, "00000000aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Ori);
+    generate_opcodes(opcodes, "00000000aa111ccc", &[&V0_2, &V0_1], Isa::Ori);
 
-    opcodes[0x003C] = ISA::Oriccr;
+    opcodes[0x003C] = Isa::Oriccr;
 
-    opcodes[0x007C] = ISA::Orisr;
+    opcodes[0x007C] = Isa::Orisr;
 
-    generate_opcodes(opcodes, "0100100001aaabbb", &[&V2__5_6, &V0_7], ISA::Pea);
-    generate_opcodes(opcodes, "0100100001111bbb", &[&V0_3], ISA::Pea);
+    generate_opcodes(opcodes, "0100100001aaabbb", &[&V2__5_6, &V0_7], Isa::Pea);
+    generate_opcodes(opcodes, "0100100001111bbb", &[&V0_3], Isa::Pea);
 
-    opcodes[0x4E70] = ISA::Reset;
+    opcodes[0x4E70] = Isa::Reset;
 
-    generate_opcodes(opcodes, "1110011a11bbbccc", &[&V0_1, &V2_6, &V0_7], ISA::Rom);
-    generate_opcodes(opcodes, "1110011a11111ccc", &[&V0_1, &V0_1 ], ISA::Rom);
+    generate_opcodes(opcodes, "1110011a11bbbccc", &[&V0_1, &V2_6, &V0_7], Isa::Rom);
+    generate_opcodes(opcodes, "1110011a11111ccc", &[&V0_1, &V0_1 ], Isa::Rom);
 
-    generate_opcodes(opcodes, "1110aaabccd11eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], ISA::Ror);
+    generate_opcodes(opcodes, "1110aaabccd11eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], Isa::Ror);
 
-    generate_opcodes(opcodes, "1110010a11bbbccc", &[&V0_1, &V2_6, &V0_7], ISA::Roxm);
-    generate_opcodes(opcodes, "1110010a11111ccc", &[&V0_1, &V0_1 ], ISA::Roxm);
+    generate_opcodes(opcodes, "1110010a11bbbccc", &[&V0_1, &V2_6, &V0_7], Isa::Roxm);
+    generate_opcodes(opcodes, "1110010a11111ccc", &[&V0_1, &V0_1 ], Isa::Roxm);
 
-    generate_opcodes(opcodes, "1110aaabccd10eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], ISA::Roxr);
+    generate_opcodes(opcodes, "1110aaabccd10eee", &[&V0_7, &V0_1, &V0_2, &V0_1, &V0_7], Isa::Roxr);
 
-    opcodes[0x4E73] = ISA::Rte;
+    opcodes[0x4E73] = Isa::Rte;
 
-    opcodes[0x4E77] = ISA::Rtr;
+    opcodes[0x4E77] = Isa::Rtr;
 
-    opcodes[0x4E75] = ISA::Rts;
+    opcodes[0x4E75] = Isa::Rts;
 
-    generate_opcodes(opcodes, "1000aaa10000bccc", &[&V0_7, &V0_1, &V0_7], ISA::Sbcd);
+    generate_opcodes(opcodes, "1000aaa10000bccc", &[&V0_7, &V0_1, &V0_7], Isa::Sbcd);
 
-    generate_opcodes(opcodes, "0101aaaa11bbbccc", &[&V0_15, &V0__2_6, &V0_7], ISA::Scc);
-    generate_opcodes(opcodes, "0101aaaa11111ccc", &[&V0_15, &V0_1], ISA::Scc);
+    generate_opcodes(opcodes, "0101aaaa11bbbccc", &[&V0_15, &V0__2_6, &V0_7], Isa::Scc);
+    generate_opcodes(opcodes, "0101aaaa11111ccc", &[&V0_15, &V0_1], Isa::Scc);
 
-    opcodes[0x4E72] = ISA::Stop;
+    opcodes[0x4E72] = Isa::Stop;
 
-    generate_opcodes(opcodes, "1001aaabbbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Sub);
-    generate_opcodes(opcodes, "1001aaabbb001ddd", &[&V0_7, &V1_2, &V0_7], ISA::Sub);
-    generate_opcodes(opcodes, "1001aaabbb111ddd", &[&V0_7, &V0_2, &V0_4 ], ISA::Sub);
-    generate_opcodes(opcodes, "1001aaabbbcccddd", &[&V0_7, &V4_6, &V2_6, &V0_7], ISA::Sub);
-    generate_opcodes(opcodes, "1001aaabbb111ddd", &[&V0_7, &V4_6, &V0_1 ], ISA::Sub);
+    generate_opcodes(opcodes, "1001aaabbbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Sub);
+    generate_opcodes(opcodes, "1001aaabbb001ddd", &[&V0_7, &V1_2, &V0_7], Isa::Sub);
+    generate_opcodes(opcodes, "1001aaabbb111ddd", &[&V0_7, &V0_2, &V0_4 ], Isa::Sub);
+    generate_opcodes(opcodes, "1001aaabbbcccddd", &[&V0_7, &V4_6, &V2_6, &V0_7], Isa::Sub);
+    generate_opcodes(opcodes, "1001aaabbb111ddd", &[&V0_7, &V4_6, &V0_1 ], Isa::Sub);
 
-    generate_opcodes(opcodes, "1001aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], ISA::Suba);
-    generate_opcodes(opcodes, "1001aaab11111ddd", &[&V0_7, &V0_1, &V0_4 ], ISA::Suba);
+    generate_opcodes(opcodes, "1001aaab11cccddd", &[&V0_7, &V0_1, &V0_6, &V0_7], Isa::Suba);
+    generate_opcodes(opcodes, "1001aaab11111ddd", &[&V0_7, &V0_1, &V0_4 ], Isa::Suba);
 
-    generate_opcodes(opcodes, "00000100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Subi);
-    generate_opcodes(opcodes, "00000100aa111ccc", &[&V0_2, &V0_1], ISA::Subi);
+    generate_opcodes(opcodes, "00000100aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Subi);
+    generate_opcodes(opcodes, "00000100aa111ccc", &[&V0_2, &V0_1], Isa::Subi);
 
-    generate_opcodes(opcodes, "0101aaa1bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], ISA::Subq);
-    generate_opcodes(opcodes, "0101aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], ISA::Subq);
-    generate_opcodes(opcodes, "0101aaa1bb001ddd", &[&V0_7, &V1_2, &V0_7], ISA::Subq);
+    generate_opcodes(opcodes, "0101aaa1bbcccddd", &[&V0_7, &V0_2, &V0__2_6, &V0_7], Isa::Subq);
+    generate_opcodes(opcodes, "0101aaa1bb111ddd", &[&V0_7, &V0_2, &V0_1], Isa::Subq);
+    generate_opcodes(opcodes, "0101aaa1bb001ddd", &[&V0_7, &V1_2, &V0_7], Isa::Subq);
 
-    generate_opcodes(opcodes, "1001aaa1bb00cddd", &[&V0_7, &V0_2, &V0_1, &V0_7], ISA::Subx);
+    generate_opcodes(opcodes, "1001aaa1bb00cddd", &[&V0_7, &V0_2, &V0_1, &V0_7], Isa::Subx);
 
-    generate_opcodes(opcodes, "0100100001000aaa", &[&V0_7], ISA::Swap);
+    generate_opcodes(opcodes, "0100100001000aaa", &[&V0_7], Isa::Swap);
 
-    generate_opcodes(opcodes, "0100101011aaabbb", &[&V0__2_6, &V0_7], ISA::Tas);
-    opcodes[0x4AF8] = ISA::Tas;
-    opcodes[0x4AF9] = ISA::Tas;
+    generate_opcodes(opcodes, "0100101011aaabbb", &[&V0__2_6, &V0_7], Isa::Tas);
+    opcodes[0x4AF8] = Isa::Tas;
+    opcodes[0x4AF9] = Isa::Tas;
 
-    generate_opcodes(opcodes, "010011100100aaaa", &[&V0_15], ISA::Trap);
+    generate_opcodes(opcodes, "010011100100aaaa", &[&V0_15], Isa::Trap);
 
-    opcodes[0x4E76] = ISA::Trapv;
+    opcodes[0x4E76] = Isa::Trapv;
 
-    generate_opcodes(opcodes, "01001010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], ISA::Tst);
-    generate_opcodes(opcodes, "01001010aa111ccc", &[&V0_2, &V0_1], ISA::Tst);
+    generate_opcodes(opcodes, "01001010aabbbccc", &[&V0_2, &V0__2_6, &V0_7], Isa::Tst);
+    generate_opcodes(opcodes, "01001010aa111ccc", &[&V0_2, &V0_1], Isa::Tst);
 
-    generate_opcodes(opcodes, "0100111001011aaa", &[&V0_7], ISA::Unlk);
+    generate_opcodes(opcodes, "0100111001011aaa", &[&V0_7], Isa::Unlk);
 }
 
 /// Generates opcodes from the gi&Ven format and replaces all &Variables by the &Values in ``&Values``.
@@ -310,7 +310,7 @@ fn generate_isa(opcodes: &mut [ISA; 65536]) {
 ///
 /// Then the binary string is con&Verted back to integer, and stores ``isa`` in ``opcodes``
 /// at e&Very index generated by the function.
-fn generate_opcodes(opcodes: &mut [ISA; 65536], format: &str, values: &[&[u8]], isa: ISA) {
+fn generate_opcodes(opcodes: &mut [Isa; 65536], format: &str, values: &[&[u8]], isa: Isa) {
     if values.len() == 1 {
         let mut pos = 0;
         let mut len = 0;
@@ -338,7 +338,7 @@ fn generate_opcodes(opcodes: &mut [ISA; 65536], format: &str, values: &[&[u8]], 
                 format!("{}{}", left, bin_str)
             };
             let index = bin_string_to_int(&index);
-            assert_eq!(opcodes[index], ISA::Unknown, "Overwriting an existing opcode: {:#X}", index);
+            assert_eq!(opcodes[index], Isa::Unknown, "Overwriting an existing opcode: {:#X}", index);
             opcodes[index] = isa;
         }
     } else {

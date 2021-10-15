@@ -13,7 +13,8 @@ mod instruction;
 mod interpreter;
 pub mod isa;
 pub mod memory_access;
-mod operand;
+// mod operand;
+mod operands;
 mod status_register;
 mod utils;
 
@@ -30,8 +31,6 @@ pub struct M68000<M: MemoryAccess> {
     pub pc: u32,
 
     memory: M,
-    current_opcode: u16,
-    current_pc: u32,
 }
 
 impl<M: MemoryAccess> M68000<M> {
@@ -45,8 +44,6 @@ impl<M: MemoryAccess> M68000<M> {
             pc: 0,
 
             memory,
-            current_opcode: 0xFFFF,
-            current_pc: 0,
         }
     }
 

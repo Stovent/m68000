@@ -1,462 +1,380 @@
 use super::{M68000, MemoryAccess};
-// use super::addressing_modes::AddressingMode;
-// use super::disassembler::DISASSEMBLE;
-use super::isa::ISA::Size_;
-// use super::instruction::Size;
+use super::decoder::DECODER;
+use super::instruction::Instruction;
+use super::operands::Operands;
 use super::status_register::StatusRegister;
-use super::utils::Bits;
 
 impl<M: MemoryAccess> M68000<M> {
     pub fn interpreter(&mut self) {
-        // self.current_pc = self.pc;
-        // self.current_opcode = self.get_next_word();
+        let pc = self.pc;
+        let opcode = self.get_next_word();
+        let isa = DECODER[opcode as usize];
+        let entry = &Self::ISA_ENTRY[isa as usize];
 
-        // let (inst, width) = Instruction::new::<M>(self.pc, self.memory.get_slice(self.pc));
-        // self.pc += width;
+        let mut iter = self.memory.iter(self.pc);
+        let (operands, len) = (entry.decode)(opcode, &mut iter);
+        self.pc += len as u32;
 
-        // #[cfg(debug_assertions)]
-        // println!("{}", DISASSEMBLE[inst.isa as usize](&inst));
-        // Self::EXECUTE[inst.isa as usize](self);
+        let instruction = Instruction {
+            isa,
+            opcode,
+            pc,
+            operands,
+        };
+
+        #[cfg(debug_assertions)]
+        println!("{}", (entry.disassemble)(&instruction));
+
+        (entry.execute)(self, &instruction);
     }
 
-    fn unknown_instruction(&mut self) -> usize {
+    pub(super) fn unknown_instruction(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn abcd(&mut self) -> usize {
+    pub(super) fn abcd(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn add(&mut self) -> usize {
-        let size = self.current_opcode.bits::<6, 7>();
-        let eamode = self.current_opcode.bits::<3, 5>();
-        let eareg = self.current_opcode.bits::<0, 2>() as usize;
-        // if size == Size::Byte {}
-        // let _operand = self.get_operand(AddressingMode::from(eamode), eareg, Size::from(size));
+    pub(super) fn add(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn adda(&mut self) -> usize {
+    pub(super) fn adda(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn addi(&mut self) -> usize {
+    pub(super) fn addi(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn addq(&mut self) -> usize {
+    pub(super) fn addq(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn addx(&mut self) -> usize {
+    pub(super) fn addx(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn and(&mut self) -> usize {
+    pub(super) fn and(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn andi(&mut self) -> usize {
+    pub(super) fn andi(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn andiccr(&mut self) -> usize {
+    pub(super) fn andiccr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn andisr(&mut self) -> usize {
+    pub(super) fn andisr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn asm(&mut self) -> usize {
+    pub(super) fn asm(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn asr(&mut self) -> usize {
+    pub(super) fn asr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn bcc(&mut self) -> usize {
-        let condition = self.current_opcode.bits::<8, 11>() as usize;
-        let mut disp = self.current_opcode as i8 as i16;
-        if disp == 0 {
-            disp = self.get_next_word() as i16;
+    pub(super) fn bcc(&mut self, inst: &Instruction) -> usize {
+        let (condition, mut displacement) = match inst.operands {
+            Operands::ConditionDisplacement(c, d) => (c, d as i16),
+            _ => panic!("Wrong operands enum for Bcc"),
+        };
+        if displacement == 0 {
+            displacement = self.get_next_word() as i16;
         }
-        if StatusRegister::CONDITIONS[condition](&self.sr) {
-            self.pc = self.current_pc + 2 + disp as u32;
+        if StatusRegister::CONDITIONS[condition as usize](&self.sr) {
+            self.pc = inst.pc + 2 + displacement as u32;
         }
         1
     }
 
-    fn bchg(&mut self) -> usize {
+    pub(super) fn bchg(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn bclr(&mut self) -> usize {
+    pub(super) fn bclr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn bra(&mut self) -> usize {
+    pub(super) fn bra(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn bset(&mut self) -> usize {
+    pub(super) fn bset(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn bsr(&mut self) -> usize {
+    pub(super) fn bsr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn btst(&mut self) -> usize {
+    pub(super) fn btst(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn chk(&mut self) -> usize {
+    pub(super) fn chk(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn clr(&mut self) -> usize {
+    pub(super) fn clr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn cmp(&mut self) -> usize {
+    pub(super) fn cmp(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn cmpa(&mut self) -> usize {
+    pub(super) fn cmpa(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn cmpi(&mut self) -> usize {
+    pub(super) fn cmpi(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn cmpm(&mut self) -> usize {
+    pub(super) fn cmpm(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn dbcc(&mut self) -> usize {
+    pub(super) fn dbcc(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn divs(&mut self) -> usize {
+    pub(super) fn divs(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn divu(&mut self) -> usize {
+    pub(super) fn divu(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn eor(&mut self) -> usize {
+    pub(super) fn eor(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn eori(&mut self) -> usize {
+    pub(super) fn eori(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn eoriccr(&mut self) -> usize {
+    pub(super) fn eoriccr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn eorisr(&mut self) -> usize {
+    pub(super) fn eorisr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn exg(&mut self) -> usize {
+    pub(super) fn exg(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn ext(&mut self) -> usize {
+    pub(super) fn ext(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn illegal(&mut self) -> usize {
+    pub(super) fn illegal(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn jmp(&mut self) -> usize {
+    pub(super) fn jmp(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn jsr(&mut self) -> usize {
+    pub(super) fn jsr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn lea(&mut self) -> usize {
+    pub(super) fn lea(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn link(&mut self) -> usize {
+    pub(super) fn link(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn lsm(&mut self) -> usize {
+    pub(super) fn lsm(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn lsr(&mut self) -> usize {
+    pub(super) fn lsr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn r#move(&mut self) -> usize {
+    pub(super) fn r#move(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn movea(&mut self) -> usize {
+    pub(super) fn movea(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn moveccr(&mut self) -> usize {
+    pub(super) fn moveccr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn movefsr(&mut self) -> usize {
+    pub(super) fn movefsr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn movesr(&mut self) -> usize {
+    pub(super) fn movesr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn moveusp(&mut self) -> usize {
+    pub(super) fn moveusp(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn movem(&mut self) -> usize {
+    pub(super) fn movem(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn movep(&mut self) -> usize {
+    pub(super) fn movep(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn moveq(&mut self) -> usize {
+    pub(super) fn moveq(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn muls(&mut self) -> usize {
+    pub(super) fn muls(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn mulu(&mut self) -> usize {
+    pub(super) fn mulu(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn nbcd(&mut self) -> usize {
+    pub(super) fn nbcd(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn neg(&mut self) -> usize {
+    pub(super) fn neg(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn negx(&mut self) -> usize {
+    pub(super) fn negx(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn nop(&mut self) -> usize {
+    pub(super) fn nop(&mut self, _: &Instruction) -> usize {
         1
     }
 
-    fn not(&mut self) -> usize {
+    pub(super) fn not(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn or(&mut self) -> usize {
+    pub(super) fn or(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn ori(&mut self) -> usize {
+    pub(super) fn ori(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn oriccr(&mut self) -> usize {
+    pub(super) fn oriccr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn orisr(&mut self) -> usize {
+    pub(super) fn orisr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn pea(&mut self) -> usize {
+    pub(super) fn pea(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn reset(&mut self) -> usize {
+    pub(super) fn reset(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn rom(&mut self) -> usize {
+    pub(super) fn rom(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn ror(&mut self) -> usize {
+    pub(super) fn ror(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn roxm(&mut self) -> usize {
+    pub(super) fn roxm(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn roxr(&mut self) -> usize {
+    pub(super) fn roxr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn rte(&mut self) -> usize {
+    pub(super) fn rte(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn rtr(&mut self) -> usize {
+    pub(super) fn rtr(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn rts(&mut self) -> usize {
+    pub(super) fn rts(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn sbcd(&mut self) -> usize {
+    pub(super) fn sbcd(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn scc(&mut self) -> usize {
+    pub(super) fn scc(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn stop(&mut self) -> usize {
+    pub(super) fn stop(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn sub(&mut self) -> usize {
+    pub(super) fn sub(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn suba(&mut self) -> usize {
+    pub(super) fn suba(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn subi(&mut self) -> usize {
+    pub(super) fn subi(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn subq(&mut self) -> usize {
+    pub(super) fn subq(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn subx(&mut self) -> usize {
+    pub(super) fn subx(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn swap(&mut self) -> usize {
+    pub(super) fn swap(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn tas(&mut self) -> usize {
+    pub(super) fn tas(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn trap(&mut self) -> usize {
+    pub(super) fn trap(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn trapv(&mut self) -> usize {
+    pub(super) fn trapv(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn tst(&mut self) -> usize {
+    pub(super) fn tst(&mut self, inst: &Instruction) -> usize {
         0
     }
 
-    fn unlk(&mut self) -> usize {
+    pub(super) fn unlk(&mut self, inst: &Instruction) -> usize {
         0
     }
-
-    const EXECUTE: [fn(&mut Self) -> usize; Size_ as usize] = [
-        Self::unknown_instruction,
-        Self::abcd,
-        Self::add,
-        Self::adda,
-        Self::addi,
-        Self::addq,
-        Self::addx,
-        Self::and,
-        Self::andi,
-        Self::andiccr,
-        Self::andisr,
-        Self::asm,
-        Self::asr,
-        Self::bcc,
-        Self::bchg,
-        Self::bclr,
-        Self::bra,
-        Self::bset,
-        Self::bsr,
-        Self::btst,
-        Self::chk,
-        Self::clr,
-        Self::cmp,
-        Self::cmpa,
-        Self::cmpi,
-        Self::cmpm,
-        Self::dbcc,
-        Self::divs,
-        Self::divu,
-        Self::eor,
-        Self::eori,
-        Self::eoriccr,
-        Self::eorisr,
-        Self::exg,
-        Self::ext,
-        Self::illegal,
-        Self::jmp,
-        Self::jsr,
-        Self::lea,
-        Self::link,
-        Self::lsm,
-        Self::lsr,
-        Self::r#move,
-        Self::movea,
-        Self::moveccr,
-        Self::movefsr,
-        Self::movesr,
-        Self::moveusp,
-        Self::movem,
-        Self::movep,
-        Self::moveq,
-        Self::muls,
-        Self::mulu,
-        Self::nbcd,
-        Self::neg,
-        Self::negx,
-        Self::nop,
-        Self::not,
-        Self::or,
-        Self::ori,
-        Self::oriccr,
-        Self::orisr,
-        Self::pea,
-        Self::reset,
-        Self::rom,
-        Self::ror,
-        Self::roxm,
-        Self::roxr,
-        Self::rte,
-        Self::rtr,
-        Self::rts,
-        Self::sbcd,
-        Self::scc,
-        Self::stop,
-        Self::sub,
-        Self::suba,
-        Self::subi,
-        Self::subq,
-        Self::subx,
-        Self::swap,
-        Self::tas,
-        Self::trap,
-        Self::trapv,
-        Self::tst,
-        Self::unlk,
-    ];
 }

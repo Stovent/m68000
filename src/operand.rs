@@ -1,6 +1,6 @@
 use super::M68000;
 use super::addressing_modes::{AddressingMode, EffectiveAddress};
-use super::instruction::Size;
+use super::operands::Size;
 use super::memory_access::MemoryAccess;
 
 #[derive(Clone, Debug, PartialEq, Eq)]

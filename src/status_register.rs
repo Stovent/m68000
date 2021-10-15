@@ -21,16 +21,6 @@ pub struct StatusRegister {
 }
 
 impl StatusRegister {
-    // pub fn set_ccr(&mut self, ccr: u8) {
-    //     self.x = ccr & 0x10 != 0;
-    //     self.n = ccr & 0x08 != 0;
-    //     self.z = ccr & 0x04 != 0;
-    //     self.v = ccr & 0x02 != 0;
-    //     self.c = ccr & 0x01 != 0;
-    // }
-}
-
-impl StatusRegister {
     fn t(&self) -> bool {
         true
     }
@@ -128,5 +118,27 @@ impl From<u16> for StatusRegister {
             v: sr & 0x0002 != 0,
             c: sr & 0x0001 != 0,
         }
+    }
+}
+
+pub(super) fn disassemble_conditional_test(test: u16) -> &'static str {
+    match test {
+        0  => "T",
+        1  => "F",
+        2  => "HI",
+        3  => "LS",
+        4  => "CC",
+        5  => "CS",
+        6  => "NE",
+        7  => "EQ",
+        8  => "VC",
+        9  => "VS",
+        10 => "PL",
+        11 => "MI",
+        12 => "GE",
+        13 => "LT",
+        14 => "GT",
+        15 => "LE",
+        _ => "Unknown",
     }
 }
