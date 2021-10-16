@@ -3,7 +3,7 @@ use super::addressing_modes::EffectiveAddress;
 use super::decoder::DECODER;
 use super::isa::Isa;
 use super::memory_access::MemoryIter;
-use super::utils::Bits;
+use super::utils::bits;
 
 /// Specify the direction of the operation.
 ///
@@ -446,7 +446,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn size_effective_address_immediate(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
 
-        let size = Size::from(opcode.bits::<6, 7>());
+        let size = Size::from(bits(opcode, 6, 7));
 
         let imm = if size.long() {
             len += 4;
@@ -467,8 +467,8 @@ impl<M: MemoryAccess> M68000<M> {
     /// BCHG, BCLR, BSET, BTST
     pub(super) fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let count = if opcode.bits::<8, 8>() != 0 { // dynamic bit number
-            opcode.bits::<9, 11>() as u8
+        let count = if bits(opcode, 8, 8) != 0 { // dynamic bit number
+            bits(opcode, 9, 11) as u8
         } else { // Static bit number
             len += 2;
             memory.next().unwrap() as u8
@@ -504,7 +504,7 @@ impl<M: MemoryAccess> M68000<M> {
     /// CLR, NEG, NEGX, NOT, TST
     pub(super) fn size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let size = Size::from(opcode.bits::<6, 7>());
+        let size = Size::from(bits(opcode, 6, 7));
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
         (Operands::SizeEffectiveAddress(size, ea), len)
@@ -515,7 +515,7 @@ impl<M: MemoryAccess> M68000<M> {
         let mut len = 0;
         let isa = DECODER[opcode as usize];
 
-        let reg = opcode.bits::<9, 11>() as u8;
+        let reg = bits(opcode, 9, 11) as u8;
         let size = if isa == Isa::Lea {
             Some(Size::Long)
         } else {
@@ -529,10 +529,10 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// MOVEP
     pub(super) fn register_direction_size_register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
-        let dreg = opcode.bits::<9, 11>() as u8;
-        let dir = if opcode.bits::<7, 7>() != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
-        let size = if opcode.bits::<6, 6>() != 0 { Size::Long } else { Size::Word };
-        let areg = opcode.bits::<0, 2>() as u8;
+        let dreg = bits(opcode, 9, 11) as u8;
+        let dir = if bits(opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
+        let size = if bits(opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
+        let areg = bits(opcode, 0, 2) as u8;
         let disp = memory.next().unwrap() as i16;
         (Operands::RegisterDirectionSizeRegisterDisp(dreg, dir, size, areg, disp), 2)
     }
@@ -540,8 +540,8 @@ impl<M: MemoryAccess> M68000<M> {
     /// MOVEA
     pub(super) fn size_register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let size = Size::from_move(opcode.bits::<12, 13>());
-        let areg = opcode.bits::<9, 11>() as u8;
+        let size = Size::from_move(bits(opcode, 12, 13));
+        let areg = bits(opcode, 9, 11) as u8;
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
         (Operands::SizeRegisterEffectiveAddress(size, areg, ea), len)
@@ -550,7 +550,7 @@ impl<M: MemoryAccess> M68000<M> {
     /// MOVE
     pub(super) fn size_effective_address_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let size = Size::from_move(opcode.bits::<12, 13>());
+        let size = Size::from_move(bits(opcode, 12, 13));
 
         let src = EffectiveAddress::new(opcode, Some(size), memory);
         len += src.ext.len();
@@ -563,42 +563,42 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// EXG
     pub(super) fn register_opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let regl = opcode.bits::<9, 11>() as u8;
-        let opmode = opcode.bits::<3, 7>() as u8;
-        let regr = opcode.bits::<0, 2>() as u8;
+        let regl = bits(opcode, 9, 11) as u8;
+        let opmode = bits(opcode, 3, 7) as u8;
+        let regr = bits(opcode, 0, 2) as u8;
         (Operands::RegisterOpmodeRegister(regl, opmode, regr), 0)
     }
 
     /// EXT
     pub(super) fn opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let opmode = opcode.bits::<6, 8>() as u8;
-        let reg = opcode.bits::<0, 2>() as u8;
+        let opmode = bits(opcode, 6, 8) as u8;
+        let reg = bits(opcode, 0, 2) as u8;
         (Operands::OpmodeRegister(opmode, reg), 0)
     }
 
     /// TRAP
     pub(super) fn vector(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let vector = opcode.bits::<0, 3>() as u8;
+        let vector = bits(opcode, 0, 3) as u8;
         (Operands::Vector(vector), 0)
     }
 
     /// LINK
     pub(super) fn register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
-        let reg = opcode.bits::<0, 2>() as u8;
+        let reg = bits(opcode, 0, 2) as u8;
         let disp = memory.next().unwrap() as i16;
         (Operands::RegisterDisp(reg, disp), 2)
     }
 
     /// UNLK
     pub(super) fn register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let reg = opcode.bits::<0, 2>() as u8;
+        let reg = bits(opcode, 0, 2) as u8;
         (Operands::Register(reg), 0)
     }
 
     /// MOVE USP
     pub(super) fn direction_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let dir = if opcode.bits::<3, 3>() != 0 { Direction::UspToRegister } else { Direction::RegisterToUsp };
-        let reg = opcode.bits::<0, 2>() as u8;
+        let dir = if bits(opcode, 3, 3) != 0 { Direction::UspToRegister } else { Direction::RegisterToUsp };
+        let reg = bits(opcode, 0, 2) as u8;
         (Operands::DirectionRegister(dir, reg), 0)
     }
 
@@ -606,8 +606,8 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 2;
         let list = memory.next().unwrap();
-        let dir = if opcode.bits::<10, 10>() != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
-        let size = Size::from_bit(opcode.bits::<6, 6>());
+        let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
+        let size = Size::from_bit(bits(opcode, 6, 6));
 
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
@@ -618,8 +618,8 @@ impl<M: MemoryAccess> M68000<M> {
     /// ADDQ, SUBQ
     pub(super) fn data_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let data = opcode.bits::<9, 11>() as u8;
-        let size = Size::from(opcode.bits::<6, 7>());
+        let data = bits(opcode, 9, 11) as u8;
+        let size = Size::from(bits(opcode, 6, 7));
 
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
@@ -630,7 +630,7 @@ impl<M: MemoryAccess> M68000<M> {
     /// Scc
     pub(super) fn condition_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let condition = opcode.bits::<8, 11>() as u8;
+        let condition = bits(opcode, 8, 11) as u8;
 
         let ea = EffectiveAddress::new(opcode, Some(Size::Byte), memory);
         len += ea.ext.len();
@@ -641,8 +641,8 @@ impl<M: MemoryAccess> M68000<M> {
     /// DBcc
     pub(super) fn condition_register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let disp = memory.next().unwrap() as i16;
-        let condition = opcode.bits::<8, 11>() as u8;
-        let reg = opcode.bits::<0, 2>() as u8;
+        let condition = bits(opcode, 8, 11) as u8;
+        let reg = bits(opcode, 0, 2) as u8;
         (Operands::ConditionRegisterDisp(condition, reg, disp), 2)
     }
 
@@ -665,13 +665,13 @@ impl<M: MemoryAccess> M68000<M> {
             len += 2;
             disp = memory.next().unwrap() as i16;
         }
-        let condition = opcode.bits::<8, 11>() as u8;
+        let condition = bits(opcode, 8, 11) as u8;
         (Operands::ConditionDisplacement(condition, disp), len)
     }
 
     /// MOVEQ
     pub(super) fn register_data(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let reg = opcode.bits::<9, 11>() as u8;
+        let reg = bits(opcode, 9, 11) as u8;
         let data = opcode as i8;
         (Operands::RegisterData(reg, data), 0)
     }
@@ -679,9 +679,9 @@ impl<M: MemoryAccess> M68000<M> {
     /// ADD, AND, CMP, EOR, OR, SUB
     pub(super) fn register_direction_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let reg = opcode.bits::<9, 11>() as u8;
-        let dir = if opcode.bits::<8, 8>() != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
-        let size = Size::from(opcode.bits::<6, 7>());
+        let reg = bits(opcode, 9, 11) as u8;
+        let dir = if bits(opcode, 8, 8) != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
+        let size = Size::from(bits(opcode, 6, 7));
 
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
@@ -692,8 +692,8 @@ impl<M: MemoryAccess> M68000<M> {
     /// ADDA, CMPA, SUBA
     pub(super) fn register_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let reg = opcode.bits::<9, 11>() as u8;
-        let size = Size::from_bit(opcode.bits::<11, 11>());
+        let reg = bits(opcode, 9, 11) as u8;
+        let size = Size::from_bit(bits(opcode, 8, 8));
 
         let ea = EffectiveAddress::new(opcode, Some(size), memory);
         len += ea.ext.len();
@@ -703,25 +703,25 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// ABCD, ADDX, SBCD, SUBX
     pub(super) fn register_size_mode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let regl = opcode.bits::<9, 11>() as u8;
-        let size = Size::from(opcode.bits::<6, 7>());
-        let mode = if opcode.bits::<3, 3>() != 0 { Direction::MemoryToMemory } else { Direction::RegisterToRegister };
-        let regr = opcode.bits::<0, 2>() as u8;
+        let regl = bits(opcode, 9, 11) as u8;
+        let size = Size::from(bits(opcode, 6, 7));
+        let mode = if bits(opcode, 3, 3) != 0 { Direction::MemoryToMemory } else { Direction::RegisterToRegister };
+        let regr = bits(opcode, 0, 2) as u8;
         (Operands::RegisterSizeModeRegister(regl, size, mode, regr), 0)
     }
 
     /// CMPM
     pub(super) fn register_size_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let regl = opcode.bits::<9, 11>() as u8;
-        let size = Size::from(opcode.bits::<6, 7>());
-        let regr = opcode.bits::<0, 2>() as u8;
+        let regl = bits(opcode, 9, 11) as u8;
+        let size = Size::from(bits(opcode, 6, 7));
+        let regr = bits(opcode, 0, 2) as u8;
         (Operands::RegisterSizeRegister(regl, size, regr), 0)
     }
 
     /// ASm, LSm, ROm, ROXm
     pub(super) fn direction_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
-        let dir = if opcode.bits::<8, 8>() != 0 { Direction::Left } else { Direction::Right };
+        let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
         let ea = EffectiveAddress::new(opcode, Some(Size::Byte), memory);
         len += ea.ext.len();
         (Operands::DirectionEffectiveAddress(dir, ea), len)
@@ -729,11 +729,11 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// ASr, LSr, ROr, ROXr
     pub(super) fn rotation_direction_size_mode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
-        let count = opcode.bits::<9, 11>() as u8;
-        let dir = if opcode.bits::<8, 8>() != 0 { Direction::Left } else { Direction::Right };
-        let size = Size::from(opcode.bits::<6, 7>());
-        let mode = opcode.bits::<5, 5>() as u8;
-        let reg = opcode.bits::<0, 2>() as u8;
+        let count = bits(opcode, 9, 11) as u8;
+        let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
+        let size = Size::from(bits(opcode, 6, 7));
+        let mode = bits(opcode, 5, 5) as u8;
+        let reg = bits(opcode, 0, 2) as u8;
         (Operands::RotationDirectionSizeModeRegister(count, dir, size, mode, reg), 0)
     }
 }

@@ -1,7 +1,7 @@
 use super::instruction::Instruction;
 use super::operands::Direction;
 use super::status_register::disassemble_conditional_test;
-use super::utils::Bits;
+use super::utils::bits;
 
 pub(super) fn disassemble_unknown_instruction(inst: &Instruction) -> String {
     format!("Unknown instruction {:04X} as {:#X}", inst.opcode, inst.pc)
@@ -94,7 +94,7 @@ pub(super) fn disassemble_bcc(inst: &Instruction) -> String {
 
 pub(super) fn disassemble_bchg(inst: &Instruction) -> String {
     let (ea, count) = inst.operands.effective_address_count();
-    if inst.opcode.bits::<8, 8>() != 0 {
+    if bits(inst.opcode, 8, 8) != 0 {
         format!("BCHG D{}, {}", count, ea)
     } else {
         format!("BCHG #{}, {}", count, ea)
@@ -103,7 +103,7 @@ pub(super) fn disassemble_bchg(inst: &Instruction) -> String {
 
 pub(super) fn disassemble_bclr(inst: &Instruction) -> String {
     let (ea, count) = inst.operands.effective_address_count();
-    if inst.opcode.bits::<8, 8>() != 0 {
+    if bits(inst.opcode, 8, 8) != 0 {
         format!("BCLR D{}, {}", count, ea)
     } else {
         format!("BCLR #{}, {}", count, ea)
@@ -117,7 +117,7 @@ pub(super) fn disassemble_bra(inst: &Instruction) -> String {
 
 pub(super) fn disassemble_bset(inst: &Instruction) -> String {
     let (ea, count) = inst.operands.effective_address_count();
-    if inst.opcode.bits::<8, 8>() != 0 {
+    if bits(inst.opcode, 8, 8) != 0 {
         format!("BSET D{}, {}", count, ea)
     } else {
         format!("BSET #{}, {}", count, ea)
@@ -131,7 +131,7 @@ pub(super) fn disassemble_bsr(inst: &Instruction) -> String {
 
 pub(super) fn disassemble_btst(inst: &Instruction) -> String {
     let (ea, count) = inst.operands.effective_address_count();
-    if inst.opcode.bits::<8, 8>() != 0 {
+    if bits(inst.opcode, 8, 8) != 0 {
         format!("BTST D{}, {}", count, ea)
     } else {
         format!("BTST #{}, {}", count, ea)

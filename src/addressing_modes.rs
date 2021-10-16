@@ -1,7 +1,7 @@
 // use super::{M68000, MemoryAccess};
 use super::memory_access::MemoryIter;
 use super::operands::Size;
-use super::utils::{AsArray, Bits, SliceAs};
+use super::utils::{AsArray, bits, SliceAs};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub(super) enum AddressingMode {
@@ -105,8 +105,8 @@ impl EffectiveAddress {
 
     /// New effective address with an empty `address` field, with mode and reg at the low 6 bits.
     pub(super) fn new(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
-        let reg = opcode.bits::<0, 2>() as usize;
-        let mode = AddressingMode::from(opcode.bits::<3, 5>());
+        let reg = bits(opcode, 0, 2) as usize;
+        let mode = AddressingMode::from(bits(opcode, 3, 5));
         let ext: Box<[u8]> = match mode {
             AddressingMode::Ari => Box::new([]),
             AddressingMode::Ariwpo => Box::new([]),
@@ -157,8 +157,8 @@ impl EffectiveAddress {
 
     /// New effective address with an empty `address` field, with mode and reg at bits 6 to 11, and in reverse.
     pub(super) fn new_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
-        let reg = opcode.bits::<9, 11>() as usize;
-        let mode = AddressingMode::from(opcode.bits::<6, 8>());
+        let reg = bits(opcode, 9, 11) as usize;
+        let mode = AddressingMode::from(bits(opcode, 6, 8));
         let ext: Box<[u8]> = match mode {
             AddressingMode::Ari => Box::new([]),
             AddressingMode::Ariwpo => Box::new([]),
@@ -255,7 +255,7 @@ impl std::fmt::UpperHex for EffectiveAddress {
 
 fn disassemble_index_register(bew: u16) -> String {
     let x = if bew & 0x8000 != 0 { "A" } else { "D" };
-    let reg = bew.bits::<12, 14>();
+    let reg = bits(bew, 12, 14);
     let size = if bew & 0x0800 != 0 { "L" } else { "W" };
     format!("{}{}.{}", x, reg, size)
 }
@@ -309,7 +309,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     fn get_index_register(&self, bew: u16) -> u32 {
-        let reg = bew.bits::<12, 14>() as usize;
+        let reg = bits(bew, 12, 14) as usize;
         if bew & 0x8000 != 0 { // Address register
             if bew & 0x0800 != 0 { // Long
                 self.a(reg)

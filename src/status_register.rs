@@ -1,4 +1,4 @@
-use super::utils::Bits;
+use super::utils::bits;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StatusRegister {
@@ -111,7 +111,7 @@ impl From<u16> for StatusRegister {
         Self {
             t: sr & 0x8000 != 0,
             s: sr & 0x2000 != 0,
-            interrupt_mask: sr.bits::<8, 10>() as u8,
+            interrupt_mask: bits(sr, 8, 10) as u8,
             x: sr & 0x0010 != 0,
             n: sr & 0x0008 != 0,
             z: sr & 0x0004 != 0,

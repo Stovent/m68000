@@ -1,16 +1,9 @@
 use super::operands::Size;
 
-/// Trait to directly access bits of an integer.
-pub trait Bits {
-    /// returns bits [BEG, END] inclusive, starting at 0.
-    fn bits<const BEG: u16, const END: u16>(self) -> Self;
-}
-
-impl Bits for u16 {
-    fn bits<const BEG: u16, const END: u16>(self) -> Self {
-        let mask = (1 << END + 1 - BEG) - 1;
-        self >> BEG & mask
-    }
+/// Returns bits [beg, end] inclusive, starting at 0.
+pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
+    let mask = (1 << end + 1 - beg) - 1;
+    d >> beg & mask
 }
 
 /// Trait that convert the first bytes of slices to their big-endian integer value.
