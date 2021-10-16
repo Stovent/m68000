@@ -36,6 +36,16 @@ pub(super) enum Direction {
     MemoryToMemory,
 }
 
+impl std::fmt::Display for Direction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Left => write!(f, "L"),
+            Self::Right => write!(f, "R"),
+            _ => panic!("Only Left and Right directions are meant to be disassembled"),
+        }
+    }
+}
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Size {
     Byte = 1,
@@ -119,6 +129,16 @@ impl From<u16> for Size {
     }
 }
 
+impl std::fmt::Display for Size {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Size::Byte => write!(f, "B"),
+            Size::Word => write!(f, "W"),
+            Size::Long => write!(f, "L"),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
 pub(super) enum Operands {
     /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
@@ -179,6 +199,232 @@ pub(super) enum Operands {
     DirectionEffectiveAddress(Direction, EffectiveAddress),
     /// ASr, LSr, ROr, ROXr
     RotationDirectionSizeModeRegister(u8, Direction, Size, u8, u8),
+}
+
+impl Operands {
+    /// ANDI/EORI/ORI CCR/SR, STOP
+    pub fn immediate(&self) -> u16 {
+        match *self {
+            Self::Immediate(i) => i,
+            _ => panic!("[Operands::immediate]"),
+        }
+    }
+
+    /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
+    pub fn size_effective_address_immediate(&self) -> (Size, &EffectiveAddress, u32) {
+        match self {
+            Self::SizeEffectiveAddressImmediate(s, e, i) => (*s, e, *i),
+            _ => panic!("[Operands::size_effective_address_immediate]"),
+        }
+    }
+
+    /// BCHG, BCLR, BSET, BTST
+    pub fn effective_address_count(&self) -> (&EffectiveAddress, u8) {
+        match self {
+            Self::EffectiveAddressCount(e, c) => (e, *c),
+            _ => panic!("[Operands::effective_address_count]"),
+        }
+    }
+
+    /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
+    pub fn effective_address(&self) -> &EffectiveAddress {
+        match self {
+            Self::EffectiveAddress(e) => e,
+            _ => panic!("[Operands::effective_address]"),
+        }
+    }
+
+    /// CLR, NEG, NEGX, NOT, TST
+    pub fn size_effective_address(&self) -> (Size, &EffectiveAddress) {
+        match self {
+            Self::SizeEffectiveAddress(s, e) => (*s, e),
+            _ => panic!("[Operands::size_effective_address]"),
+        }
+    }
+
+    /// CHK, DIVS, DIVU, LEA, MULS, MULU
+    pub fn register_effective_address(&self) -> (u8, &EffectiveAddress) {
+        match self {
+            Self::RegisterEffectiveAddress(r, e) => (*r, e),
+            _ => panic!("[Operands::register_effective_address]"),
+        }
+    }
+
+    /// MOVEP
+    pub fn register_direction_size_register_disp(&self) -> (u8, Direction, Size, u8, i16) {
+        match *self {
+            Self::RegisterDirectionSizeRegisterDisp(r, d, s, rr, dd) => (r, d, s, rr, dd),
+            _ => panic!("[Operands::register_direction_size_register_disp]"),
+        }
+    }
+
+    /// MOVEA
+    pub fn size_register_effective_address(&self) -> (Size, u8, &EffectiveAddress) {
+        match self {
+            Self::SizeRegisterEffectiveAddress(s, r, e) => (*s, *r, e),
+            _ => panic!("[Operands::size_register_effective_address]"),
+        }
+    }
+
+    /// MOVE
+    pub fn size_effective_address_effective_address(&self) -> (Size, &EffectiveAddress, &EffectiveAddress) {
+        match self {
+            Self::SizeEffectiveAddressEffectiveAddress(s, e, ee) => (*s, e, ee),
+            _ => panic!("[Operands::size_effective_address_effective_address]"),
+        }
+    }
+
+    /// EXG
+    pub fn register_opmode_register(&self) -> (u8, u8, u8) {
+        match *self {
+            Self::RegisterOpmodeRegister(r, o, rr) => (r, o, rr),
+            _ => panic!("[Operands::register_opmode_register]"),
+        }
+    }
+
+    /// EXT
+    pub fn opmode_register(&self) -> (u8, u8) {
+        match *self {
+            Self::OpmodeRegister(o, r) => (o, r),
+            _ => panic!("[Operands::opmode_register]"),
+        }
+    }
+
+    /// TRAP
+    pub fn vector(&self) -> u8 {
+        match *self {
+            Self::Vector(v) => v,
+            _ => panic!("[Operands::vector]"),
+        }
+    }
+
+    /// LINK
+    pub fn register_disp(&self) -> (u8, i16) {
+        match *self {
+            Self::RegisterDisp(r, d) => (r, d),
+            _ => panic!("[Operands::register_disp]"),
+        }
+    }
+
+    /// SWAP, UNLK
+    pub fn register(&self) -> u8 {
+        match *self {
+            Self::Register(r) => r,
+            _ => panic!("[Operands::register]"),
+        }
+    }
+
+    /// MOVE USP
+    pub fn direction_register(&self) -> (Direction, u8) {
+        match *self {
+            Self::DirectionRegister(d, r) => (d, r),
+            _ => panic!("[Operands::direction_register]"),
+        }
+    }
+
+    /// MOVEM
+    pub fn direction_size_effective_address_list(&self) -> (Direction, Size, &EffectiveAddress, u16) {
+        match self {
+            Self::DirectionSizeEffectiveAddressList(d, s, e, l) => (*d, *s, e, *l),
+            _ => panic!("[Operands::direction_size_effective_address_list]"),
+        }
+    }
+
+    /// ADDQ, SUBQ
+    pub fn data_size_effective_address(&self) -> (u8, Size, &EffectiveAddress) {
+        match self {
+            Self::DataSizeEffectiveAddress(d, s, e) => (*d, *s, e),
+            _ => panic!("[Operands::data_size_effective_address]"),
+        }
+    }
+
+    /// Scc
+    pub fn condition_effective_address(&self) -> (u8, &EffectiveAddress) {
+        match self {
+            Self::ConditionEffectiveAddress(c, e) => (*c, e),
+            _ => panic!("[Operands::condition_effective_address]"),
+        }
+    }
+
+    /// DBcc
+    pub fn condition_register_disp(&self) -> (u8, u8, i16) {
+        match *self {
+            Self::ConditionRegisterDisp(c, r, d) => (c, r, d),
+            _ => panic!("[Operands::condition_register_disp]"),
+        }
+    }
+
+    /// BRA, BSR
+    pub fn displacement(&self) -> i16 {
+        match *self {
+            Self::Displacement(d) => d,
+            _ => panic!("[Operands::displacement]"),
+        }
+    }
+
+    /// Bcc
+    pub fn condition_displacement(&self) -> (u8, i16) {
+        match *self {
+            Self::ConditionDisplacement(c, d) => (c, d),
+            _ => panic!("[Operands::condition_displacement]"),
+        }
+    }
+
+    /// MOVEQ
+    pub fn register_data(&self) -> (u8, i8) {
+        match *self {
+            Self::RegisterData(r, d) => (r, d),
+            _ => panic!("[Operands::register_data]"),
+        }
+    }
+
+    /// ADD, AND, CMP, EOR, OR, SUB
+    pub fn register_direction_size_effective_address(&self) -> (u8, Direction, Size, &EffectiveAddress) {
+        match self {
+            Self::RegisterDirectionSizeEffectiveAddress(r, d, s, e) => (*r, *d, *s, e),
+            _ => panic!("[Operands::register_direction_size_effective_address]"),
+        }
+    }
+
+    /// ADDA, CMPA, SUBA
+    pub fn register_size_effective_address(&self) -> (u8, Size, &EffectiveAddress) {
+        match self {
+            Self::RegisterSizeEffectiveAddress(r, s, e) => (*r, *s, e),
+            _ => panic!("[Operands::register_size_effective_address]"),
+        }
+    }
+
+    /// ABCD, ADDX, SBCD, SUBX
+    pub fn register_size_mode_register(&self) -> (u8, Size, Direction, u8) {
+        match *self {
+            Self::RegisterSizeModeRegister(r, s, m, rr) => (r, s, m, rr),
+            _ => panic!("[Operands::register_size_mode_register]"),
+        }
+    }
+
+    /// CMPM
+    pub fn register_size_register(&self) -> (u8, Size, u8) {
+        match *self {
+            Self::RegisterSizeRegister(r, s, rr) => (r, s, rr),
+            _ => panic!("[Operands::register_size_register]"),
+        }
+    }
+
+    /// ASm, LSm, ROm, ROXm
+    pub fn direction_effective_address(&self) -> (Direction, &EffectiveAddress) {
+        match self {
+            Self::DirectionEffectiveAddress(d, e) => (*d, e),
+            _ => panic!("[Operands::direction_effective_address]"),
+        }
+    }
+
+    /// ASr, LSr, ROr, ROXr
+    pub fn rotation_direction_size_mode_register(&self) -> (u8, Direction, Size, u8, u8) {
+        match *self {
+            Self::RotationDirectionSizeModeRegister(r, d, s, m, rr) => (r, d, s, m, rr),
+            _ => panic!("[Operands::rotation_direction_size_mode_register]"),
+        }
+    }
 }
 
 /// All these functions returns the operands and the number of extention words used by the instruction.
@@ -434,7 +680,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn register_direction_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
         let reg = opcode.bits::<9, 11>() as u8;
-        let dir = if opcode.bits::<8, 8>() != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP ignores it
+        let dir = if opcode.bits::<8, 8>() != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
         let size = Size::from(opcode.bits::<6, 7>());
 
         let ea = EffectiveAddress::new(opcode, Some(size), memory);

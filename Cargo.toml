@@ -13,5 +13,8 @@ name = "decoder"
 path = "src/bin/decoder.rs"
 edition = "2018"
 
+[profile.dev]
+overflow-checks = false
+
 [profile.release]
 lto = true

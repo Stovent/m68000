@@ -121,7 +121,7 @@ impl From<u16> for StatusRegister {
     }
 }
 
-pub(super) fn disassemble_conditional_test(test: u16) -> &'static str {
+pub(super) fn disassemble_conditional_test(test: u8) -> &'static str {
     match test {
         0  => "T",
         1  => "F",

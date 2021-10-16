@@ -230,6 +230,29 @@ impl std::fmt::Display for EffectiveAddress {
     }
 }
 
+impl std::fmt::UpperHex for EffectiveAddress {
+    /// Same as Display but with the immediate value written in upper hex format.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self.mode {
+            AddressingMode::Drd => write!(f, "D{}", self.reg),
+            AddressingMode::Ard => write!(f, "A{}", self.reg),
+            AddressingMode::Ari => write!(f, "(A{})", self.reg),
+            AddressingMode::Ariwpo => write!(f, "(A{})+", self.reg),
+            AddressingMode::Ariwpr => write!(f, "-(A{})", self.reg),
+            AddressingMode::Ariwd => write!(f, "({}, A{})", self.ext.u16_be() as i16, self.reg),
+            AddressingMode::Ariwi8 => write!(f, "({}, A{}, {})", self.ext[1] as i8, self.reg, disassemble_index_register(self.ext.u16_be())),
+            AddressingMode::Mode7 => match self.reg {
+                0 => write!(f, "({:#X}).W", self.ext.u16_be()),
+                1 => write!(f, "({:#X}).L", self.ext.u32_be()),
+                2 => write!(f, "({}, PC)", self.ext.u16_be() as i16),
+                3 => write!(f, "({}, PC, {}", self.ext[1] as i8, disassemble_index_register(self.ext.u16_be())),
+                4 => write!(f, "#{:#X}", self.ext.i32_be_sized(self.size.expect("No associated size with immediate operand"))),
+                _ => write!(f, "Unknown addressing mode {} reg {}", self.mode as usize, self.reg),
+            },
+        }
+    }
+}
+
 fn disassemble_index_register(bew: u16) -> String {
     let x = if bew & 0x8000 != 0 { "A" } else { "D" };
     let reg = bew.bits::<12, 14>();
