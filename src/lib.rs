@@ -21,6 +21,10 @@ mod utils;
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
+const SR_UPPER_MASK: u16 = 0xA700;
+const CCR_MASK: u16 = 0x001F;
+const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
+
 #[derive(Copy, Clone, Debug)]
 pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
@@ -47,9 +51,9 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    fn a(&self, reg: usize) -> u32 {
+    fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
-            self.a_[reg]
+            self.a_[reg as usize]
         } else {
             if self.sr.s {
                 self.ssp
@@ -59,9 +63,9 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    fn a_mut(&mut self, reg: usize) -> &mut u32 {
+    fn a_mut(&mut self, reg: u8) -> &mut u32 {
         if reg < 7 {
-            &mut self.a_[reg]
+            &mut self.a_[reg as usize]
         } else {
             if self.sr.s {
                 &mut self.ssp

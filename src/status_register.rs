@@ -21,71 +21,71 @@ pub struct StatusRegister {
 }
 
 impl StatusRegister {
-    fn t(&self) -> bool {
+    fn t(self) -> bool {
         true
     }
 
-    fn f(&self) -> bool {
+    fn f(self) -> bool {
         false
     }
 
-    fn hi(&self) -> bool {
+    fn hi(self) -> bool {
         !self.c && !self.v
     }
 
-    fn ls(&self) -> bool {
+    fn ls(self) -> bool {
         self.c || self.v
     }
 
-    fn cc(&self) -> bool {
+    fn cc(self) -> bool {
         !self.c
     }
 
-    fn cs(&self) -> bool {
+    fn cs(self) -> bool {
         self.c
     }
 
-    fn ne(&self) -> bool {
+    fn ne(self) -> bool {
         !self.z
     }
 
-    fn eq(&self) -> bool {
+    fn eq(self) -> bool {
         self.z
     }
 
-    fn vc(&self) -> bool {
+    fn vc(self) -> bool {
         !self.v
     }
 
-    fn vs(&self) -> bool {
+    fn vs(self) -> bool {
         self.v
     }
 
-    fn pl(&self) -> bool {
+    fn pl(self) -> bool {
         !self.n
     }
 
-    fn mi(&self) -> bool {
+    fn mi(self) -> bool {
         self.n
     }
 
-    fn ge(&self) -> bool {
+    fn ge(self) -> bool {
         self.n && self.v || !self.n && !self.v
     }
 
-    fn lt(&self) -> bool {
+    fn lt(self) -> bool {
         self.n && !self.v || !self.n && self.v
     }
 
-    fn gt(&self) -> bool {
+    fn gt(self) -> bool {
         self.n && self.v && !self.z || !self.n && !self.v && !self.z
     }
 
-    fn le(&self) -> bool {
+    fn le(self) -> bool {
         self.z || self.n && !self.v || !self.n && self.v
     }
 
-    pub const CONDITIONS: [fn(&Self) -> bool; 16] = [
+    pub const CONDITIONS: [fn(Self) -> bool; 16] = [
         Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];
@@ -109,15 +109,67 @@ impl Default for StatusRegister {
 impl From<u16> for StatusRegister {
     fn from(sr: u16) -> Self {
         Self {
-            t: sr & 0x8000 != 0,
-            s: sr & 0x2000 != 0,
+            t: bits(sr, 15, 15) != 0,
+            s: bits(sr, 13, 13) != 0,
             interrupt_mask: bits(sr, 8, 10) as u8,
-            x: sr & 0x0010 != 0,
-            n: sr & 0x0008 != 0,
-            z: sr & 0x0004 != 0,
-            v: sr & 0x0002 != 0,
-            c: sr & 0x0001 != 0,
+            x: bits(sr, 4, 4) != 0,
+            n: bits(sr, 3, 3) != 0,
+            z: bits(sr, 2, 2) != 0,
+            v: bits(sr, 1, 1) != 0,
+            c: bits(sr, 0, 0) != 0,
         }
+    }
+}
+
+impl Into<u16> for StatusRegister {
+    fn into(self) -> u16 {
+        (self.t as u16) << 15 |
+        (self.s as u16) << 13 |
+        (self.interrupt_mask as u16) << 8 |
+        (self.x as u16) << 4 |
+        (self.n as u16) << 3 |
+        (self.z as u16) << 2 |
+        (self.v as u16) << 1 |
+        (self.c as u16)
+    }
+}
+
+impl std::ops::BitAndAssign<u16> for StatusRegister {
+    fn bitand_assign(&mut self, rhs: u16) {
+        self.t = self.t && bits(rhs, 15, 15) != 0;
+        self.s = self.s && bits(rhs, 13, 13) != 0;
+        self.interrupt_mask &= bits(rhs, 8, 10) as u8;
+        self.x = self.x && bits(rhs, 4, 4) != 0;
+        self.n = self.n && bits(rhs, 3, 3) != 0;
+        self.z = self.z && bits(rhs, 2, 2) != 0;
+        self.v = self.v && bits(rhs, 1, 1) != 0;
+        self.c = self.c && bits(rhs, 0, 0) != 0;
+    }
+}
+
+impl std::ops::BitOrAssign<u16> for StatusRegister {
+    fn bitor_assign(&mut self, rhs: u16) {
+        self.t = self.t || bits(rhs, 15, 15) != 0;
+        self.s = self.s || bits(rhs, 13, 13) != 0;
+        self.interrupt_mask |= bits(rhs, 8, 10) as u8;
+        self.x = self.x || bits(rhs, 4, 4) != 0;
+        self.n = self.n || bits(rhs, 3, 3) != 0;
+        self.z = self.z || bits(rhs, 2, 2) != 0;
+        self.v = self.v || bits(rhs, 1, 1) != 0;
+        self.c = self.c || bits(rhs, 0, 0) != 0;
+    }
+}
+
+impl std::ops::BitXorAssign<u16> for StatusRegister {
+    fn bitxor_assign(&mut self, rhs: u16) {
+        self.t = (self.t as u16 ^ bits(rhs, 15, 15)) != 0;
+        self.s = (self.s as u16 ^ bits(rhs, 13, 13)) != 0;
+        self.interrupt_mask ^= bits(rhs, 8, 10) as u8;
+        self.x = (self.x as u16 ^ bits(rhs, 4, 4)) != 0;
+        self.n = (self.n as u16 ^ bits(rhs, 3, 3)) != 0;
+        self.z = (self.z as u16 ^ bits(rhs, 2, 2)) != 0;
+        self.v = (self.v as u16 ^ bits(rhs, 1, 1)) != 0;
+        self.c = (self.c as u16 ^ bits(rhs, 0, 0)) != 0;
     }
 }
 

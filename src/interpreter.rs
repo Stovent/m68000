@@ -1,7 +1,7 @@
-use super::{M68000, MemoryAccess};
+use super::{M68000, MemoryAccess, SR_UPPER_MASK, CCR_MASK, SR_MASK};
 use super::decoder::DECODER;
 use super::instruction::Instruction;
-use super::operands::Operands;
+use super::operands::{Direction, Operands};
 use super::status_register::StatusRegister;
 
 impl<M: MemoryAccess> M68000<M> {
@@ -23,12 +23,12 @@ impl<M: MemoryAccess> M68000<M> {
         };
 
         #[cfg(debug_assertions)]
-        println!("{}", (entry.disassemble)(&instruction));
+        println!("{:#X} {}", pc, (entry.disassemble)(&instruction));
 
         (entry.execute)(self, &instruction);
     }
 
-    pub(super) fn unknown_instruction(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn unknown_instruction(&mut self, _: &Instruction) -> usize {
         0
     }
 
@@ -65,11 +65,20 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn andiccr(&mut self, inst: &Instruction) -> usize {
-        0
+        let imm = inst.operands.immediate();
+        self.sr &= SR_UPPER_MASK | imm & CCR_MASK;
+        1
     }
 
     pub(super) fn andisr(&mut self, inst: &Instruction) -> usize {
-        0
+        if self.sr.s {
+            let imm = inst.operands.immediate();
+            self.sr &= imm & SR_MASK;
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn asm(&mut self, inst: &Instruction) -> usize {
@@ -81,14 +90,8 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn bcc(&mut self, inst: &Instruction) -> usize {
-        let (condition, mut displacement) = match inst.operands {
-            Operands::ConditionDisplacement(c, d) => (c, d as i16),
-            _ => panic!("Wrong operands enum for Bcc"),
-        };
-        if displacement == 0 {
-            displacement = self.get_next_word() as i16;
-        }
-        if StatusRegister::CONDITIONS[condition as usize](&self.sr) {
+        let (condition, displacement) = inst.operands.condition_displacement();
+        if StatusRegister::CONDITIONS[condition as usize](self.sr) {
             self.pc = inst.pc + 2 + displacement as u32;
         }
         1
@@ -103,7 +106,9 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn bra(&mut self, inst: &Instruction) -> usize {
-        0
+        let disp = inst.operands.displacement();
+        self.pc = inst.pc + 2 + disp as u32;
+        1
     }
 
     pub(super) fn bset(&mut self, inst: &Instruction) -> usize {
@@ -143,7 +148,17 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn dbcc(&mut self, inst: &Instruction) -> usize {
-        0
+        let (cc, reg, disp) = inst.operands.condition_register_disp();
+        if !StatusRegister::CONDITIONS[cc as usize](self.sr) {
+            let counter = self.d[reg as usize] as i16 - 1;
+            self.d[reg as usize] &= 0xFFFF_0000;
+            self.d[reg as usize] |= counter as u16 as u32;
+
+            if counter != -1 {
+                self.pc = inst.pc + 2 + disp as u32;
+            }
+        }
+        1
     }
 
     pub(super) fn divs(&mut self, inst: &Instruction) -> usize {
@@ -163,11 +178,20 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn eoriccr(&mut self, inst: &Instruction) -> usize {
-        0
+        let imm = inst.operands.immediate();
+        self.sr ^= imm & CCR_MASK;
+        1
     }
 
     pub(super) fn eorisr(&mut self, inst: &Instruction) -> usize {
-        0
+        if self.sr.s {
+            let imm = inst.operands.immediate();
+            self.sr ^= imm & SR_MASK;
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn exg(&mut self, inst: &Instruction) -> usize {
@@ -227,7 +251,18 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn moveusp(&mut self, inst: &Instruction) -> usize {
-        0
+        if self.sr.s {
+            let (d, reg) = inst.operands.direction_register();
+            if d == Direction::UspToRegister {
+                *self.a_mut(reg) = self.usp;
+            } else {
+                self.usp = self.a(reg);
+            }
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn movem(&mut self, inst: &Instruction) -> usize {
@@ -279,11 +314,20 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn oriccr(&mut self, inst: &Instruction) -> usize {
-        0
+        let imm = inst.operands.immediate();
+        self.sr |= imm & CCR_MASK;
+        1
     }
 
     pub(super) fn orisr(&mut self, inst: &Instruction) -> usize {
-        0
+        if self.sr.s {
+            let imm = inst.operands.immediate();
+            self.sr |= imm & SR_MASK;
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn pea(&mut self, inst: &Instruction) -> usize {
