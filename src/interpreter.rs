@@ -1,7 +1,7 @@
 use super::{M68000, MemoryAccess, SR_UPPER_MASK, CCR_MASK, SR_MASK};
 use super::decoder::DECODER;
 use super::instruction::Instruction;
-use super::operands::{Direction, Operands};
+use super::operands::{Direction, Size};
 use super::status_register::StatusRegister;
 
 impl<M: MemoryAccess> M68000<M> {
@@ -86,7 +86,61 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn asr(&mut self, inst: &Instruction) -> usize {
-        0
+        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.sr.v = false;
+        self.sr.c = false;
+
+        let shift_count = if mode == 1 {
+            (self.d[rot as usize] % 64) as u8
+        } else {
+            if rot == 0 { 8 } else { rot }
+        };
+
+        let (mut data, mask) = if size == Size::Byte {
+            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+        } else if size == Size::Word {
+            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+        } else {
+            (self.d[reg as usize], 0x8000_0000)
+        };
+
+        if dir == Direction::Left {
+            for _ in 0..shift_count {
+                let sign = data & mask;
+                data <<= 1;
+                self.sr.x = sign != 0;
+                self.sr.c = sign != 0;
+                if sign ^ data & mask != 0 {
+                    self.sr.v = true;
+                }
+            }
+        } else {
+            let sign = data & mask;
+            for _ in 0..shift_count {
+                let bit = data & 1;
+                data >>= 1;
+                data |= sign;
+                self.sr.x = bit != 0;
+                self.sr.c = bit != 0;
+            }
+        }
+
+        self.sr.n = data & mask != 0;
+
+        if size == Size::Byte {
+            self.d[reg as usize] &= 0xFFFF_FF00;
+            self.d[reg as usize] |= data & 0x0000_00FF;
+            self.sr.z = data & 0x0000_00FF == 0;
+        } else if size == Size::Word {
+            self.d[reg as usize] &= 0xFFFF_0000;
+            self.d[reg as usize] |= data & 0x0000_FFFF;
+            self.sr.z = data & 0x0000_FFFF == 0;
+        } else {
+            self.d[reg as usize] = data;
+            self.sr.z = data == 0;
+        }
+
+        1
     }
 
     pub(super) fn bcc(&mut self, inst: &Instruction) -> usize {
@@ -227,7 +281,60 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn lsr(&mut self, inst: &Instruction) -> usize {
-        0
+        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.sr.v = false;
+        self.sr.c = false;
+
+        let shift_count = if mode == 1 {
+            (self.d[rot as usize] % 64) as u8
+        } else {
+            if rot == 0 { 8 } else { rot }
+        };
+
+        let (mut data, mask) = if size == Size::Byte {
+            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+        } else if size == Size::Word {
+            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+        } else {
+            (self.d[reg as usize], 0x8000_0000)
+        };
+
+        if dir == Direction::Left {
+            for _ in 0..shift_count {
+                let sign = data & mask;
+                data <<= 1;
+                self.sr.x = sign != 0;
+                self.sr.c = sign != 0;
+                if sign ^ data & mask != 0 {
+                    self.sr.v = true;
+                }
+            }
+        } else {
+            for _ in 0..shift_count {
+                let bit = data & 1;
+                data >>= 1;
+                data &= !mask;
+                self.sr.x = bit != 0;
+                self.sr.c = bit != 0;
+            }
+        }
+
+        self.sr.n = data & mask != 0;
+
+        if size == Size::Byte {
+            self.d[reg as usize] &= 0xFFFF_FF00;
+            self.d[reg as usize] |= data & 0x0000_00FF;
+            self.sr.z = data & 0x0000_00FF == 0;
+        } else if size == Size::Word {
+            self.d[reg as usize] &= 0xFFFF_0000;
+            self.d[reg as usize] |= data & 0x0000_FFFF;
+            self.sr.z = data & 0x0000_FFFF == 0;
+        } else {
+            self.d[reg as usize] = data;
+            self.sr.z = data == 0;
+        }
+
+        1
     }
 
     pub(super) fn r#move(&mut self, inst: &Instruction) -> usize {
@@ -343,7 +450,60 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn ror(&mut self, inst: &Instruction) -> usize {
-        0
+        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.sr.v = false;
+        self.sr.c = false;
+
+        let shift_count = if mode == 1 {
+            (self.d[rot as usize] % 64) as u8
+        } else {
+            if rot == 0 { 8 } else { rot }
+        };
+
+        let (mut data, mask) = if size == Size::Byte {
+            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+        } else if size == Size::Word {
+            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+        } else {
+            (self.d[reg as usize], 0x8000_0000)
+        };
+
+        if dir == Direction::Left {
+            for _ in 0..shift_count {
+                let sign = data & mask;
+                data <<= 1;
+                if sign != 0 {
+                    data |= 1;
+                }
+                self.sr.c = sign != 0;
+            }
+        } else {
+            for _ in 0..shift_count {
+                let bit = data & 1;
+                data >>= 1;
+                if bit != 0 {
+                    data |= mask;
+                }
+                self.sr.c = bit != 0;
+            }
+        }
+
+        self.sr.n = data & mask != 0;
+
+        if size == Size::Byte {
+            self.d[reg as usize] &= 0xFFFF_FF00;
+            self.d[reg as usize] |= data & 0x0000_00FF;
+            self.sr.z = data & 0x0000_00FF == 0;
+        } else if size == Size::Word {
+            self.d[reg as usize] &= 0xFFFF_0000;
+            self.d[reg as usize] |= data & 0x0000_FFFF;
+            self.sr.z = data & 0x0000_FFFF == 0;
+        } else {
+            self.d[reg as usize] = data;
+            self.sr.z = data == 0;
+        }
+
+        1
     }
 
     pub(super) fn roxm(&mut self, inst: &Instruction) -> usize {
@@ -351,7 +511,62 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn roxr(&mut self, inst: &Instruction) -> usize {
-        0
+        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.sr.v = false;
+        self.sr.c = self.sr.x;
+
+        let shift_count = if mode == 1 {
+            (self.d[rot as usize] % 64) as u8
+        } else {
+            if rot == 0 { 8 } else { rot }
+        };
+
+        let (mut data, mask) = if size == Size::Byte {
+            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+        } else if size == Size::Word {
+            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+        } else {
+            (self.d[reg as usize], 0x8000_0000)
+        };
+
+        if dir == Direction::Left {
+            for _ in 0..shift_count {
+                let sign = data & mask;
+                data <<= 1;
+                if sign != 0 {
+                    data |= self.sr.x as u32;
+                }
+                self.sr.x = sign != 0;
+                self.sr.c = sign != 0;
+            }
+        } else {
+            for _ in 0..shift_count {
+                let bit = data & 1;
+                data >>= 1;
+                if self.sr.x != false {
+                    data |= mask;
+                }
+                self.sr.x = bit != 0;
+                self.sr.c = bit != 0;
+            }
+        }
+
+        self.sr.n = data & mask != 0;
+
+        if size == Size::Byte {
+            self.d[reg as usize] &= 0xFFFF_FF00;
+            self.d[reg as usize] |= data & 0x0000_00FF;
+            self.sr.z = data & 0x0000_00FF == 0;
+        } else if size == Size::Word {
+            self.d[reg as usize] &= 0xFFFF_0000;
+            self.d[reg as usize] |= data & 0x0000_FFFF;
+            self.sr.z = data & 0x0000_FFFF == 0;
+        } else {
+            self.d[reg as usize] = data;
+            self.sr.z = data == 0;
+        }
+
+        1
     }
 
     pub(super) fn rte(&mut self, inst: &Instruction) -> usize {

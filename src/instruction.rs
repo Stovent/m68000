@@ -17,21 +17,3 @@ pub(super) struct Instruction {
     /// The operands.
     pub operands: Operands,
 }
-
-impl<M: MemoryAccess> M68000<M> {
-    // pub(super) fn get_next_instruction(&mut self) -> Instruction {
-    //     let pc = self.pc;
-    //     let opcode = self.get_next_word();
-    //     let isa = DECODER[opcode as usize];
-    //     let entry = &Self::ISA_ENTRY[isa as usize];
-
-    //     let (operands, _) = (entry.decode)(isa, self.memory.iter(pc));
-
-    //     Instruction {
-    //         isa,
-    //         opcode,
-    //         pc,
-    //         operands,
-    //     }
-    // }
-}
