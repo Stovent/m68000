@@ -1,3 +1,5 @@
+//! This program is a test function that runs a M68000 test ROM.
+
 use m68000::{M68000, memory_access::{MemoryAccess, MemoryIter}};
 
 use std::fs::File;
@@ -5,7 +7,7 @@ use std::io::Read;
 
 const MB: usize = 1024 * 1024 * 5;
 
-pub struct Memory68070 {
+struct Memory68070 {
     pub ram: Box<[u8]>,
 }
 
@@ -27,7 +29,6 @@ impl MemoryAccess for Memory68070 {
 
     fn get_word(&mut self, addr: u32) -> u16 {
         let data = (self.get_byte(addr) as u16) << 8 | self.get_byte(addr + 1) as u16;
-        // println!("[get_word] get word {} {:#X} at {:#X}", data, data, addr);
         data
     }
 
@@ -54,7 +55,6 @@ impl MemoryAccess for Memory68070 {
     }
 }
 
-/// This program is a test function that runs a M68000 test ROM.
 fn main()
 {
     let mut  ram = Memory68070 { ram: vec![0; MB].into_boxed_slice() };
@@ -69,8 +69,8 @@ fn main()
     cpu.pc = pc;
     cpu.ssp = sp;
 
-    // Execute for 1000000 instructions (or more)
-    for _ in 0..1000_000_000 {
+    // Execute 1 000 000 000 instructions
+    for _ in 0..1_000_000_000 {
         cpu.interpreter();
     }
     // Check that the CPU loops at the correct end point

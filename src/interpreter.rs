@@ -16,7 +16,6 @@ impl<M: MemoryAccess> M68000<M> {
         self.pc += len as u32;
 
         let instruction = Instruction {
-            isa,
             opcode,
             pc,
             operands,
@@ -261,11 +260,16 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn jmp(&mut self, inst: &Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+        self.pc = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        1
     }
 
     pub(super) fn jsr(&mut self, inst: &Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+        self.push_long(self.pc);
+        self.pc = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        1
     }
 
     pub(super) fn lea(&mut self, inst: &Instruction) -> usize {
@@ -578,7 +582,8 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn rts(&mut self, inst: &Instruction) -> usize {
-        0
+        self.pc = self.pop_long();
+        1
     }
 
     pub(super) fn sbcd(&mut self, inst: &Instruction) -> usize {

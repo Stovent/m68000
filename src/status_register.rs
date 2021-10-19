@@ -1,5 +1,8 @@
+//! M68000 status register.
+
 use super::utils::bits;
 
+/// M68000 status register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StatusRegister {
     /// Trace
@@ -85,7 +88,7 @@ impl StatusRegister {
         self.z || self.n && !self.v || !self.n && self.v
     }
 
-    pub const CONDITIONS: [fn(Self) -> bool; 16] = [
+    pub(super) const CONDITIONS: [fn(Self) -> bool; 16] = [
         Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];

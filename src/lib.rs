@@ -1,5 +1,12 @@
 //! Motorola 68000 emulator.
 //!
+//! Applications creates their memory management system, implementing the
+//! [MemoryAccess](memory_access::MemoryAccess) trait, and passing it to the core.
+//!
+//! # Example
+//!
+//! For a basic example of how to use, see the [main.rs](https://github.com/Stovent/m68000/blob/master/src/main.rs) file in the repo.
+//!
 //! # TODO:
 //! - Exceptions.
 //! - Documentation.
@@ -25,6 +32,7 @@ const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
 const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
 
+/// A M68000 core.
 #[derive(Copy, Clone, Debug)]
 pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
@@ -38,6 +46,7 @@ pub struct M68000<M: MemoryAccess> {
 }
 
 impl<M: MemoryAccess> M68000<M> {
+    /// Creates a new M68000 core, with the given memory.
     pub fn new(memory: M) -> Self {
         Self {
             d: [0; 8],

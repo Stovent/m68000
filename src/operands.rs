@@ -1,3 +1,7 @@
+//! This module defines all the possible operands combinations used by the instructions.
+//! Its responsibility is only to retrive the operands and format them approprately.
+//! It is the interpreter's role to interpret the operand.
+
 use super::{M68000, MemoryAccess};
 use super::addressing_modes::EffectiveAddress;
 use super::decoder::DECODER;
@@ -54,17 +58,17 @@ pub enum Size {
 }
 
 impl Size {
-    // /// returns Word when self is Byte, self otherwise.
-    // ///
-    // /// This is used in addressing modes, where byte post/pre increment
-    // /// increments the register by 2 instead of 1.
-    // pub(super) fn as_word_long(self) -> Self {
-    //     if self == Self::Byte {
-    //         Self::Word
-    //     } else {
-    //         self
-    //     }
-    // }
+    /// returns Word when self is Byte, self otherwise.
+    ///
+    /// This is used in addressing modes, where byte post/pre increment
+    /// increments the register by 2 instead of 1.
+    pub(super) fn as_word_long(self) -> Self {
+        if self == Self::Byte {
+            Self::Word
+        } else {
+            self
+        }
+    }
 
     /// Creates a new size from a single size bit of the operand (like MOVEM).
     ///
@@ -458,7 +462,7 @@ impl<M: MemoryAccess> M68000<M> {
             memory.next().unwrap() as u32
         };
 
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
 
         (Operands::SizeEffectiveAddressImmediate(size, ea, imm), len)
@@ -474,7 +478,7 @@ impl<M: MemoryAccess> M68000<M> {
             memory.next().unwrap() as u8
         };
 
-        let mut ea = EffectiveAddress::new(opcode, None, memory);
+        let mut ea = EffectiveAddress::from_opcode(opcode, None, memory);
         ea.size = if ea.mode.drd() { Some(Size::Long) } else { Some(Size::Byte) };
         len += ea.ext.len();
 
@@ -496,7 +500,7 @@ impl<M: MemoryAccess> M68000<M> {
             None
         };
 
-        let ea = EffectiveAddress::new(opcode, size, memory);
+        let ea = EffectiveAddress::from_opcode(opcode, size, memory);
         len += ea.ext.len();
         (Operands::EffectiveAddress(ea), len)
     }
@@ -505,7 +509,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
         let size = Size::from(bits(opcode, 6, 7));
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
         (Operands::SizeEffectiveAddress(size, ea), len)
     }
@@ -522,7 +526,7 @@ impl<M: MemoryAccess> M68000<M> {
             Some(Size::Word)
         };
 
-        let ea = EffectiveAddress::new(opcode, size, memory);
+        let ea = EffectiveAddress::from_opcode(opcode, size, memory);
         len += ea.ext.len();
         (Operands::RegisterEffectiveAddress(reg, ea), len)
     }
@@ -542,7 +546,7 @@ impl<M: MemoryAccess> M68000<M> {
         let mut len = 0;
         let size = Size::from_move(bits(opcode, 12, 13));
         let areg = bits(opcode, 9, 11) as u8;
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
         (Operands::SizeRegisterEffectiveAddress(size, areg, ea), len)
     }
@@ -552,11 +556,8 @@ impl<M: MemoryAccess> M68000<M> {
         let mut len = 0;
         let size = Size::from_move(bits(opcode, 12, 13));
 
-        let src = EffectiveAddress::new(opcode, Some(size), memory);
-        len += src.ext.len();
-
-        let dst = EffectiveAddress::new_move(opcode, Some(size), memory);
-        len += dst.ext.len();
+        let (dst, src) = EffectiveAddress::from_move(opcode, Some(size), memory);
+        len += src.ext.len() + dst.ext.len();
 
         (Operands::SizeEffectiveAddressEffectiveAddress(size, dst, src), len)
     }
@@ -609,7 +610,7 @@ impl<M: MemoryAccess> M68000<M> {
         let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
         let size = Size::from_bit(bits(opcode, 6, 6));
 
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
 
         (Operands::DirectionSizeEffectiveAddressList(dir, size, ea, list), len)
@@ -621,7 +622,7 @@ impl<M: MemoryAccess> M68000<M> {
         let data = bits(opcode, 9, 11) as u8;
         let size = Size::from(bits(opcode, 6, 7));
 
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
 
         (Operands::DataSizeEffectiveAddress(data, size, ea), len)
@@ -632,7 +633,7 @@ impl<M: MemoryAccess> M68000<M> {
         let mut len = 0;
         let condition = bits(opcode, 8, 11) as u8;
 
-        let ea = EffectiveAddress::new(opcode, Some(Size::Byte), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(Size::Byte), memory);
         len += ea.ext.len();
 
         (Operands::ConditionEffectiveAddress(condition, ea), len)
@@ -683,7 +684,7 @@ impl<M: MemoryAccess> M68000<M> {
         let dir = if bits(opcode, 8, 8) != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
         let size = Size::from(bits(opcode, 6, 7));
 
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
 
         (Operands::RegisterDirectionSizeEffectiveAddress(reg, dir, size, ea), len)
@@ -695,7 +696,7 @@ impl<M: MemoryAccess> M68000<M> {
         let reg = bits(opcode, 9, 11) as u8;
         let size = Size::from_bit(bits(opcode, 8, 8));
 
-        let ea = EffectiveAddress::new(opcode, Some(size), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
         len += ea.ext.len();
 
         (Operands::RegisterSizeEffectiveAddress(reg, size, ea), len)
@@ -722,7 +723,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn direction_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
         let mut len = 0;
         let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
-        let ea = EffectiveAddress::new(opcode, Some(Size::Byte), memory);
+        let ea = EffectiveAddress::from_opcode(opcode, Some(Size::Byte), memory);
         len += ea.ext.len();
         (Operands::DirectionEffectiveAddress(dir, ea), len)
     }
