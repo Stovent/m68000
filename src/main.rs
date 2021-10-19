@@ -8,6 +8,7 @@ use std::io::Read;
 const MB: usize = 1024 * 1024 * 5;
 
 struct Memory68070 {
+    pub memory_swap: usize,
     pub ram: Box<[u8]>,
 }
 
@@ -28,8 +29,12 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn get_word(&mut self, addr: u32) -> u16 {
-        let data = (self.get_byte(addr) as u16) << 8 | self.get_byte(addr + 1) as u16;
-        data
+        if self.memory_swap < 4 {
+            self.memory_swap += 1;
+            (self.get_byte(addr + 0x40_0000) as u16) << 8 | self.get_byte(addr + 0x40_0001) as u16
+        } else {
+            (self.get_byte(addr) as u16) << 8 | self.get_byte(addr + 1) as u16
+        }
     }
 
     fn get_long(&mut self, addr: u32) -> u32 {
@@ -53,21 +58,20 @@ impl MemoryAccess for Memory68070 {
         self.set_word(addr, (value >> 16) as u16);
         self.set_word(addr + 2, value as u16);
     }
+
+    fn reset(&mut self) {}
 }
 
 fn main()
 {
-    let mut  ram = Memory68070 { ram: vec![0; MB].into_boxed_slice() };
+    let mut  ram = Memory68070 { memory_swap: 0, ram: vec![0; MB].into_boxed_slice() };
     let mut bios_file = File::open("cpudiag40.rom").expect("no cpudiag40.rom");
     match bios_file.read(&mut ram.ram[0x40_0000..]) {
         Ok(i) => println!("Successfully read {} bytes from cpudiag40.rom", i),
         Err(e) => panic!("Failed to read from cpudiag40.rom: {}", e),
     }
-    let sp = (ram.ram[0x40_0000] as u32) << 24 | (ram.ram[0x40_0001] as u32) << 16 | (ram.ram[0x40_0002] as u32) << 8 | ram.ram[0x40_0003] as u32;
-    let pc = (ram.ram[0x40_0004] as u32) << 24 | (ram.ram[0x40_0005] as u32) << 16 | (ram.ram[0x40_0006] as u32) << 8 | ram.ram[0x40_0007] as u32;
+
     let mut cpu = M68000::new(ram);
-    cpu.pc = pc;
-    cpu.ssp = sp;
 
     // Execute 1 000 000 000 instructions
     for _ in 0..1_000_000_000 {

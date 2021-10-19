@@ -22,7 +22,7 @@ pub mod isa;
 pub mod memory_access;
 // mod operand;
 mod operands;
-mod status_register;
+pub mod status_register;
 mod utils;
 
 use memory_access::MemoryAccess;
@@ -38,9 +38,9 @@ pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
     a_: [u32; 7],
     usp: u32,
-    pub ssp: u32,
+    ssp: u32,
     sr: StatusRegister,
-    pub pc: u32,
+    pc: u32,
 
     memory: M,
 }
@@ -48,7 +48,7 @@ pub struct M68000<M: MemoryAccess> {
 impl<M: MemoryAccess> M68000<M> {
     /// Creates a new M68000 core, with the given memory.
     pub fn new(memory: M) -> Self {
-        Self {
+        let mut cpu = Self {
             d: [0; 8],
             a_: [0; 7],
             usp: 0,
@@ -57,18 +57,34 @@ impl<M: MemoryAccess> M68000<M> {
             pc: 0,
 
             memory,
-        }
+        };
+
+        cpu.ssp = cpu.memory.get_long(0);
+        cpu.pc = cpu.memory.get_long(4);
+        cpu.sr.s = true;
+
+        cpu
+    }
+
+    /// Sets the lower 8-bits to the given register to the given value.
+    /// The higher 24-bits remains untouched.
+    fn d_byte(&mut self, reg: u8, value: u8) {
+        self.d[reg as usize] &= 0xFFFF_FF00;
+        self.d[reg as usize] |= value as u32;
+    }
+
+    /// Sets the lower 16-bits to the given register to the given value.
+    /// The higher 16-bits remains untouched.
+    fn d_word(&mut self, reg: u8, value: u16) {
+        self.d[reg as usize] &= 0xFFFF_0000;
+        self.d[reg as usize] |= value as u32;
     }
 
     fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
             self.a_[reg as usize]
         } else {
-            if self.sr.s {
-                self.ssp
-            } else {
-                self.usp
-            }
+            self.sp()
         }
     }
 
@@ -76,11 +92,23 @@ impl<M: MemoryAccess> M68000<M> {
         if reg < 7 {
             &mut self.a_[reg as usize]
         } else {
-            if self.sr.s {
-                &mut self.ssp
-            } else {
-                &mut self.usp
-            }
+            self.sp_mut()
+        }
+    }
+
+    fn sp(&self) -> u32 {
+        if self.sr.s {
+            self.ssp
+        } else {
+            self.usp
+        }
+    }
+
+    fn sp_mut(&mut self) -> &mut u32 {
+        if self.sr.s {
+            &mut self.ssp
+        } else {
+            &mut self.usp
         }
     }
 }

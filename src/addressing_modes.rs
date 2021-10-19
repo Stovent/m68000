@@ -175,26 +175,6 @@ impl EffectiveAddress {
         let dst = Self::new(mode, reg, size, memory);
         (dst, src)
     }
-
-    /// Generates an ARIWPo adressing mode.
-    pub(super) fn ariwpo(reg: u8, size: Option<Size>) -> Self {
-        Self {
-            mode: AddressingMode::Ariwpo,
-            reg,
-            size,
-            ext: Box::new([]),
-        }
-    }
-
-    /// Generates an ARIWPr adressing mode.
-    pub(super) fn ariwpr(reg: u8, size: Option<Size>) -> Self {
-        Self {
-            mode: AddressingMode::Ariwpr,
-            reg,
-            size,
-            ext: Box::new([]),
-        }
-    }
 }
 
 impl std::fmt::Display for EffectiveAddress {
@@ -301,7 +281,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     /// Address Register Indirect With POstincrement
-    fn ariwpo(&mut self, reg: u8, size: Size) -> u32 {
+    pub(super) fn ariwpo(&mut self, reg: u8, size: Size) -> u32 {
         let areg = self.a_mut(reg);
         let addr = *areg;
         *areg += if reg == 7 { size.as_word_long() } else { size } as u32;
@@ -309,7 +289,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     /// Address Register Indirect With PRedecrement
-    fn ariwpr(&mut self, reg: u8, size: Size) -> u32 {
+    pub(super) fn ariwpr(&mut self, reg: u8, size: Size) -> u32 {
         let areg = self.a_mut(reg);
         *areg -= if reg == 7 { size.as_word_long() } else { size } as u32;
         *areg

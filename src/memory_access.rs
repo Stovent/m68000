@@ -1,7 +1,6 @@
 //! Memory access-related traits and structs.
 
 use super::M68000;
-use super::addressing_modes::EffectiveAddress;
 use super::operands::Size;
 
 /// The trait to be implemented by the memory system that will be used by the core.
@@ -21,6 +20,9 @@ pub trait MemoryAccess {
     fn set_word(&mut self, addr: u32, value: u16);
     /// Stores the given 32-bits value at the given address, in big-endian format.
     fn set_long(&mut self, addr: u32, value: u32);
+
+    /// Calls when the CPU executes a RESET instruction.
+    fn reset(&mut self);
 }
 
 /// Iterator over 16-bits values in memory.
@@ -58,15 +60,19 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// Pushes the given 32-bits value on the stack.
     pub(super) fn push_long(&mut self, value: u32) {
-        let ea = EffectiveAddress::ariwpr(7, Some(Size::Long));
-        let addr = self.get_effective_address(&ea, 0).unwrap();
+        let addr = self.ariwpr(7, Size::Long);
         self.memory.set_long(addr, value);
+    }
+
+    /// Pops the 16-bits value from the stack.
+    pub(super) fn pop_word(&mut self) -> u16 {
+        let addr = self.ariwpo(7, Size::Word);
+        self.memory.get_word(addr)
     }
 
     /// Pops the 32-bits value from the stack.
     pub(super) fn pop_long(&mut self) -> u32 {
-        let ea = EffectiveAddress::ariwpo(7, Some(Size::Long));
-        let addr = self.get_effective_address(&ea, 0).unwrap();
+        let addr = self.ariwpo(7, Size::Long);
         self.memory.get_long(addr)
     }
 }
