@@ -92,6 +92,14 @@ impl StatusRegister {
         Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];
+
+    pub(super) fn set_ccr(&mut self, sr: u16) {
+        self.x = bits(sr, 4, 4) != 0;
+        self.n = bits(sr, 3, 3) != 0;
+        self.z = bits(sr, 2, 2) != 0;
+        self.v = bits(sr, 1, 1) != 0;
+        self.c = bits(sr, 0, 0) != 0;
+    }
 }
 
 impl Default for StatusRegister {

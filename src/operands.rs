@@ -97,22 +97,22 @@ impl Size {
         }
     }
 
-    // /// Returns true if it is Size::Byte, false otherwise.
-    // #[inline(always)]
-    // pub fn byte(self) -> bool {
-    //     self == Size::Byte
-    // }
+    /// Returns true if it is Size::Byte, false otherwise.
+    #[inline(always)]
+    pub fn byte(self) -> bool {
+        self == Self::Byte
+    }
 
-    // /// Returns true if it is Size::Word, false otherwise.
-    // #[inline(always)]
-    // pub fn word(self) -> bool {
-    //     self == Size::Word
-    // }
+    /// Returns true if it is Size::Word, false otherwise.
+    #[inline(always)]
+    pub fn word(self) -> bool {
+        self == Self::Word
+    }
 
     /// Returns true if it is Size::long, false otherwise.
     #[inline(always)]
     pub fn long(self) -> bool {
-        self == Size::Long
+        self == Self::Long
     }
 }
 

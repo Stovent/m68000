@@ -32,10 +32,10 @@ impl AddressingMode {
         self == Self::Drd
     }
 
-    // #[inline(always)]
-    // pub(super) fn ard(self) -> bool {
-    //     self == Self::Ard
-    // }
+    #[inline(always)]
+    pub(super) fn ard(self) -> bool {
+        self == Self::Ard
+    }
 
     // #[inline(always)]
     // pub(super) fn ari(self) -> bool {
@@ -62,10 +62,10 @@ impl AddressingMode {
     //     self == Self::Ariwi8
     // }
 
-    // #[inline(always)]
-    // pub(super) fn mode7(self) -> bool {
-    //     self == Self::Mode7
-    // }
+    #[inline(always)]
+    pub(super) fn mode7(self) -> bool {
+        self == Self::Mode7
+    }
 }
 
 impl From<u16> for AddressingMode {

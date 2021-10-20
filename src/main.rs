@@ -23,8 +23,10 @@ impl MemoryAccess for Memory68070 {
     fn get_byte(&mut self, addr: u32) -> u8 {
         if addr == 0x80002013 {
             0b0000_1100
-        } else {
+        } else if addr < 0x50_0000 {
             self.ram[addr as usize]
+        } else {
+            0
         }
     }
 
@@ -44,7 +46,7 @@ impl MemoryAccess for Memory68070 {
     fn set_byte(&mut self, addr: u32, value: u8) {
         if addr == 0x8000_2019 {
             print!("{}", value as char);
-        } else {
+        } else if addr < 0x50_0000 {
             self.ram[addr as usize] = value;
         }
     }

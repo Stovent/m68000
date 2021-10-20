@@ -1,7 +1,9 @@
 //! Memory access-related traits and structs.
 
 use super::M68000;
+use super::addressing_modes::EffectiveAddress;
 use super::operands::Size;
+use super::utils::SliceAs;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 pub trait MemoryAccess {
@@ -44,6 +46,74 @@ impl<'a> Iterator for MemoryIter<'a> {
 }
 
 impl<M: MemoryAccess> M68000<M> {
+    pub(super) fn get_byte(&mut self, ea: &EffectiveAddress, pc: u32) -> u8 {
+        if ea.mode.drd() {
+            self.d[ea.reg as usize] as u8
+        } else if ea.mode.mode7() && ea.reg == 4 {
+            ea.ext.u16_be() as u8
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.get_byte(addr)
+        }
+    }
+
+    pub(super) fn get_word(&mut self, ea: &EffectiveAddress, pc: u32) -> u16 {
+        if ea.mode.drd() {
+            self.d[ea.reg as usize] as u16
+        } else if ea.mode.ard() {
+            self.a(ea.reg) as u16
+        } else if ea.mode.mode7() && ea.reg == 4 {
+            ea.ext.u16_be()
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.get_word(addr)
+        }
+    }
+
+    pub(super) fn get_long(&mut self, ea: &EffectiveAddress, pc: u32) -> u32 {
+        if ea.mode.drd() {
+            self.d[ea.reg as usize]
+        } else if ea.mode.ard() {
+            self.a(ea.reg)
+        } else if ea.mode.mode7() && ea.reg == 4 {
+            ea.ext.u32_be()
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.get_long(addr)
+        }
+    }
+
+    pub(super) fn set_byte(&mut self, ea: &EffectiveAddress, pc: u32, value: u8) {
+        if ea.mode.drd() {
+            self.d_byte(ea.reg, value);
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.set_byte(addr, value);
+        }
+    }
+
+    pub(super) fn set_word(&mut self, ea: &EffectiveAddress, pc: u32, value: u16) {
+        if ea.mode.drd() {
+            self.d_word(ea.reg, value);
+        } else if ea.mode.ard() {
+            *self.a_mut(ea.reg) = value as i16 as u32;
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.set_word(addr, value);
+        }
+    }
+
+    pub(super) fn set_long(&mut self, ea: &EffectiveAddress, pc: u32, value: u32) {
+        if ea.mode.drd() {
+            self.d[ea.reg as usize] = value;
+        } else if ea.mode.ard() {
+            *self.a_mut(ea.reg) = value;
+        } else {
+            let addr = self.get_effective_address(ea, pc).unwrap();
+            self.memory.set_long(addr, value);
+        }
+    }
+
     pub(super) fn get_next_word(&mut self) -> u16 {
         let data = self.memory.get_word(self.pc);
         // println!("[get_next_word] read {} {:#X} at {:#X}", data, data, self.pc);
@@ -58,12 +128,6 @@ impl<M: MemoryAccess> M68000<M> {
     //     data
     // }
 
-    /// Pushes the given 32-bits value on the stack.
-    pub(super) fn push_long(&mut self, value: u32) {
-        let addr = self.ariwpr(7, Size::Long);
-        self.memory.set_long(addr, value);
-    }
-
     /// Pops the 16-bits value from the stack.
     pub(super) fn pop_word(&mut self) -> u16 {
         let addr = self.ariwpo(7, Size::Word);
@@ -74,5 +138,11 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn pop_long(&mut self) -> u32 {
         let addr = self.ariwpo(7, Size::Long);
         self.memory.get_long(addr)
+    }
+
+    /// Pushes the given 32-bits value on the stack.
+    pub(super) fn push_long(&mut self, value: u32) {
+        let addr = self.ariwpr(7, Size::Long);
+        self.memory.set_long(addr, value);
     }
 }

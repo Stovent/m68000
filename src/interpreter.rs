@@ -66,14 +66,16 @@ impl<M: MemoryAccess> M68000<M> {
 
     pub(super) fn andiccr(&mut self, inst: &Instruction) -> usize {
         let imm = inst.operands.immediate();
-        self.sr &= SR_UPPER_MASK | imm & CCR_MASK;
+
+        self.sr &= SR_UPPER_MASK | imm;
+
         1
     }
 
     pub(super) fn andisr(&mut self, inst: &Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
-            self.sr &= imm & SR_MASK;
+            self.sr &= imm;
             1
         } else {
             // TODO: trap
@@ -243,7 +245,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn eoriccr(&mut self, inst: &Instruction) -> usize {
         let imm = inst.operands.immediate();
 
-        self.sr ^= imm & CCR_MASK;
+        self.sr ^= imm;
 
         1
     }
@@ -251,7 +253,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn eorisr(&mut self, inst: &Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
-            self.sr ^= imm & SR_MASK;
+            self.sr ^= imm;
             1
         } else {
             // TODO: trap
@@ -318,7 +320,11 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn lea(&mut self, inst: &Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        *self.a_mut(reg) = self.get_effective_address(ea, inst.pc + 2).unwrap();
+
+        1
     }
 
     pub(super) fn link(&mut self, inst: &Instruction) -> usize {
@@ -391,23 +397,61 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn r#move(&mut self, inst: &Instruction) -> usize {
-        0
+        let (size, dst, src) = inst.operands.size_effective_address_effective_address();
+
+        if size.byte() {
+            let d = self.get_byte(src, inst.pc + 2);
+            self.set_byte(dst, inst.pc + 2, d);
+        } else if size.word() {
+            let d = self.get_word(src, inst.pc + 2);
+            self.set_word(dst, inst.pc + 2, d);
+        } else {
+            let d = self.get_long(src, inst.pc + 2);
+            self.set_long(dst, inst.pc + 2, d);
+        }
+
+        1
     }
 
     pub(super) fn movea(&mut self, inst: &Instruction) -> usize {
-        0
+        let (size, reg, ea) = inst.operands.size_register_effective_address();
+
+        *self.a_mut(reg) = if size.word() {
+            self.get_word(ea, inst.pc + 2) as i16 as u32
+        } else {
+            self.get_long(ea, inst.pc + 2)
+        };
+
+        1
     }
 
     pub(super) fn moveccr(&mut self, inst: &Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+
+        let ccr = self.get_word(ea, inst.pc + 2);
+        self.sr.set_ccr(ccr);
+
+        1
     }
 
     pub(super) fn movefsr(&mut self, inst: &Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+
+        self.set_word(ea, inst.pc + 2, self.sr.into());
+
+        1
     }
 
     pub(super) fn movesr(&mut self, inst: &Instruction) -> usize {
-        0
+        if self.sr.s {
+            let ea = inst.operands.effective_address();
+            let sr = self.get_word(ea, inst.pc + 2);
+            self.sr = sr.into();
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn moveusp(&mut self, inst: &Instruction) -> usize {
@@ -434,7 +478,11 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn moveq(&mut self, inst: &Instruction) -> usize {
-        0
+        let (reg, data) = inst.operands.register_data();
+
+        self.d[reg as usize] = data as u32;
+
+        1
     }
 
     pub(super) fn muls(&mut self, inst: &Instruction) -> usize {
@@ -475,14 +523,16 @@ impl<M: MemoryAccess> M68000<M> {
 
     pub(super) fn oriccr(&mut self, inst: &Instruction) -> usize {
         let imm = inst.operands.immediate();
-        self.sr |= imm & CCR_MASK;
+
+        self.sr |= imm;
+
         1
     }
 
     pub(super) fn orisr(&mut self, inst: &Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
-            self.sr |= imm & SR_MASK;
+            self.sr |= imm;
             1
         } else {
             // TODO: trap
@@ -491,7 +541,12 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn pea(&mut self, inst: &Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+
+        let addr = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        self.push_long(addr);
+
+        1
     }
 
     pub(super) fn reset(&mut self, _: &Instruction) -> usize {
