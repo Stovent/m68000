@@ -1,4 +1,4 @@
-use super::{M68000, MemoryAccess, SR_UPPER_MASK, CCR_MASK, SR_MASK};
+use super::{M68000, MemoryAccess, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
 use super::instruction::Instruction;
 use super::operands::{Direction, Size};
@@ -178,7 +178,7 @@ impl<M: MemoryAccess> M68000<M> {
         let disp = inst.operands.displacement();
 
         self.push_long(self.pc);
-        self.pc += disp as u32;
+        self.pc = inst.pc + 2 + disp as u32;
 
         1
     }
@@ -402,13 +402,22 @@ impl<M: MemoryAccess> M68000<M> {
         if size.byte() {
             let d = self.get_byte(src, inst.pc + 2);
             self.set_byte(dst, inst.pc + 2, d);
+            self.sr.n = d & 0x80 != 0;
+            self.sr.z = d == 0;
         } else if size.word() {
             let d = self.get_word(src, inst.pc + 2);
             self.set_word(dst, inst.pc + 2, d);
+            self.sr.n = d & 0x8000 != 0;
+            self.sr.z = d == 0;
         } else {
             let d = self.get_long(src, inst.pc + 2);
             self.set_long(dst, inst.pc + 2, d);
+            self.sr.n = d & 0x8000_0000 != 0;
+            self.sr.z = d == 0;
         }
+
+        self.sr.v = false;
+        self.sr.c = false;
 
         1
     }
@@ -481,6 +490,11 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, data) = inst.operands.register_data();
 
         self.d[reg as usize] = data as u32;
+
+        self.sr.n = data <  0;
+        self.sr.z = data == 0;
+        self.sr.v = false;
+        self.sr.c = false;
 
         1
     }

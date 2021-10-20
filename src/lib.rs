@@ -30,7 +30,7 @@ use status_register::StatusRegister;
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
-const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
+// const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
 
 /// A M68000 core.
 #[derive(Copy, Clone, Debug)]
