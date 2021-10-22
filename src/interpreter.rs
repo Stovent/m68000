@@ -328,11 +328,64 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn cmp(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, _, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let src = self.get_byte(ea) as i8;
+            let dst = self.d[reg as usize] as i8;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else if size.word() {
+            let src = self.get_word(ea) as i16;
+            let dst = self.d[reg as usize] as i16;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else {
+            let src = self.get_long(ea) as i32;
+            let dst = self.d[reg as usize] as i32;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        }
+
+        1
     }
 
     pub(super) fn cmpa(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, size, ea) = inst.operands.register_size_effective_address();
+
+        let src = if size.word() {
+            self.get_word(ea) as i16 as i32
+        } else {
+            self.get_long(ea) as i32
+        };
+
+        let (res, v) = (self.a(reg) as i32).overflowing_sub(src);
+        let (_, c) = (self.a(reg) as i32).borrowing_sub(src, false);
+
+        self.sr.n = res < 0;
+        self.sr.z = res == 0;
+        self.sr.v = v;
+        self.sr.c = c;
+
+        1
     }
 
     pub(super) fn cmpi(&mut self, inst: &mut Instruction) -> usize {
@@ -371,7 +424,50 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn cmpm(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (ax, size, ay) = inst.operands.register_size_register();
+
+        if size.byte() {
+            let ay = self.ariwpo(ay, size);
+            let ax = self.ariwpo(ax, size);
+            let src = self.memory.get_byte(ay) as i8;
+            let dst = self.memory.get_byte(ax) as i8;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else if size.word() {
+            let ay = self.ariwpo(ay, size);
+            let ax = self.ariwpo(ax, size);
+            let src = self.memory.get_word(ay) as i16;
+            let dst = self.memory.get_word(ax) as i16;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else {
+            let ay = self.ariwpo(ay, size);
+            let ax = self.ariwpo(ax, size);
+            let src = self.memory.get_long(ay) as i32;
+            let dst = self.memory.get_long(ax) as i32;
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        }
+
+        1
     }
 
     pub(super) fn dbcc(&mut self, inst: &mut Instruction) -> usize {
