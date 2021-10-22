@@ -87,7 +87,48 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn addq(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (imm, size, ea) = inst.operands.data_size_effective_address();
+
+        if size.byte() {
+            let data = self.get_byte(ea) as i8;
+            let (res, v) = data.overflowing_add(imm as i8);
+            let (_, c) = data.carrying_add(imm as i8, false);
+            self.set_byte(ea, res as u8);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else if size.word() {
+            let data = self.get_word(ea) as i16;
+            let (res, v) = data.overflowing_add(imm as i16);
+            let (_, c) = data.carrying_add(imm as i16, false);
+            self.set_word(ea, res as u16);
+
+            if !ea.mode.ard() {
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                self.sr.z = res == 0;
+                self.sr.v = v;
+                self.sr.c = c;
+            }
+        } else {
+            let data = self.get_long(ea) as i32;
+            let (res, v) = data.overflowing_add(imm as i32);
+            let (_, c) = data.carrying_add(imm as i32, false);
+            self.set_long(ea, res as u32);
+
+            if !ea.mode.ard() {
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                self.sr.z = res == 0;
+                self.sr.v = v;
+                self.sr.c = c;
+            }
+        }
+
+        1
     }
 
     pub(super) fn addx(&mut self, inst: &mut Instruction) -> usize {
@@ -1106,7 +1147,48 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn subq(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (imm, size, ea) = inst.operands.data_size_effective_address();
+
+        if size.byte() {
+            let data = self.get_byte(ea) as i8;
+            let (res, v) = data.overflowing_sub(imm as i8);
+            let (_, c) = data.borrowing_sub(imm as i8, false);
+            self.set_byte(ea, res as u8);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+        } else if size.word() {
+            let data = self.get_word(ea) as i16;
+            let (res, v) = data.overflowing_sub(imm as i16);
+            let (_, c) = data.borrowing_sub(imm as i16, false);
+            self.set_word(ea, res as u16);
+
+            if !ea.mode.ard() {
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                self.sr.z = res == 0;
+                self.sr.v = v;
+                self.sr.c = c;
+            }
+        } else {
+            let data = self.get_long(ea) as i32;
+            let (res, v) = data.overflowing_sub(imm as i32);
+            let (_, c) = data.borrowing_sub(imm as i32, false);
+            self.set_long(ea, res as u32);
+
+            if !ea.mode.ard() {
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                self.sr.z = res == 0;
+                self.sr.v = v;
+                self.sr.c = c;
+            }
+        }
+
+        1
     }
 
     pub(super) fn subx(&mut self, inst: &mut Instruction) -> usize {

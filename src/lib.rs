@@ -13,6 +13,8 @@
 //! - Calculation times.
 //! - Read-Modify-Write cycles to only have get/set_word.
 
+#![feature(bigint_helper_methods)]
+
 mod addressing_modes;
 mod decoder;
 mod disassembler;
