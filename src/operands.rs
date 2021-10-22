@@ -214,40 +214,40 @@ impl Operands {
     }
 
     /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
-    pub fn size_effective_address_immediate(&self) -> (Size, &EffectiveAddress, u32) {
-        match self {
+    pub fn size_effective_address_immediate(&mut self) -> (Size, &mut EffectiveAddress, u32) {
+        match &mut *self {
             Self::SizeEffectiveAddressImmediate(s, e, i) => (*s, e, *i),
             _ => panic!("[Operands::size_effective_address_immediate]"),
         }
     }
 
     /// BCHG, BCLR, BSET, BTST
-    pub fn effective_address_count(&self) -> (&EffectiveAddress, u8) {
-        match self {
+    pub fn effective_address_count(&mut self) -> (&mut EffectiveAddress, u8) {
+        match &mut *self {
             Self::EffectiveAddressCount(e, c) => (e, *c),
             _ => panic!("[Operands::effective_address_count]"),
         }
     }
 
     /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
-    pub fn effective_address(&self) -> &EffectiveAddress {
-        match self {
+    pub fn effective_address(&mut self) -> &mut EffectiveAddress {
+        match &mut *self {
             Self::EffectiveAddress(e) => e,
             _ => panic!("[Operands::effective_address]"),
         }
     }
 
     /// CLR, NEG, NEGX, NOT, TST
-    pub fn size_effective_address(&self) -> (Size, &EffectiveAddress) {
-        match self {
+    pub fn size_effective_address(&mut self) -> (Size, &mut EffectiveAddress) {
+        match &mut *self {
             Self::SizeEffectiveAddress(s, e) => (*s, e),
             _ => panic!("[Operands::size_effective_address]"),
         }
     }
 
     /// CHK, DIVS, DIVU, LEA, MULS, MULU
-    pub fn register_effective_address(&self) -> (u8, &EffectiveAddress) {
-        match self {
+    pub fn register_effective_address(&mut self) -> (u8, &mut EffectiveAddress) {
+        match &mut *self {
             Self::RegisterEffectiveAddress(r, e) => (*r, e),
             _ => panic!("[Operands::register_effective_address]"),
         }
@@ -262,16 +262,16 @@ impl Operands {
     }
 
     /// MOVEA
-    pub fn size_register_effective_address(&self) -> (Size, u8, &EffectiveAddress) {
-        match self {
+    pub fn size_register_effective_address(&mut self) -> (Size, u8, &mut EffectiveAddress) {
+        match &mut *self {
             Self::SizeRegisterEffectiveAddress(s, r, e) => (*s, *r, e),
             _ => panic!("[Operands::size_register_effective_address]"),
         }
     }
 
     /// MOVE
-    pub fn size_effective_address_effective_address(&self) -> (Size, &EffectiveAddress, &EffectiveAddress) {
-        match self {
+    pub fn size_effective_address_effective_address(&mut self) -> (Size, &mut EffectiveAddress, &mut EffectiveAddress) {
+        match &mut *self {
             Self::SizeEffectiveAddressEffectiveAddress(s, e, ee) => (*s, e, ee),
             _ => panic!("[Operands::size_effective_address_effective_address]"),
         }
@@ -326,24 +326,24 @@ impl Operands {
     }
 
     /// MOVEM
-    pub fn direction_size_effective_address_list(&self) -> (Direction, Size, &EffectiveAddress, u16) {
-        match self {
+    pub fn direction_size_effective_address_list(&mut self) -> (Direction, Size, &mut EffectiveAddress, u16) {
+        match &mut *self {
             Self::DirectionSizeEffectiveAddressList(d, s, e, l) => (*d, *s, e, *l),
             _ => panic!("[Operands::direction_size_effective_address_list]"),
         }
     }
 
     /// ADDQ, SUBQ
-    pub fn data_size_effective_address(&self) -> (u8, Size, &EffectiveAddress) {
-        match self {
+    pub fn data_size_effective_address(&mut self) -> (u8, Size, &mut EffectiveAddress) {
+        match &mut *self {
             Self::DataSizeEffectiveAddress(d, s, e) => (*d, *s, e),
             _ => panic!("[Operands::data_size_effective_address]"),
         }
     }
 
     /// Scc
-    pub fn condition_effective_address(&self) -> (u8, &EffectiveAddress) {
-        match self {
+    pub fn condition_effective_address(&mut self) -> (u8, &mut EffectiveAddress) {
+        match &mut *self {
             Self::ConditionEffectiveAddress(c, e) => (*c, e),
             _ => panic!("[Operands::condition_effective_address]"),
         }
@@ -382,16 +382,16 @@ impl Operands {
     }
 
     /// ADD, AND, CMP, EOR, OR, SUB
-    pub fn register_direction_size_effective_address(&self) -> (u8, Direction, Size, &EffectiveAddress) {
-        match self {
+    pub fn register_direction_size_effective_address(&mut self) -> (u8, Direction, Size, &mut EffectiveAddress) {
+        match &mut *self {
             Self::RegisterDirectionSizeEffectiveAddress(r, d, s, e) => (*r, *d, *s, e),
             _ => panic!("[Operands::register_direction_size_effective_address]"),
         }
     }
 
     /// ADDA, CMPA, SUBA
-    pub fn register_size_effective_address(&self) -> (u8, Size, &EffectiveAddress) {
-        match self {
+    pub fn register_size_effective_address(&mut self) -> (u8, Size, &mut EffectiveAddress) {
+        match &mut *self {
             Self::RegisterSizeEffectiveAddress(r, s, e) => (*r, *s, e),
             _ => panic!("[Operands::register_size_effective_address]"),
         }
@@ -414,8 +414,8 @@ impl Operands {
     }
 
     /// ASm, LSm, ROm, ROXm
-    pub fn direction_effective_address(&self) -> (Direction, &EffectiveAddress) {
-        match self {
+    pub fn direction_effective_address(&mut self) -> (Direction, &mut EffectiveAddress) {
+        match &mut *self {
             Self::DirectionEffectiveAddress(d, e) => (*d, e),
             _ => panic!("[Operands::direction_effective_address]"),
         }

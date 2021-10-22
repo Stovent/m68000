@@ -46,7 +46,7 @@ impl<'a> Iterator for MemoryIter<'a> {
 }
 
 impl<M: MemoryAccess> M68000<M> {
-    pub(super) fn get_byte(&mut self, ea: &EffectiveAddress, pc: u32) -> u8 {
+    pub(super) fn get_byte(&mut self, ea: &mut EffectiveAddress, pc: u32) -> u8 {
         if ea.mode.drd() {
             self.d[ea.reg as usize] as u8
         } else if ea.mode.mode7() && ea.reg == 4 {
@@ -57,7 +57,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn get_word(&mut self, ea: &EffectiveAddress, pc: u32) -> u16 {
+    pub(super) fn get_word(&mut self, ea: &mut EffectiveAddress, pc: u32) -> u16 {
         if ea.mode.drd() {
             self.d[ea.reg as usize] as u16
         } else if ea.mode.ard() {
@@ -70,7 +70,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn get_long(&mut self, ea: &EffectiveAddress, pc: u32) -> u32 {
+    pub(super) fn get_long(&mut self, ea: &mut EffectiveAddress, pc: u32) -> u32 {
         if ea.mode.drd() {
             self.d[ea.reg as usize]
         } else if ea.mode.ard() {
@@ -83,7 +83,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn set_byte(&mut self, ea: &EffectiveAddress, pc: u32, value: u8) {
+    pub(super) fn set_byte(&mut self, ea: &mut EffectiveAddress, pc: u32, value: u8) {
         if ea.mode.drd() {
             self.d_byte(ea.reg, value);
         } else {
@@ -92,7 +92,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn set_word(&mut self, ea: &EffectiveAddress, pc: u32, value: u16) {
+    pub(super) fn set_word(&mut self, ea: &mut EffectiveAddress, pc: u32, value: u16) {
         if ea.mode.drd() {
             self.d_word(ea.reg, value);
         } else if ea.mode.ard() {
@@ -103,7 +103,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn set_long(&mut self, ea: &EffectiveAddress, pc: u32, value: u32) {
+    pub(super) fn set_long(&mut self, ea: &mut EffectiveAddress, pc: u32, value: u32) {
         if ea.mode.drd() {
             self.d[ea.reg as usize] = value;
         } else if ea.mode.ard() {

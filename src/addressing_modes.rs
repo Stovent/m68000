@@ -91,8 +91,8 @@ pub(super) struct EffectiveAddress {
     pub mode: AddressingMode,
     /// The addressing register.
     pub reg: u8,
-    // /// The address of the operand. None if the value is not in memory.
-    // pub address: Option<u32>,
+    /// The address of the operand. None if the value is not in memory.
+    pub address: Option<u32>,
     /// The size of the data.
     pub size: Option<Size>,
     /// The extension words.
@@ -100,13 +100,6 @@ pub(super) struct EffectiveAddress {
 }
 
 impl EffectiveAddress {
-    // TODO: use the already obtained ext words and not reread them.
-    /// Loads the address from an existing effective address.
-    // pub(super) fn load_effective_address<M: MemoryAccess>(&mut self, cpu: &mut M68000<M>) {
-    //     let ea = cpu.get_effective_address(self.mode, self.reg, self.size);
-    //     self.address = ea.address;
-    // }
-
     /// New effective address with an empty `address` field, with mode and reg at the low 6 bits.
     pub(super) fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let ext: Box<[u8]> = match mode {
@@ -151,13 +144,13 @@ impl EffectiveAddress {
         Self {
             mode,
             reg,
-            // address: None,
+            address: None,
             size,
             ext,
         }
     }
 
-    /// New effective address with an empty `address` field, with mode and reg at the low 6 bits.
+    /// New effective address with mode and reg pulled from the standard opcodes locations (lower 6 bits).
     pub(super) fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
@@ -217,50 +210,53 @@ fn disassemble_index_register(bew: u16) -> String {
 }
 
 impl<M: MemoryAccess> M68000<M> {
-    /// Returns the address pointed to by an effective address field.
+    /// Calculates the value of the given effective address.
     ///
     /// `pc` must be the address of the instruction + 2.
     ///
-    /// Returns the address, or None if the addressing mode is not in memory.
-    pub(super) fn get_effective_address(&mut self, ea: &EffectiveAddress, pc: u32) -> Option<u32> {
-        let address = match ea.mode {
-            AddressingMode::Ari => Some(self.a(ea.reg)),
-            AddressingMode::Ariwpo => Some(self.ariwpo(ea.reg, ea.size.expect("ariwpo must have a size"))),
-            AddressingMode::Ariwpr => Some(self.ariwpr(ea.reg, ea.size.expect("ariwpr must have a size"))),
-            AddressingMode::Ariwd  => {
-                let a = self.a(ea.reg);
-                let disp = ea.ext.u16_be() as i16 as u32;
-                Some(a + disp)
-            },
-            AddressingMode::Ariwi8 => {
-                let a = self.a(ea.reg);
-                let bew = ea.ext.u16_be();
-                let disp = bew as i8 as u32;
-                Some(a + disp + self.get_index_register(bew))
-            },
-            AddressingMode::Mode7 => match ea.reg {
-                0 => {
-                    let a = ea.ext.u16_be() as i16 as u32;
-                    Some(a)
-                },
-                1 => {
-                    let a = ea.ext.u32_be();
-                    Some(a)
-                },
-                2 => {
+    /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
+    /// Otherwise the address is computed and assigned to `ea.address` and returned, or None if the addressing mode is not in memory.
+    pub(super) fn get_effective_address(&mut self, ea: &mut EffectiveAddress, pc: u32) -> Option<u32> {
+        if ea.address == None {
+            ea.address = match ea.mode {
+                AddressingMode::Ari => Some(self.a(ea.reg)),
+                AddressingMode::Ariwpo => Some(self.ariwpo(ea.reg, ea.size.expect("ariwpo must have a size"))),
+                AddressingMode::Ariwpr => Some(self.ariwpr(ea.reg, ea.size.expect("ariwpr must have a size"))),
+                AddressingMode::Ariwd  => {
+                    let a = self.a(ea.reg);
                     let disp = ea.ext.u16_be() as i16 as u32;
-                    Some(pc + disp)
+                    Some(a + disp)
                 },
-                3 => {
+                AddressingMode::Ariwi8 => {
+                    let a = self.a(ea.reg);
                     let bew = ea.ext.u16_be();
                     let disp = bew as i8 as u32;
-                    Some(pc + disp + self.get_index_register(bew))
+                    Some(a + disp + self.get_index_register(bew))
+                },
+                AddressingMode::Mode7 => match ea.reg {
+                    0 => {
+                        let a = ea.ext.u16_be() as i16 as u32;
+                        Some(a)
+                    },
+                    1 => {
+                        let a = ea.ext.u32_be();
+                        Some(a)
+                    },
+                    2 => {
+                        let disp = ea.ext.u16_be() as i16 as u32;
+                        Some(pc + disp)
+                    },
+                    3 => {
+                        let bew = ea.ext.u16_be();
+                        let disp = bew as i8 as u32;
+                        Some(pc + disp + self.get_index_register(bew))
+                    },
+                    _ => None,
                 },
                 _ => None,
-            },
-            _ => None,
-        };
-        address
+            };
+        }
+        ea.address
     }
 
     fn get_index_register(&self, bew: u16) -> u32 {

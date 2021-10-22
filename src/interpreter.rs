@@ -15,56 +15,56 @@ impl<M: MemoryAccess> M68000<M> {
         let (operands, len) = (entry.decode)(opcode, &mut iter);
         self.pc += len as u32;
 
-        let instruction = Instruction {
+        let mut instruction = Instruction {
             opcode,
             pc,
             operands,
         };
 
         #[cfg(debug_assertions)]
-        println!("{:#X} {}", pc, (entry.disassemble)(&instruction));
+        println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));
 
-        (entry.execute)(self, &instruction);
+        (entry.execute)(self, &mut instruction);
     }
 
-    pub(super) fn unknown_instruction(&mut self, _: &Instruction) -> usize {
+    pub(super) fn unknown_instruction(&mut self, _: &mut Instruction) -> usize {
         // TODO: trap
         0
     }
 
-    pub(super) fn abcd(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn abcd(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn add(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn add(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn adda(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn adda(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn addi(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn addi(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn addq(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn addq(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn addx(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn addx(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn and(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn and(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn andi(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn andi(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn andiccr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn andiccr(&mut self, inst: &mut Instruction) -> usize {
         let imm = inst.operands.immediate();
 
         self.sr &= SR_UPPER_MASK | imm;
@@ -72,7 +72,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn andisr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn andisr(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
             self.sr &= imm;
@@ -83,11 +83,11 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn asm(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn asm(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn asr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn asr(&mut self, inst: &mut Instruction) -> usize {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
         self.sr.v = false;
@@ -144,7 +144,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn bcc(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn bcc(&mut self, inst: &mut Instruction) -> usize {
         let (condition, displacement) = inst.operands.condition_displacement();
 
         if StatusRegister::CONDITIONS[condition as usize](self.sr) {
@@ -154,15 +154,43 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn bchg(&mut self, inst: &Instruction) -> usize {
-        0
+    pub(super) fn bchg(&mut self, inst: &mut Instruction) -> usize {
+        let (ea, mut count) = inst.operands.effective_address_count();
+
+        if ea.mode.drd() {
+            count %= 32;
+            self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
+            self.d[ea.reg as usize] ^= 1 << count;
+        } else {
+            count %= 8;
+            let mut data = self.get_byte(ea, inst.pc + 2);
+            self.sr.z = data & 1 << count == 0;
+            data ^= 1 << count;
+            self.set_byte(ea, inst.pc + 2, data);
+        }
+
+        1
     }
 
-    pub(super) fn bclr(&mut self, inst: &Instruction) -> usize {
-        0
+    pub(super) fn bclr(&mut self, inst: &mut Instruction) -> usize {
+        let (ea, mut count) = inst.operands.effective_address_count();
+
+        if ea.mode.drd() {
+            count %= 32;
+            self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
+            self.d[ea.reg as usize] &= !(1 << count);
+        } else {
+            count %= 8;
+            let mut data = self.get_byte(ea, inst.pc + 2);
+            self.sr.z = data & 1 << count == 0;
+            data &= !(1 << count);
+            self.set_byte(ea, inst.pc + 2, data);
+        }
+
+        1
     }
 
-    pub(super) fn bra(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn bra(&mut self, inst: &mut Instruction) -> usize {
         let disp = inst.operands.displacement();
 
         self.pc = inst.pc + 2 + disp as u32;
@@ -170,11 +198,25 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn bset(&mut self, inst: &Instruction) -> usize {
-        0
+    pub(super) fn bset(&mut self, inst: &mut Instruction) -> usize {
+        let (ea, mut count) = inst.operands.effective_address_count();
+
+        if ea.mode.drd() {
+            count %= 32;
+            self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
+            self.d[ea.reg as usize] |= 1 << count;
+        } else {
+            count %= 8;
+            let mut data = self.get_byte(ea, inst.pc + 2);
+            self.sr.z = data & 1 << count == 0;
+            data |= 1 << count;
+            self.set_byte(ea, inst.pc + 2, data);
+        }
+
+        1
     }
 
-    pub(super) fn bsr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn bsr(&mut self, inst: &mut Instruction) -> usize {
         let disp = inst.operands.displacement();
 
         self.push_long(self.pc);
@@ -183,35 +225,46 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn btst(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn btst(&mut self, inst: &mut Instruction) -> usize {
+        let (ea, mut count) = inst.operands.effective_address_count();
+
+        if ea.mode.drd() {
+            count %= 32;
+            self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
+        } else {
+            count %= 8;
+            let data = self.get_byte(ea, inst.pc + 2);
+            self.sr.z = data & 1 << count == 0;
+        }
+
+        1
+    }
+
+    pub(super) fn chk(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn chk(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn clr(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn clr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn cmp(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn cmp(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn cmpa(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn cmpa(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn cmpi(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn cmpi(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn cmpm(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn cmpm(&mut self, inst: &Instruction) -> usize {
-        0
-    }
-
-    pub(super) fn dbcc(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn dbcc(&mut self, inst: &mut Instruction) -> usize {
         let (cc, reg, disp) = inst.operands.condition_register_disp();
 
         if !StatusRegister::CONDITIONS[cc as usize](self.sr) {
@@ -226,23 +279,23 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn divs(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn divs(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn divu(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn divu(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn eor(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn eor(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn eori(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn eori(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn eoriccr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn eoriccr(&mut self, inst: &mut Instruction) -> usize {
         let imm = inst.operands.immediate();
 
         self.sr ^= imm;
@@ -250,7 +303,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn eorisr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn eorisr(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
             self.sr ^= imm;
@@ -261,7 +314,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn exg(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn exg(&mut self, inst: &mut Instruction) -> usize {
         let (rx, mode, ry) = inst.operands.register_opmode_register();
 
         if mode == 0b01000 {
@@ -280,7 +333,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn ext(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn ext(&mut self, inst: &mut Instruction) -> usize {
         let (mode, reg) = inst.operands.opmode_register();
 
         if mode == 0b010 {
@@ -298,11 +351,11 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn illegal(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn illegal(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn jmp(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn jmp(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
         self.pc = self.get_effective_address(ea, inst.pc + 2).unwrap();
@@ -310,7 +363,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn jsr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn jsr(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
         self.push_long(self.pc);
@@ -319,7 +372,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn lea(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn lea(&mut self, inst: &mut Instruction) -> usize {
         let (reg, ea) = inst.operands.register_effective_address();
 
         *self.a_mut(reg) = self.get_effective_address(ea, inst.pc + 2).unwrap();
@@ -327,7 +380,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn link(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn link(&mut self, inst: &mut Instruction) -> usize {
         let (reg, disp) = inst.operands.register_disp();
 
         self.push_long(self.a(reg));
@@ -337,11 +390,11 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn lsm(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn lsm(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn lsr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn lsr(&mut self, inst: &mut Instruction) -> usize {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
         self.sr.v = false;
@@ -396,7 +449,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn r#move(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn r#move(&mut self, inst: &mut Instruction) -> usize {
         let (size, dst, src) = inst.operands.size_effective_address_effective_address();
 
         if size.byte() {
@@ -422,7 +475,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn movea(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn movea(&mut self, inst: &mut Instruction) -> usize {
         let (size, reg, ea) = inst.operands.size_register_effective_address();
 
         *self.a_mut(reg) = if size.word() {
@@ -434,7 +487,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn moveccr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn moveccr(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
         let ccr = self.get_word(ea, inst.pc + 2);
@@ -443,7 +496,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn movefsr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn movefsr(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
         self.set_word(ea, inst.pc + 2, self.sr.into());
@@ -451,7 +504,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn movesr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn movesr(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let ea = inst.operands.effective_address();
             let sr = self.get_word(ea, inst.pc + 2);
@@ -463,7 +516,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn moveusp(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn moveusp(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let (d, reg) = inst.operands.direction_register();
             if d == Direction::UspToRegister {
@@ -478,15 +531,15 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn movem(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn movem(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn movep(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn movep(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn moveq(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn moveq(&mut self, inst: &mut Instruction) -> usize {
         let (reg, data) = inst.operands.register_data();
 
         self.d[reg as usize] = data as u32;
@@ -499,43 +552,43 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn muls(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn muls(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn mulu(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn mulu(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn nbcd(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn nbcd(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn neg(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn neg(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn negx(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn negx(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn nop(&mut self, _: &Instruction) -> usize {
+    pub(super) fn nop(&mut self, _: &mut Instruction) -> usize {
         1
     }
 
-    pub(super) fn not(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn not(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn or(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn or(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn ori(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn ori(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn oriccr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn oriccr(&mut self, inst: &mut Instruction) -> usize {
         let imm = inst.operands.immediate();
 
         self.sr |= imm;
@@ -543,7 +596,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn orisr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn orisr(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let imm = inst.operands.immediate();
             self.sr |= imm;
@@ -554,7 +607,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn pea(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn pea(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
         let addr = self.get_effective_address(ea, inst.pc + 2).unwrap();
@@ -563,7 +616,7 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn reset(&mut self, _: &Instruction) -> usize {
+    pub(super) fn reset(&mut self, _: &mut Instruction) -> usize {
         if self.sr.s {
             self.memory.reset();
             1
@@ -573,11 +626,11 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    pub(super) fn rom(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn rom(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn ror(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn ror(&mut self, inst: &mut Instruction) -> usize {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
         self.sr.v = false;
@@ -633,11 +686,11 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn roxm(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn roxm(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn roxr(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn roxr(&mut self, inst: &mut Instruction) -> usize {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
         self.sr.v = false;
@@ -693,11 +746,11 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn rte(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn rte(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn rtr(&mut self, _: &Instruction) -> usize {
+    pub(super) fn rtr(&mut self, _: &mut Instruction) -> usize {
         let ccr = self.pop_word();
         self.sr &= SR_UPPER_MASK;
         self.sr |= ccr & CCR_MASK;
@@ -706,45 +759,45 @@ impl<M: MemoryAccess> M68000<M> {
         0
     }
 
-    pub(super) fn rts(&mut self, _: &Instruction) -> usize {
+    pub(super) fn rts(&mut self, _: &mut Instruction) -> usize {
         self.pc = self.pop_long();
 
         1
     }
 
-    pub(super) fn sbcd(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn sbcd(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn scc(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn scc(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn stop(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn stop(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn sub(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn sub(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn suba(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn suba(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn subi(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn subi(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn subq(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn subq(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn subx(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn subx(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn swap(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn swap(&mut self, inst: &mut Instruction) -> usize {
         let reg = inst.operands.register();
 
         let high = self.d[reg as usize] >> 16;
@@ -759,23 +812,23 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn tas(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn tas(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn trap(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn trap(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn trapv(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn trapv(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn tst(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn tst(&mut self, inst: &mut Instruction) -> usize {
         0
     }
 
-    pub(super) fn unlk(&mut self, inst: &Instruction) -> usize {
+    pub(super) fn unlk(&mut self, inst: &mut Instruction) -> usize {
         let reg = inst.operands.register();
 
         *self.sp_mut() = self.a(reg);

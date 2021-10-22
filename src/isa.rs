@@ -101,9 +101,9 @@ pub(super) struct IsaEntry<M: MemoryAccess> {
     /// Function used to decode the instruction.
     pub decode: fn(u16, &mut MemoryIter) -> (Operands, usize),
     /// Function used to executing the instruction.
-    pub execute: fn(&mut M68000<M>, &Instruction) -> usize,
+    pub execute: fn(&mut M68000<M>, &mut Instruction) -> usize,
     /// Function used to diassemble the instruction.
-    pub disassemble: fn(&Instruction) -> String,
+    pub disassemble: fn(&mut Instruction) -> String,
 }
 
 impl<M: MemoryAccess> M68000<M> {
