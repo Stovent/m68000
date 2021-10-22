@@ -1033,7 +1033,19 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn tas(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+
+        let mut data = self.get_byte(ea);
+
+        self.sr.n = data & 0x80 != 0;
+        self.sr.z = data == 0;
+        self.sr.v = false;
+        self.sr.c = false;
+
+        data |= 0x80;
+        self.set_byte(ea, data);
+
+        1
     }
 
     pub(super) fn trap(&mut self, inst: &mut Instruction) -> usize {
@@ -1045,7 +1057,26 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn tst(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea) = inst.operands.size_effective_address();
+
+        if size.byte() {
+            let data = self.get_byte(ea);
+            self.sr.n = data & 0x80 != 0;
+            self.sr.z = data == 0;
+        } else if size.word() {
+            let data = self.get_word(ea);
+            self.sr.n = data & 0x8000 != 0;
+            self.sr.z = data == 0;
+        } else {
+            let data = self.get_long(ea);
+            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.z = data == 0;
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn unlk(&mut self, inst: &mut Instruction) -> usize {
