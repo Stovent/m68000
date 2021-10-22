@@ -91,6 +91,8 @@ pub(super) struct EffectiveAddress {
     pub mode: AddressingMode,
     /// The addressing register.
     pub reg: u8,
+    /// The address of the extension word.
+    pub pc: u32,
     /// The address of the operand. None if the value is not in memory.
     pub address: Option<u32>,
     /// The size of the data.
@@ -102,48 +104,56 @@ pub(super) struct EffectiveAddress {
 impl EffectiveAddress {
     /// New effective address with an empty `address` field, with mode and reg at the low 6 bits.
     pub(super) fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
-        let ext: Box<[u8]> = match mode {
-            AddressingMode::Ari => Box::new([]),
-            AddressingMode::Ariwpo => Box::new([]),
-            AddressingMode::Ariwpr => Box::new([]),
+        let (ext, pc): (Box<[u8]>, u32) = match mode {
+            AddressingMode::Ari => (Box::new([]), 0),
+            AddressingMode::Ariwpo => (Box::new([]), 0),
+            AddressingMode::Ariwpr => (Box::new([]), 0),
             AddressingMode::Ariwd  => {
-                Box::new(memory.next().unwrap().as_array_be())
+                let pc = memory.next_addr;
+                (Box::new(memory.next().unwrap().as_array_be()), pc)
             },
             AddressingMode::Ariwi8 => {
-                Box::new(memory.next().unwrap().as_array_be())
+                let pc = memory.next_addr;
+                (Box::new(memory.next().unwrap().as_array_be()), pc)
             },
             AddressingMode::Mode7 => match reg {
                 0 => {
-                    Box::new(memory.next().unwrap().as_array_be())
+                    let pc = memory.next_addr;
+                    (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 1 => {
+                    let pc = memory.next_addr;
                     let high = memory.next().unwrap();
                     let low = memory.next().unwrap();
-                    Box::new(((high as u32) << 16 | low as u32).as_array_be())
+                    (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                 },
                 2 => {
-                    Box::new(memory.next().unwrap().as_array_be())
+                    let pc = memory.next_addr;
+                    (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 3 => {
-                    Box::new(memory.next().unwrap().as_array_be())
+                    let pc = memory.next_addr;
+                    (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 4 => {
+                    let pc = memory.next_addr;
                     if size.unwrap().long() {
                         let high = memory.next().unwrap();
                         let low = memory.next().unwrap();
-                        Box::new(((high as u32) << 16 | low as u32).as_array_be())
+                        (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                     } else {
-                        Box::new(memory.next().unwrap().as_array_be())
+                        (Box::new(memory.next().unwrap().as_array_be()), pc)
                     }
                 },
-                _ => Box::new([]),
+                _ => (Box::new([]), 0),
             },
-            _ => Box::new([]),
+            _ => (Box::new([]), 0),
         };
 
         Self {
             mode,
             reg,
+            pc,
             address: None,
             size,
             ext,
@@ -184,7 +194,7 @@ impl std::fmt::Display for EffectiveAddress {
                 0 => write!(f, "({:#X}).W", self.ext.u16_be()),
                 1 => write!(f, "({:#X}).L", self.ext.u32_be()),
                 2 => write!(f, "({}, PC)", self.ext.u16_be() as i16),
-                3 => write!(f, "({}, PC, {}", self.ext[1] as i8, disassemble_index_register(self.ext.u16_be())),
+                3 => write!(f, "({}, PC, {})", self.ext[1] as i8, disassemble_index_register(self.ext.u16_be())),
                 4 => write!(f, "#{}", self.ext.i32_be_sized(self.size.expect("No associated size with immediate operand"))),
                 _ => write!(f, "Unknown addressing mode {} reg {}", self.mode as usize, self.reg),
             },
@@ -216,7 +226,7 @@ impl<M: MemoryAccess> M68000<M> {
     ///
     /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
     /// Otherwise the address is computed and assigned to `ea.address` and returned, or None if the addressing mode is not in memory.
-    pub(super) fn get_effective_address(&mut self, ea: &mut EffectiveAddress, pc: u32) -> Option<u32> {
+    pub(super) fn get_effective_address(&mut self, ea: &mut EffectiveAddress) -> Option<u32> {
         if ea.address == None {
             ea.address = match ea.mode {
                 AddressingMode::Ari => Some(self.a(ea.reg)),
@@ -244,12 +254,12 @@ impl<M: MemoryAccess> M68000<M> {
                     },
                     2 => {
                         let disp = ea.ext.u16_be() as i16 as u32;
-                        Some(pc + disp)
+                        Some(ea.pc + disp)
                     },
                     3 => {
                         let bew = ea.ext.u16_be();
                         let disp = bew as i8 as u32;
-                        Some(pc + disp + self.get_index_register(bew))
+                        Some(ea.pc + disp + self.get_index_register(bew))
                     },
                     _ => None,
                 },

@@ -3,6 +3,7 @@ use super::decoder::DECODER;
 use super::instruction::Instruction;
 use super::operands::{Direction, Size};
 use super::status_register::StatusRegister;
+use super::utils::bits;
 
 impl<M: MemoryAccess> M68000<M> {
     pub fn interpreter(&mut self) {
@@ -157,16 +158,20 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn bchg(&mut self, inst: &mut Instruction) -> usize {
         let (ea, mut count) = inst.operands.effective_address_count();
 
+        if bits(inst.opcode, 8, 8) != 0 {
+            count = self.d[count as usize] as u8;
+        }
+
         if ea.mode.drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] ^= 1 << count;
         } else {
             count %= 8;
-            let mut data = self.get_byte(ea, inst.pc + 2);
+            let mut data = self.get_byte(ea);
             self.sr.z = data & 1 << count == 0;
             data ^= 1 << count;
-            self.set_byte(ea, inst.pc + 2, data);
+            self.set_byte(ea, data);
         }
 
         1
@@ -175,16 +180,20 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn bclr(&mut self, inst: &mut Instruction) -> usize {
         let (ea, mut count) = inst.operands.effective_address_count();
 
+        if bits(inst.opcode, 8, 8) != 0 {
+            count = self.d[count as usize] as u8;
+        }
+
         if ea.mode.drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] &= !(1 << count);
         } else {
             count %= 8;
-            let mut data = self.get_byte(ea, inst.pc + 2);
+            let mut data = self.get_byte(ea);
             self.sr.z = data & 1 << count == 0;
             data &= !(1 << count);
-            self.set_byte(ea, inst.pc + 2, data);
+            self.set_byte(ea, data);
         }
 
         1
@@ -201,16 +210,20 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn bset(&mut self, inst: &mut Instruction) -> usize {
         let (ea, mut count) = inst.operands.effective_address_count();
 
+        if bits(inst.opcode, 8, 8) != 0 {
+            count = self.d[count as usize] as u8;
+        }
+
         if ea.mode.drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] |= 1 << count;
         } else {
             count %= 8;
-            let mut data = self.get_byte(ea, inst.pc + 2);
+            let mut data = self.get_byte(ea);
             self.sr.z = data & 1 << count == 0;
             data |= 1 << count;
-            self.set_byte(ea, inst.pc + 2, data);
+            self.set_byte(ea, data);
         }
 
         1
@@ -228,12 +241,16 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn btst(&mut self, inst: &mut Instruction) -> usize {
         let (ea, mut count) = inst.operands.effective_address_count();
 
+        if bits(inst.opcode, 8, 8) != 0 {
+            count = self.d[count as usize] as u8;
+        }
+
         if ea.mode.drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
         } else {
             count %= 8;
-            let data = self.get_byte(ea, inst.pc + 2);
+            let data = self.get_byte(ea);
             self.sr.z = data & 1 << count == 0;
         }
 
@@ -358,7 +375,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn jmp(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
-        self.pc = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        self.pc = self.get_effective_address(ea).unwrap();
 
         1
     }
@@ -367,7 +384,7 @@ impl<M: MemoryAccess> M68000<M> {
         let ea = inst.operands.effective_address();
 
         self.push_long(self.pc);
-        self.pc = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        self.pc = self.get_effective_address(ea).unwrap();
 
         1
     }
@@ -375,7 +392,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn lea(&mut self, inst: &mut Instruction) -> usize {
         let (reg, ea) = inst.operands.register_effective_address();
 
-        *self.a_mut(reg) = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        *self.a_mut(reg) = self.get_effective_address(ea).unwrap();
 
         1
     }
@@ -453,18 +470,18 @@ impl<M: MemoryAccess> M68000<M> {
         let (size, dst, src) = inst.operands.size_effective_address_effective_address();
 
         if size.byte() {
-            let d = self.get_byte(src, inst.pc + 2);
-            self.set_byte(dst, inst.pc + 2, d);
+            let d = self.get_byte(src);
+            self.set_byte(dst, d);
             self.sr.n = d & 0x80 != 0;
             self.sr.z = d == 0;
         } else if size.word() {
-            let d = self.get_word(src, inst.pc + 2);
-            self.set_word(dst, inst.pc + 2, d);
+            let d = self.get_word(src);
+            self.set_word(dst, d);
             self.sr.n = d & 0x8000 != 0;
             self.sr.z = d == 0;
         } else {
-            let d = self.get_long(src, inst.pc + 2);
-            self.set_long(dst, inst.pc + 2, d);
+            let d = self.get_long(src);
+            self.set_long(dst, d);
             self.sr.n = d & 0x8000_0000 != 0;
             self.sr.z = d == 0;
         }
@@ -479,9 +496,9 @@ impl<M: MemoryAccess> M68000<M> {
         let (size, reg, ea) = inst.operands.size_register_effective_address();
 
         *self.a_mut(reg) = if size.word() {
-            self.get_word(ea, inst.pc + 2) as i16 as u32
+            self.get_word(ea) as i16 as u32
         } else {
-            self.get_long(ea, inst.pc + 2)
+            self.get_long(ea)
         };
 
         1
@@ -490,7 +507,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn moveccr(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
-        let ccr = self.get_word(ea, inst.pc + 2);
+        let ccr = self.get_word(ea);
         self.sr.set_ccr(ccr);
 
         1
@@ -499,7 +516,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn movefsr(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
-        self.set_word(ea, inst.pc + 2, self.sr.into());
+        self.set_word(ea, self.sr.into());
 
         1
     }
@@ -507,7 +524,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn movesr(&mut self, inst: &mut Instruction) -> usize {
         if self.sr.s {
             let ea = inst.operands.effective_address();
-            let sr = self.get_word(ea, inst.pc + 2);
+            let sr = self.get_word(ea);
             self.sr = sr.into();
             1
         } else {
@@ -610,7 +627,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn pea(&mut self, inst: &mut Instruction) -> usize {
         let ea = inst.operands.effective_address();
 
-        let addr = self.get_effective_address(ea, inst.pc + 2).unwrap();
+        let addr = self.get_effective_address(ea).unwrap();
         self.push_long(addr);
 
         1

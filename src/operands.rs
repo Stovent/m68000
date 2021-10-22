@@ -477,7 +477,8 @@ pub(super) fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (
         memory.next().unwrap() as u8
     };
 
-    let mut ea = EffectiveAddress::from_opcode(opcode, None, memory);
+    let size = if bits(opcode, 3, 5) == 0 { Some(Size::Long) } else { Some(Size::Byte) };
+    let mut ea = EffectiveAddress::from_opcode(opcode, size, memory);
     ea.size = if ea.mode.drd() { Some(Size::Long) } else { Some(Size::Byte) };
     len += ea.ext.len();
 
