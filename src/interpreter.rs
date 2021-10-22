@@ -62,7 +62,32 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn andi(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea, imm) = inst.operands.size_effective_address_immediate();
+
+        if size.byte() {
+            let data = self.get_byte(ea) & imm as u8;
+            self.set_byte(ea, data);
+
+            self.sr.n = data & 0x80 != 0;
+            self.sr.z = data == 0;
+        } else if size.word() {
+            let data = self.get_word(ea) & imm as u16;
+            self.set_word(ea, data);
+
+            self.sr.n = data & 0x8000 != 0;
+            self.sr.z = data == 0;
+        } else {
+            let data = self.get_long(ea) & imm;
+            self.set_long(ea, data);
+
+            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.z = data == 0;
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn andiccr(&mut self, inst: &mut Instruction) -> usize {
@@ -309,7 +334,32 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn eori(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea, imm) = inst.operands.size_effective_address_immediate();
+
+        if size.byte() {
+            let data = self.get_byte(ea) ^ imm as u8;
+            self.set_byte(ea, data);
+
+            self.sr.n = data & 0x80 != 0;
+            self.sr.z = data == 0;
+        } else if size.word() {
+            let data = self.get_word(ea) ^ imm as u16;
+            self.set_word(ea, data);
+
+            self.sr.n = data & 0x8000 != 0;
+            self.sr.z = data == 0;
+        } else {
+            let data = self.get_long(ea) ^ imm;
+            self.set_long(ea, data);
+
+            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.z = data == 0;
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn eoriccr(&mut self, inst: &mut Instruction) -> usize {
@@ -553,7 +603,30 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn movep(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (data, dir, size, addr, disp) = inst.operands.register_direction_size_register_disp();
+
+        let mut shift = if size.word() { 8 } else { 24 };
+        let mut addr = self.a(addr) + disp as u32;
+
+        if dir == Direction::RegisterToMemory {
+            while shift >= 0 {
+                let d = (self.d[data as usize] >> shift) as u8;
+                self.memory.set_byte(addr, d);
+                shift -= 8;
+                addr += 2;
+            }
+        } else {
+            if size.word() { self.d[data as usize] &= 0xFFFF_0000 } else { self.d[data as usize] = 0 }
+
+            while shift >= 0 {
+                let d = self.memory.get_byte(addr) as u32;
+                self.d[data as usize] |= d << shift;
+                shift -= 8;
+                addr += 2;
+            }
+        }
+
+        1
     }
 
     pub(super) fn moveq(&mut self, inst: &mut Instruction) -> usize {
@@ -602,7 +675,32 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn ori(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea, imm) = inst.operands.size_effective_address_immediate();
+
+        if size.byte() {
+            let data = self.get_byte(ea) | imm as u8;
+            self.set_byte(ea, data);
+
+            self.sr.n = data & 0x80 != 0;
+            self.sr.z = data == 0;
+        } else if size.word() {
+            let data = self.get_word(ea) | imm as u16;
+            self.set_word(ea, data);
+
+            self.sr.n = data & 0x8000 != 0;
+            self.sr.z = data == 0;
+        } else {
+            let data = self.get_long(ea) | imm;
+            self.set_long(ea, data);
+
+            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.z = data == 0;
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn oriccr(&mut self, inst: &mut Instruction) -> usize {
