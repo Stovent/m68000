@@ -376,7 +376,22 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn clr(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea) = inst.operands.size_effective_address();
+
+        if size.byte() {
+            self.set_byte(ea, 0);
+        } else if size.word() {
+            self.set_word(ea, 0);
+        } else {
+            self.set_long(ea, 0);
+        }
+
+        self.sr.n = false;
+        self.sr.z = true;
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn cmp(&mut self, inst: &mut Instruction) -> usize {
@@ -872,11 +887,87 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn neg(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea) = inst.operands.size_effective_address();
+
+        if size.byte() {
+            let data = -(self.get_byte(ea) as i8);
+            self.set_byte(ea, data as u8);
+
+            self.sr.n = data < 0;
+            self.sr.z = data == 0;
+            self.sr.v = data == i8::MIN;
+            self.sr.c = data != 0;
+            self.sr.x = self.sr.c;
+        } else if size.word() {
+            let data = -(self.get_word(ea) as i16);
+            self.set_word(ea, data as u16);
+
+            self.sr.n = data < 0;
+            self.sr.z = data == 0;
+            self.sr.v = data == i16::MIN;
+            self.sr.c = data != 0;
+            self.sr.x = self.sr.c;
+        } else {
+            let data = -(self.get_long(ea) as i32);
+            self.set_long(ea, data as u32);
+
+            self.sr.n = data < 0;
+            self.sr.z = data == 0;
+            self.sr.v = data == i32::MIN;
+            self.sr.c = data != 0;
+            self.sr.x = self.sr.c;
+        }
+
+        1
     }
 
     pub(super) fn negx(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea) = inst.operands.size_effective_address();
+
+        // using overflowing_sub indicates an overflow when negating -128 with the X flag set.
+        // 0 - -128 stays -128, then -128 - 1 gives 127, which is an overflow.
+        // However I don't know if the hardware has intermediate overflow.
+        // The other way is 0 - -128 gives 128, then 128 - 1 gives 127 which generates no overflow.
+        // TODO: test what the hardware actually does.
+        if size.byte() {
+            let data = self.get_byte(ea) as i8;
+            let res = 0 - data - self.sr.x as i8;
+            let vres = 0 - (data as i16) - self.sr.x as i16;
+            let (_, c) = 0i8.borrowing_sub(data, self.sr.x);
+            self.set_byte(ea, res as u8);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 { self.sr.z = false };
+            self.sr.v = vres < i8::MIN as i16 || vres > i8::MAX as i16;
+            self.sr.c = c;
+        } else if size.word() {
+            let data = self.get_word(ea) as i16;
+            let res = 0 - data - self.sr.x as i16;
+            let vres = 0 - (data as i32) - self.sr.x as i32;
+            let (_, c) = 0i16.borrowing_sub(data, self.sr.x);
+            self.set_word(ea, res as u16);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 { self.sr.z = false };
+            self.sr.v = vres < i16::MIN as i32 || vres > i16::MAX as i32;
+            self.sr.c = c;
+        } else {
+            let data = self.get_long(ea) as i32;
+            let res = 0 - data - self.sr.x as i32;
+            let vres = 0 - (data as i64) - self.sr.x as i64;
+            let (_, c) = 0i32.borrowing_sub(data, self.sr.x);
+            self.set_long(ea, res as u32);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 { self.sr.z = false };
+            self.sr.v = vres < i32::MIN as i64 || vres > i32::MAX as i64;
+            self.sr.c = c;
+        }
+
+        1
     }
 
     pub(super) fn nop(&mut self, _: &mut Instruction) -> usize {
@@ -884,7 +975,35 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn not(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (size, ea) = inst.operands.size_effective_address();
+
+        if size.byte() {
+            let data = !self.get_byte(ea);
+            self.set_byte(ea, data);
+
+            self.sr.n = data & 0x80 != 0;
+            self.sr.z = data == 0;
+            self.sr.v = false;
+            self.sr.c = false;
+        } else if size.word() {
+            let data = !self.get_word(ea);
+            self.set_word(ea, data);
+
+            self.sr.n = data & 0x8000 != 0;
+            self.sr.z = data == 0;
+            self.sr.v = false;
+            self.sr.c = false;
+        } else {
+            let data = !self.get_long(ea);
+            self.set_long(ea, data);
+
+            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.z = data == 0;
+            self.sr.v = false;
+            self.sr.c = false;
+        }
+
+        1
     }
 
     pub(super) fn or(&mut self, inst: &mut Instruction) -> usize {
