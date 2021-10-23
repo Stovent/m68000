@@ -140,6 +140,12 @@ impl<M: MemoryAccess> M68000<M> {
         self.memory.get_long(addr)
     }
 
+    /// Pushes the given 16-bits value on the stack.
+    pub(super) fn push_word(&mut self, value: u16) {
+        let addr = self.ariwpr(7, Size::Word);
+        self.memory.set_word(addr, value);
+    }
+
     /// Pushes the given 32-bits value on the stack.
     pub(super) fn push_long(&mut self, value: u32) {
         let addr = self.ariwpr(7, Size::Long);

@@ -4,7 +4,7 @@ use super::status_register::disassemble_conditional_test;
 use super::utils::bits;
 
 pub(super) fn disassemble_unknown_instruction(inst: &mut Instruction) -> String {
-    format!("Unknown instruction {:04X} as {:#X}", inst.opcode, inst.pc)
+    format!("Unknown instruction {:04X} at {:#X}", inst.opcode, inst.pc)
 }
 
 pub(super) fn disassemble_abcd(inst: &mut Instruction) -> String {

@@ -18,6 +18,7 @@
 mod addressing_modes;
 mod decoder;
 mod disassembler;
+mod exception;
 mod instruction;
 mod interpreter;
 pub mod isa;
@@ -35,7 +36,7 @@ const CCR_MASK: u16 = 0x001F;
 // const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
 
 /// A M68000 core.
-#[derive(Copy, Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
     a_: [u32; 7],
@@ -44,12 +45,15 @@ pub struct M68000<M: MemoryAccess> {
     sr: StatusRegister,
     pc: u32,
 
+    current_opcode: u16,
+
     memory: M,
+    config: Config,
 }
 
 impl<M: MemoryAccess> M68000<M> {
     /// Creates a new M68000 core, with the given memory.
-    pub fn new(memory: M) -> Self {
+    pub fn new(memory: M, config: Config) -> Self {
         let mut cpu = Self {
             d: [0; 8],
             a_: [0; 7],
@@ -58,12 +62,14 @@ impl<M: MemoryAccess> M68000<M> {
             sr: StatusRegister::default(),
             pc: 0,
 
+            current_opcode: 0xFFFF,
+
             memory,
+            config,
         };
 
-        cpu.ssp = cpu.memory.get_long(0);
-        cpu.pc = cpu.memory.get_long(4);
-        cpu.sr.s = true;
+        cpu.exception(exception::Vector::ResetSsp as u32);
+        cpu.exception(exception::Vector::ResetPc as u32);
 
         cpu
     }
@@ -113,4 +119,17 @@ impl<M: MemoryAccess> M68000<M> {
             &mut self.usp
         }
     }
+}
+
+/// Configuration of the core.
+#[derive(Clone, Copy, Debug)]
+pub struct Config {
+    pub stack: StackFrame,
+}
+
+/// Stack frame format based on the processor type.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum StackFrame {
+    // Stack68000,
+    Stack68070,
 }

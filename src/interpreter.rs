@@ -1,5 +1,6 @@
-use super::{M68000, MemoryAccess, SR_UPPER_MASK, CCR_MASK};
+use super::{M68000, MemoryAccess, StackFrame, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
+use super::exception::Vector;
 use super::instruction::Instruction;
 use super::operands::{Direction, Size};
 use super::status_register::StatusRegister;
@@ -8,16 +9,16 @@ use super::utils::bits;
 impl<M: MemoryAccess> M68000<M> {
     pub fn interpreter(&mut self) {
         let pc = self.pc;
-        let opcode = self.get_next_word();
-        let isa = DECODER[opcode as usize];
+        self.current_opcode = self.get_next_word();
+        let isa = DECODER[self.current_opcode as usize];
         let entry = &Self::ISA_ENTRY[isa as usize];
 
         let mut iter = self.memory.iter(self.pc);
-        let (operands, len) = (entry.decode)(opcode, &mut iter);
+        let (operands, len) = (entry.decode)(self.current_opcode, &mut iter);
         self.pc += len as u32;
 
         let mut instruction = Instruction {
-            opcode,
+            opcode: self.current_opcode,
             pc,
             operands,
         };
@@ -29,7 +30,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn unknown_instruction(&mut self, _: &mut Instruction) -> usize {
-        // TODO: trap
+        self.exception(Vector::IllegalInstruction as u32);
         0
     }
 
@@ -361,7 +362,17 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn chk(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        let src = self.get_word(ea) as i16;
+        let data = self.d[reg as usize] as i16;
+
+        if data < 0 || data > src {
+            self.exception(Vector::ChkInstruction as u32);
+            0
+        } else {
+            1
+        }
     }
 
     pub(super) fn clr(&mut self, inst: &mut Instruction) -> usize {
@@ -623,7 +634,8 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn illegal(&mut self, inst: &mut Instruction) -> usize {
+    pub(super) fn illegal(&mut self, _: &mut Instruction) -> usize {
+        self.exception(Vector::IllegalInstruction as u32);
         0
     }
 
@@ -1066,8 +1078,27 @@ impl<M: MemoryAccess> M68000<M> {
         1
     }
 
-    pub(super) fn rte(&mut self, inst: &mut Instruction) -> usize {
-        0
+    pub(super) fn rte(&mut self, _: &mut Instruction) -> usize {
+        if self.sr.s {
+            let sr = self.pop_word();
+            self.pc = self.pop_long();
+
+            if self.config.stack == StackFrame::Stack68070 {
+                let format = self.pop_word();
+                if format & 0xF000 == 0xF000 {
+                    *self.sp_mut() += 26;
+                } else if format & 0xF000 != 0 {
+                    // TODO: format error
+                }
+            }
+
+            self.sr = sr.into();
+
+            1
+        } else {
+            // TODO: trap
+            0
+        }
     }
 
     pub(super) fn rtr(&mut self, _: &mut Instruction) -> usize {
@@ -1076,7 +1107,7 @@ impl<M: MemoryAccess> M68000<M> {
         self.sr |= ccr & CCR_MASK;
         self.pc = self.pop_long();
 
-        0
+        1
     }
 
     pub(super) fn rts(&mut self, _: &mut Instruction) -> usize {
