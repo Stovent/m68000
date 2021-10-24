@@ -1,3 +1,5 @@
+#![allow(overflowing_literals)]
+
 use super::{M68000, MemoryAccess, StackFrame, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
 use super::exception::Vector;
@@ -324,7 +326,30 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn asm(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (dir, ea) = inst.operands.direction_effective_address();
+
+        let mut data = self.get_word(ea) as i16;
+        let sign = data & 0x8000;
+
+        if dir == Direction::Left {
+            data <<= 1;
+            self.sr.x = sign != 0;
+            self.sr.v = sign ^ data & 0x8000 != 0;
+            self.sr.c = sign != 0;
+        } else {
+            let bit = data & 1;
+            data >>= 1;
+            self.sr.x = bit != 0;
+            self.sr.v = false;
+            self.sr.c = bit != 0;
+        }
+
+        self.sr.n = data < 0;
+        self.sr.z = data == 0;
+
+        self.set_word(ea, data as u16);
+
+        1
     }
 
     pub(super) fn asr(&mut self, inst: &mut Instruction) -> usize {
@@ -859,7 +884,29 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn lsm(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (dir, ea) = inst.operands.direction_effective_address();
+
+        let mut data = self.get_word(ea);
+
+        if dir == Direction::Left {
+            let sign = data & 0x8000;
+            data <<= 1;
+            self.sr.x = sign != 0;
+            self.sr.c = sign != 0;
+        } else {
+            let bit = data & 1;
+            data >>= 1;
+            self.sr.x = bit != 0;
+            self.sr.c = bit != 0;
+        }
+
+        self.sr.n = data & 0x8000 != 0;
+        self.sr.z = data == 0;
+        self.sr.v = false;
+
+        self.set_word(ea, data);
+
+        1
     }
 
     pub(super) fn lsr(&mut self, inst: &mut Instruction) -> usize {
@@ -888,9 +935,6 @@ impl<M: MemoryAccess> M68000<M> {
                 data <<= 1;
                 self.sr.x = sign != 0;
                 self.sr.c = sign != 0;
-                if sign ^ data & mask != 0 {
-                    self.sr.v = true;
-                }
             }
         } else {
             for _ in 0..shift_count {
@@ -1379,7 +1423,31 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn rom(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (dir, ea) = inst.operands.direction_effective_address();
+
+        let mut data = self.get_word(ea);
+        let sign = data & 0x8000;
+
+        if dir == Direction::Left {
+            data <<= 1;
+            data |= (sign != 0) as u16;
+            self.sr.c = sign != 0;
+        } else {
+            let bit = data & 1;
+            data >>= 1;
+            if bit != 0 {
+                data |= sign;
+            }
+            self.sr.c = bit != 0;
+        }
+
+        self.sr.n = data & 0x8000 != 0;
+        self.sr.z = data == 0;
+        self.sr.v = false;
+
+        self.set_word(ea, data);
+
+        1
     }
 
     pub(super) fn ror(&mut self, inst: &mut Instruction) -> usize {
@@ -1439,7 +1507,33 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn roxm(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (dir, ea) = inst.operands.direction_effective_address();
+
+        let mut data = self.get_word(ea);
+        let sign = data & 0x8000;
+
+        if dir == Direction::Left {
+            data <<= 1;
+            data |= self.sr.x as u16;
+            self.sr.x = sign != 0;
+            self.sr.c = sign != 0;
+        } else {
+            let bit = data & 1;
+            data >>= 1;
+            if self.sr.x {
+                data |= 0x8000;
+            }
+            self.sr.x = bit != 0;
+            self.sr.c = bit != 0;
+        }
+
+        self.sr.n = data & 0x8000 != 0;
+        self.sr.z = data == 0;
+        self.sr.v = false;
+
+        self.set_word(ea, data);
+
+        1
     }
 
     pub(super) fn roxr(&mut self, inst: &mut Instruction) -> usize {
@@ -1541,7 +1635,15 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn scc(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (cc, ea) = inst.operands.condition_effective_address();
+
+        if StatusRegister::CONDITIONS[cc as usize](self.sr) {
+            self.set_byte(ea, 0xFF);
+        } else {
+            self.set_byte(ea, 0);
+        }
+
+        1
     }
 
     pub(super) fn stop(&mut self, inst: &mut Instruction) -> usize {
