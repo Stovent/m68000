@@ -43,7 +43,17 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn adda(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, size, ea) = inst.operands.register_size_effective_address();
+
+        let src = if size.word() {
+            self.get_word(ea) as i16 as u32
+        } else {
+            self.get_long(ea)
+        };
+
+        *self.a_mut(reg) += src;
+
+        1
     }
 
     pub(super) fn addi(&mut self, inst: &mut Instruction) -> usize {
@@ -1252,7 +1262,17 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn suba(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, size, ea) = inst.operands.register_size_effective_address();
+
+        let src = if size.word() {
+            self.get_word(ea) as i16 as u32
+        } else {
+            self.get_long(ea)
+        };
+
+        *self.a_mut(reg) -= src;
+
+        1
     }
 
     pub(super) fn subi(&mut self, inst: &mut Instruction) -> usize {
