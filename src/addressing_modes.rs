@@ -42,15 +42,15 @@ impl AddressingMode {
     //     self == Self::Ari
     // }
 
-    // #[inline(always)]
-    // pub(super) fn ariwpo(self) -> bool {
-    //     self == Self::Ariwpo
-    // }
+    #[inline(always)]
+    pub(super) fn ariwpo(self) -> bool {
+        self == Self::Ariwpo
+    }
 
-    // #[inline(always)]
-    // pub(super) fn ariwpr(self) -> bool {
-    //     self == Self::Ariwpr
-    // }
+    #[inline(always)]
+    pub(super) fn ariwpr(self) -> bool {
+        self == Self::Ariwpr
+    }
 
     // #[inline(always)]
     // pub(super) fn ariwd(self) -> bool {

@@ -1000,7 +1000,81 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn movem(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (dir, size, ea, mut list) = inst.operands.direction_size_effective_address_list();
+
+        let gap = size as u32;
+
+        if ea.mode.ariwpr() {
+            let mut addr = self.a(ea.reg);
+
+            for reg in (0..8).rev() {
+                if list & 1 != 0 {
+                    addr -= gap;
+                    if size.word() { self.memory.set_word(addr, self.a(reg) as u16); }
+                    else { self.memory.set_long(addr, self.a(reg)); }
+                }
+
+                list >>= 1;
+            }
+
+            for reg in (0..8).rev() {
+                if list & 1 != 0 {
+                    addr -= gap;
+                    if size.word() { self.memory.set_word(addr, self.d[reg] as u16); }
+                    else { self.memory.set_long(addr, self.d[reg]); }
+                }
+
+                list >>= 1;
+            }
+
+            *self.a_mut(ea.reg) = addr;
+        } else {
+            let mut addr = if ea.mode.ariwpo() {
+                self.a(ea.reg)
+            } else {
+                self.get_effective_address(ea).unwrap()
+            };
+
+            for reg in 0..8 {
+                if list & 1 != 0 {
+                    if dir == Direction::MemoryToRegister {
+                        let value = if size.word() { self.memory.get_word(addr) as i16 as u32 }
+                            else { self.memory.get_long(addr) };
+                        self.d[reg] = value;
+                    } else {
+                        if size.word() { self.memory.set_word(addr, self.d[reg] as u16); }
+                        else { self.memory.set_long(addr, self.d[reg]); }
+                    }
+
+                    addr += gap;
+                }
+
+                list >>= 1;
+            }
+
+            for reg in 0..8 {
+                if list & 1 != 0 {
+                    if dir == Direction::MemoryToRegister {
+                        let value = if size.word() { self.memory.get_word(addr) as i16 as u32 }
+                            else { self.memory.get_long(addr) };
+                        *self.a_mut(reg) = value;
+                    } else {
+                        if size.word() { self.memory.set_word(addr, self.a(reg as u8) as u16); }
+                        else { self.memory.set_long(addr, self.a(reg as u8)); }
+                    }
+
+                    addr += gap;
+                }
+
+                list >>= 1;
+            }
+
+            if ea.mode.ariwpo() {
+                *self.a_mut(ea.reg) = addr;
+            }
+        }
+
+        1
     }
 
     pub(super) fn movep(&mut self, inst: &mut Instruction) -> usize {
