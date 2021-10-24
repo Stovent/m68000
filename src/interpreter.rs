@@ -39,7 +39,74 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn add(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i8, self.get_byte(ea) as i8)
+            } else {
+                (self.get_byte(ea) as i8, self.d[reg as usize] as i8)
+            };
+
+            let (res, v) = src.overflowing_add(dst);
+            let (_, c) = src.carrying_add(dst, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_byte(ea, dst as u8);
+            } else {
+                self.d_byte(reg, res as u8);
+            }
+        } else if size.word() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i16, self.get_word(ea) as i16)
+            } else {
+                (self.get_word(ea) as i16, self.d[reg as usize] as i16)
+            };
+
+            let (res, v) = src.overflowing_add(dst);
+            let (_, c) = src.carrying_add(dst, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_word(ea, dst as u16);
+            } else {
+                self.d_word(reg, res as u16);
+            }
+        } else {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i32, self.get_long(ea) as i32)
+            } else {
+                (self.get_long(ea) as i32, self.d[reg as usize] as i32)
+            };
+
+            let (res, v) = src.overflowing_add(dst);
+            let (_, c) = src.carrying_add(dst, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_long(ea, dst as u32);
+            } else {
+                self.d[reg as usize] = res as u32;
+            }
+        }
+
+        1
     }
 
     pub(super) fn adda(&mut self, inst: &mut Instruction) -> usize {
@@ -147,7 +214,65 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn and(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as u8, self.get_byte(ea))
+            } else {
+                (self.get_byte(ea), self.d[reg as usize] as u8)
+            };
+
+            let res = src & dst;
+
+            self.sr.n = res & 0x80 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_byte(ea, dst);
+            } else {
+                self.d_byte(reg, res);
+            }
+        } else if size.word() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as u16, self.get_word(ea))
+            } else {
+                (self.get_word(ea), self.d[reg as usize] as u16)
+            };
+
+            let res = src & dst;
+
+            self.sr.n = res & 0x8000 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_word(ea, dst);
+            } else {
+                self.d_word(reg, res);
+            }
+        } else {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize], self.get_long(ea))
+            } else {
+                (self.get_long(ea), self.d[reg as usize])
+            };
+
+            let res = src & dst;
+
+            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_long(ea, dst);
+            } else {
+                self.d[reg as usize] = res;
+            }
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn andi(&mut self, inst: &mut Instruction) -> usize {
@@ -571,7 +696,41 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn eor(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, _, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let (src, dst) = (self.d[reg as usize] as u8, self.get_byte(ea));
+
+            let res = src ^ dst;
+
+            self.sr.n = res & 0x80 != 0;
+            self.sr.z = res == 0;
+
+            self.set_byte(ea, dst);
+        } else if size.word() {
+            let (src, dst) = (self.d[reg as usize] as u16, self.get_word(ea));
+
+            let res = src ^ dst;
+
+            self.sr.n = res & 0x8000 != 0;
+            self.sr.z = res == 0;
+
+            self.set_word(ea, dst);
+        } else {
+            let (src, dst) = (self.d[reg as usize], self.get_long(ea));
+
+            let res = src ^ dst;
+
+            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.z = res == 0;
+
+            self.set_long(ea, dst);
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn eori(&mut self, inst: &mut Instruction) -> usize {
@@ -1017,7 +1176,65 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn or(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as u8, self.get_byte(ea))
+            } else {
+                (self.get_byte(ea), self.d[reg as usize] as u8)
+            };
+
+            let res = src | dst;
+
+            self.sr.n = res & 0x80 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_byte(ea, dst);
+            } else {
+                self.d_byte(reg, res);
+            }
+        } else if size.word() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as u16, self.get_word(ea))
+            } else {
+                (self.get_word(ea), self.d[reg as usize] as u16)
+            };
+
+            let res = src | dst;
+
+            self.sr.n = res & 0x8000 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_word(ea, dst);
+            } else {
+                self.d_word(reg, res);
+            }
+        } else {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize], self.get_long(ea))
+            } else {
+                (self.get_long(ea), self.d[reg as usize])
+            };
+
+            let res = src | dst;
+
+            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.z = res == 0;
+
+            if dir == Direction::DstEa {
+                self.set_long(ea, dst);
+            } else {
+                self.d[reg as usize] = res;
+            }
+        }
+
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn ori(&mut self, inst: &mut Instruction) -> usize {
@@ -1258,7 +1475,74 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn sub(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
+
+        if size.byte() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i8, self.get_byte(ea) as i8)
+            } else {
+                (self.get_byte(ea) as i8, self.d[reg as usize] as i8)
+            };
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_byte(ea, dst as u8);
+            } else {
+                self.d_byte(reg, res as u8);
+            }
+        } else if size.word() {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i16, self.get_word(ea) as i16)
+            } else {
+                (self.get_word(ea) as i16, self.d[reg as usize] as i16)
+            };
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_word(ea, dst as u16);
+            } else {
+                self.d_word(reg, res as u16);
+            }
+        } else {
+            let (src, dst) = if dir == Direction::DstEa {
+                (self.d[reg as usize] as i32, self.get_long(ea) as i32)
+            } else {
+                (self.get_long(ea) as i32, self.d[reg as usize] as i32)
+            };
+
+            let (res, v) = dst.overflowing_sub(src);
+            let (_, c) = dst.borrowing_sub(src, false);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            self.sr.z = res == 0;
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if dir == Direction::DstEa {
+                self.set_long(ea, dst as u32);
+            } else {
+                self.d[reg as usize] = res as u32;
+            }
+        }
+
+        1
     }
 
     pub(super) fn suba(&mut self, inst: &mut Instruction) -> usize {
