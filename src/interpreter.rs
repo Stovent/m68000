@@ -60,7 +60,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_byte(ea, dst as u8);
+                self.set_byte(ea, res as u8);
             } else {
                 self.d_byte(reg, res as u8);
             }
@@ -81,7 +81,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_word(ea, dst as u16);
+                self.set_word(ea, res as u16);
             } else {
                 self.d_word(reg, res as u16);
             }
@@ -102,7 +102,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_long(ea, dst as u32);
+                self.set_long(ea, res as u32);
             } else {
                 self.d[reg as usize] = res as u32;
             }
@@ -219,11 +219,8 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
 
         if size.byte() {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as u8, self.get_byte(ea))
-            } else {
-                (self.get_byte(ea), self.d[reg as usize] as u8)
-            };
+            let src = self.d[reg as usize] as u8;
+            let dst = self.get_byte(ea);
 
             let res = src & dst;
 
@@ -231,16 +228,13 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_byte(ea, dst);
+                self.set_byte(ea, res);
             } else {
                 self.d_byte(reg, res);
             }
         } else if size.word() {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as u16, self.get_word(ea))
-            } else {
-                (self.get_word(ea), self.d[reg as usize] as u16)
-            };
+            let src = self.d[reg as usize] as u16;
+            let dst = self.get_word(ea);
 
             let res = src & dst;
 
@@ -248,16 +242,13 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_word(ea, dst);
+                self.set_word(ea, res);
             } else {
                 self.d_word(reg, res);
             }
         } else {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize], self.get_long(ea))
-            } else {
-                (self.get_long(ea), self.d[reg as usize])
-            };
+            let src = self.d[reg as usize];
+            let dst = self.get_long(ea);
 
             let res = src & dst;
 
@@ -265,7 +256,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_long(ea, dst);
+                self.set_long(ea, res);
             } else {
                 self.d[reg as usize] = res;
             }
@@ -724,32 +715,35 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, _, size, ea) = inst.operands.register_direction_size_effective_address();
 
         if size.byte() {
-            let (src, dst) = (self.d[reg as usize] as u8, self.get_byte(ea));
+            let src = self.d[reg as usize] as u8;
+            let dst = self.get_byte(ea);
 
             let res = src ^ dst;
 
             self.sr.n = res & 0x80 != 0;
             self.sr.z = res == 0;
 
-            self.set_byte(ea, dst);
+            self.set_byte(ea, res);
         } else if size.word() {
-            let (src, dst) = (self.d[reg as usize] as u16, self.get_word(ea));
+            let src = self.d[reg as usize] as u16;
+            let dst = self.get_word(ea);
 
             let res = src ^ dst;
 
             self.sr.n = res & 0x8000 != 0;
             self.sr.z = res == 0;
 
-            self.set_word(ea, dst);
+            self.set_word(ea, res);
         } else {
-            let (src, dst) = (self.d[reg as usize], self.get_long(ea));
+            let src = self.d[reg as usize];
+            let dst = self.get_long(ea);
 
             let res = src ^ dst;
 
             self.sr.n = res & 0x8000_0000 != 0;
             self.sr.z = res == 0;
 
-            self.set_long(ea, dst);
+            self.set_long(ea, res);
         }
 
         self.sr.v = false;
@@ -1270,25 +1264,22 @@ impl<M: MemoryAccess> M68000<M> {
 
             self.sr.n = data & 0x80 != 0;
             self.sr.z = data == 0;
-            self.sr.v = false;
-            self.sr.c = false;
         } else if size.word() {
             let data = !self.get_word(ea);
             self.set_word(ea, data);
 
             self.sr.n = data & 0x8000 != 0;
             self.sr.z = data == 0;
-            self.sr.v = false;
-            self.sr.c = false;
         } else {
             let data = !self.get_long(ea);
             self.set_long(ea, data);
 
             self.sr.n = data & 0x8000_0000 != 0;
             self.sr.z = data == 0;
-            self.sr.v = false;
-            self.sr.c = false;
         }
+
+        self.sr.v = false;
+        self.sr.c = false;
 
         1
     }
@@ -1297,11 +1288,8 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, dir, size, ea) = inst.operands.register_direction_size_effective_address();
 
         if size.byte() {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as u8, self.get_byte(ea))
-            } else {
-                (self.get_byte(ea), self.d[reg as usize] as u8)
-            };
+            let src = self.d[reg as usize] as u8;
+            let dst = self.get_byte(ea);
 
             let res = src | dst;
 
@@ -1309,16 +1297,13 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_byte(ea, dst);
+                self.set_byte(ea, res);
             } else {
                 self.d_byte(reg, res);
             }
         } else if size.word() {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as u16, self.get_word(ea))
-            } else {
-                (self.get_word(ea), self.d[reg as usize] as u16)
-            };
+            let src = self.d[reg as usize] as u16;
+            let dst = self.get_word(ea);
 
             let res = src | dst;
 
@@ -1326,16 +1311,13 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_word(ea, dst);
+                self.set_word(ea, res);
             } else {
                 self.d_word(reg, res);
             }
         } else {
-            let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize], self.get_long(ea))
-            } else {
-                (self.get_long(ea), self.d[reg as usize])
-            };
+            let src = self.d[reg as usize];
+            let dst = self.get_long(ea);
 
             let res = src | dst;
 
@@ -1343,7 +1325,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
-                self.set_long(ea, dst);
+                self.set_long(ea, res);
             } else {
                 self.d[reg as usize] = res;
             }
@@ -1670,7 +1652,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_byte(ea, dst as u8);
+                self.set_byte(ea, res as u8);
             } else {
                 self.d_byte(reg, res as u8);
             }
@@ -1691,7 +1673,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_word(ea, dst as u16);
+                self.set_word(ea, res as u16);
             } else {
                 self.d_word(reg, res as u16);
             }
@@ -1712,7 +1694,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = c;
 
             if dir == Direction::DstEa {
-                self.set_long(ea, dst as u32);
+                self.set_long(ea, res as u32);
             } else {
                 self.d[reg as usize] = res as u32;
             }
