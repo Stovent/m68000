@@ -88,12 +88,16 @@ impl StatusRegister {
         self.z || self.n && !self.v || !self.n && self.v
     }
 
-    pub(super) const CONDITIONS: [fn(Self) -> bool; 16] = [
+    const CONDITIONS: [fn(Self) -> bool; 16] = [
         Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];
 
-    pub(super) fn set_ccr(&mut self, sr: u16) {
+    pub fn condition(self, cc: u8) -> bool {
+        Self::CONDITIONS[cc as usize](self)
+    }
+
+    pub fn set_ccr(&mut self, sr: u16) {
         self.x = bits(sr, 4, 4) != 0;
         self.n = bits(sr, 3, 3) != 0;
         self.z = bits(sr, 2, 2) != 0;

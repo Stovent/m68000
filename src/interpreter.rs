@@ -403,7 +403,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn bcc(&mut self, inst: &mut Instruction) -> usize {
         let (condition, displacement) = inst.operands.condition_displacement();
 
-        if StatusRegister::CONDITIONS[condition as usize](self.sr) {
+        if self.sr.condition(condition) {
             self.pc = inst.pc + 2 + displacement as u32;
         }
 
@@ -691,7 +691,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn dbcc(&mut self, inst: &mut Instruction) -> usize {
         let (cc, reg, disp) = inst.operands.condition_register_disp();
 
-        if !StatusRegister::CONDITIONS[cc as usize](self.sr) {
+        if !self.sr.condition(cc) {
             let counter = self.d[reg as usize] as i16 - 1;
             self.d_word(reg, counter as u16);
 
@@ -1619,7 +1619,7 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn scc(&mut self, inst: &mut Instruction) -> usize {
         let (cc, ea) = inst.operands.condition_effective_address();
 
-        if StatusRegister::CONDITIONS[cc as usize](self.sr) {
+        if self.sr.condition(cc) {
             self.set_byte(ea, 0xFF);
         } else {
             self.set_byte(ea, 0);
