@@ -212,7 +212,86 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn addx(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (rx, size, mode, ry) = inst.operands.register_size_mode_register();
+
+        if size.byte() {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(ry, size);
+                let dst_addr = self.ariwpr(rx, size);
+                (self.memory.get_byte(src_addr) as i8, self.memory.get_byte(dst_addr) as i8)
+            } else {
+                (self.d[ry as usize] as i8, self.d[rx as usize] as i8)
+            };
+
+            let (_, v) = src.overflowing_add(dst + self.sr.x as i8);
+            let (res, c) = src.carrying_add(dst, self.sr.x);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_byte(self.a(rx), res as u8);
+            } else {
+                self.d_byte(rx, res as u8);
+            }
+        } else if size.word() {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(ry, size);
+                let dst_addr = self.ariwpr(rx, size);
+                (self.memory.get_word(src_addr) as i16, self.memory.get_word(dst_addr) as i16)
+            } else {
+                (self.d[ry as usize] as i16, self.d[rx as usize] as i16)
+            };
+
+            let (_, v) = src.overflowing_add(dst + self.sr.x as i16);
+            let (res, c) = src.carrying_add(dst, self.sr.x);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_word(self.a(rx), res as u16);
+            } else {
+                self.d_word(rx, res as u16);
+            }
+        } else {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(ry, size);
+                let dst_addr = self.ariwpr(rx, size);
+                (self.memory.get_long(src_addr) as i32, self.memory.get_long(dst_addr) as i32)
+            } else {
+                (self.d[ry as usize] as i32, self.d[rx as usize] as i32)
+            };
+
+            let (_, v) = src.overflowing_add(dst + self.sr.x as i32);
+            let (res, c) = src.carrying_add(dst, self.sr.x);
+
+            self.sr.x = c;
+            self.sr.n = res < 0;
+            if res != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_long(self.a(rx), res as u32);
+            } else {
+                self.d[rx as usize] = res as u32;
+            }
+        }
+
+        1
     }
 
     pub(super) fn and(&mut self, inst: &mut Instruction) -> usize {
@@ -1804,7 +1883,89 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn subx(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (ry, size, mode, rx) = inst.operands.register_size_mode_register();
+
+        if size.byte() {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(rx, size);
+                let dst_addr = self.ariwpr(ry, size);
+                (self.memory.get_byte(src_addr), self.memory.get_byte(dst_addr))
+            } else {
+                (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
+            };
+
+            let src = src + self.sr.x as u8;
+            let (sres, v) = (dst as i8).overflowing_sub(src as i8);
+            let (ures, c) = dst.overflowing_sub(src);
+
+            self.sr.n = sres < 0;
+            if ures != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+            self.sr.x = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_byte(self.a(ry), ures);
+            } else {
+                self.d_byte(ry, ures);
+            }
+        } else if size.word() {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(rx, size);
+                let dst_addr = self.ariwpr(ry, size);
+                (self.memory.get_word(src_addr), self.memory.get_word(dst_addr))
+            } else {
+                (self.d[rx as usize] as u16, self.d[ry as usize] as u16)
+            };
+
+            let src = src + self.sr.x as u16;
+            let (sres, v) = (dst as i16).overflowing_sub(src as i16);
+            let (ures, c) = dst.overflowing_sub(src);
+
+            self.sr.n = sres < 0;
+            if ures != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+            self.sr.x = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_word(self.a(ry), ures);
+            } else {
+                self.d_word(ry, ures);
+            }
+        } else {
+            let (src, dst) = if mode == Direction::MemoryToMemory {
+                let src_addr = self.ariwpr(ry, size);
+                let dst_addr = self.ariwpr(rx, size);
+                (self.memory.get_long(src_addr), self.memory.get_long(dst_addr))
+            } else {
+                (self.d[rx as usize] as u32, self.d[ry as usize] as u32)
+            };
+
+            let src = src + self.sr.x as u32;
+            let (sres, v) = (dst as i32).overflowing_sub(src as i32);
+            let (ures, c) = dst.overflowing_sub(src);
+
+            self.sr.n = sres < 0;
+            if ures != 0 {
+                self.sr.z = false;
+            }
+            self.sr.v = v;
+            self.sr.c = c;
+            self.sr.x = c;
+
+            if mode == Direction::MemoryToMemory {
+                self.memory.set_long(self.a(ry), ures);
+            } else {
+                self.d[ry as usize] = ures;
+            }
+        }
+
+        1
     }
 
     pub(super) fn swap(&mut self, inst: &mut Instruction) -> usize {
