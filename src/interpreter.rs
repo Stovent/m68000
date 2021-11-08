@@ -783,11 +783,49 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn divs(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        let src = self.get_word(ea) as i16 as i32;
+        let dst = self.d[reg as usize] as i32;
+
+        if src == 0 {
+            // TODO: zero divide exception
+            0
+        } else {
+            let quot = dst / src;
+            let rem = dst % src;
+            self.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
+
+            self.sr.n = quot < 0;
+            self.sr.z = quot == 0;
+            self.sr.v = quot < i16::MIN as i32 || quot > i16::MAX as i32;
+            self.sr.c = false;
+
+            1
+        }
     }
 
     pub(super) fn divu(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        let src = self.get_word(ea) as u32;
+        let dst = self.d[reg as usize];
+
+        if src == 0 {
+            // TODO: zero divide exception
+            0
+        } else {
+            let quot = dst / src;
+            let rem = dst % src;
+            self.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
+
+            self.sr.n = quot & 0x0000_8000 != 0;
+            self.sr.z = quot == 0;
+            self.sr.v = (quot as i32) < i16::MIN as i32 || quot > i16::MAX as u32;
+            self.sr.c = false;
+
+            1
+        }
     }
 
     pub(super) fn eor(&mut self, inst: &mut Instruction) -> usize {
@@ -1235,11 +1273,37 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn muls(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        let src = self.get_word(ea) as i16 as i32;
+        let dst = self.d[reg as usize] as i16 as i32;
+
+        let res = src * dst;
+        self.d[reg as usize] = res as u32;
+
+        self.sr.n = res < 0;
+        self.sr.z = res == 0;
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn mulu(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (reg, ea) = inst.operands.register_effective_address();
+
+        let src = self.get_word(ea) as u32;
+        let dst = self.d[reg as usize] as u16 as u32;
+
+        let res = src * dst;
+        self.d[reg as usize] = res;
+
+        self.sr.n = res & 0x8000_0000 != 0;
+        self.sr.z = res == 0;
+        self.sr.v = false;
+        self.sr.c = false;
+
+        1
     }
 
     pub(super) fn nbcd(&mut self, inst: &mut Instruction) -> usize {
