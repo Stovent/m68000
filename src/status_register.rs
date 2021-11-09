@@ -33,11 +33,11 @@ impl StatusRegister {
     }
 
     fn hi(self) -> bool {
-        !self.c && !self.v
+        !self.c && !self.z
     }
 
     fn ls(self) -> bool {
-        self.c || self.v
+        self.c || self.z
     }
 
     fn cc(self) -> bool {
