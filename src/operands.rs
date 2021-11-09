@@ -1,6 +1,9 @@
 //! This module defines all the possible operands combinations used by the instructions.
 //! Its responsibility is only to retrive the operands and format them approprately.
 //! It is the interpreter's role to interpret the operand.
+//!
+//! In the returned tuples, the first operand is the left-most operand in the instruction word (high-order bits).
+//! The last operand is the right-most operand in the instruction word (low-order bits) or the extention words (if any).
 
 use super::addressing_modes::EffectiveAddress;
 use super::decoder::DECODER;
