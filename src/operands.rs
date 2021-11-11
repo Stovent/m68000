@@ -257,7 +257,7 @@ impl Operands {
     }
 
     /// MOVEP
-    pub fn register_direction_size_register_disp(&self) -> (u8, Direction, Size, u8, i16) {
+    pub fn register_direction_size_register_displacement(&self) -> (u8, Direction, Size, u8, i16) {
         match *self {
             Self::RegisterDirectionSizeRegisterDisp(r, d, s, rr, dd) => (r, d, s, rr, dd),
             _ => panic!("[Operands::register_direction_size_register_disp]"),
@@ -305,7 +305,7 @@ impl Operands {
     }
 
     /// LINK
-    pub fn register_disp(&self) -> (u8, i16) {
+    pub fn register_displacement(&self) -> (u8, i16) {
         match *self {
             Self::RegisterDisp(r, d) => (r, d),
             _ => panic!("[Operands::register_disp]"),
@@ -353,7 +353,7 @@ impl Operands {
     }
 
     /// DBcc
-    pub fn condition_register_disp(&self) -> (u8, u8, i16) {
+    pub fn condition_register_displacement(&self) -> (u8, u8, i16) {
         match *self {
             Self::ConditionRegisterDisp(c, r, d) => (c, r, d),
             _ => panic!("[Operands::condition_register_disp]"),

@@ -768,7 +768,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn dbcc(&mut self, inst: &mut Instruction) -> usize {
-        let (cc, reg, disp) = inst.operands.condition_register_disp();
+        let (cc, reg, disp) = inst.operands.condition_register_displacement();
 
         if !self.sr.condition(cc) {
             let counter = self.d[reg as usize] as i16 - 1;
@@ -985,7 +985,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn link(&mut self, inst: &mut Instruction) -> usize {
-        let (reg, disp) = inst.operands.register_disp();
+        let (reg, disp) = inst.operands.register_displacement();
 
         self.push_long(self.a(reg));
         *self.a_mut(reg) = self.sp();
@@ -1233,7 +1233,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn movep(&mut self, inst: &mut Instruction) -> usize {
-        let (data, dir, size, addr, disp) = inst.operands.register_direction_size_register_disp();
+        let (data, dir, size, addr, disp) = inst.operands.register_direction_size_register_displacement();
 
         let mut shift = if size.word() { 8 } else { 24 };
         let mut addr = self.a(addr) + disp as u32;

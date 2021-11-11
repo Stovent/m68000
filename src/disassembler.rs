@@ -169,7 +169,7 @@ pub(super) fn disassemble_cmpm(inst: &mut Instruction) -> String {
 }
 
 pub(super) fn disassemble_dbcc(inst: &mut Instruction) -> String {
-    let (cc, r, disp) = inst.operands.condition_register_disp();
+    let (cc, r, disp) = inst.operands.condition_register_displacement();
     format!("DB{} D{}, {} <{:#X}>", disassemble_conditional_test(cc), r, disp, inst.pc + 2 + disp as i32 as u32)
 }
 
@@ -243,7 +243,7 @@ pub(super) fn disassemble_lea(inst: &mut Instruction) -> String {
 }
 
 pub(super) fn disassemble_link(inst: &mut Instruction) -> String {
-    let (r, disp) = inst.operands.register_disp();
+    let (r, disp) = inst.operands.register_displacement();
     format!("LINK.W A{}, #{}", r, disp)
 }
 
@@ -306,7 +306,7 @@ pub(super) fn disassemble_movem(inst: &mut Instruction) -> String {
 }
 
 pub(super) fn disassemble_movep(inst: &mut Instruction) -> String {
-    let (dreg, d, s, areg, disp) = inst.operands.register_direction_size_register_disp();
+    let (dreg, d, s, areg, disp) = inst.operands.register_direction_size_register_displacement();
     if d == Direction::RegisterToMemory {
         format!("MOVEP.{} D{}, ({}, A{})", s, dreg, disp, areg)
     } else {
