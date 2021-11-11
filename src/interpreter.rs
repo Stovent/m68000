@@ -3,10 +3,8 @@
 use super::{M68000, MemoryAccess, StackFrame, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
 use super::exception::Vector;
-use super::instruction::Instruction;
-use super::operands::{Direction, Size};
-use super::status_register::StatusRegister;
-use super::utils::bits;
+use super::instruction::{Direction, Instruction, Size};
+use super::utils::{bits, from_pbcd, to_pbcd};
 
 impl<M: MemoryAccess> M68000<M> {
     pub fn interpreter(&mut self) {

@@ -2,7 +2,7 @@
 
 use super::{M68000, MemoryAccess};
 use super::memory_access::MemoryIter;
-use super::operands::Size;
+use super::instruction::Size;
 use super::utils::{AsArray, bits, SliceAs};
 
 /// Struct representing the `mode` part of an effective address field.

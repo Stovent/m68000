@@ -1,4 +1,4 @@
-use super::operands::Size;
+use super::instruction::Size;
 
 /// Returns bits [beg, end] inclusive, starting at 0.
 pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {

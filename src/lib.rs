@@ -23,7 +23,6 @@ mod instruction;
 mod interpreter;
 pub mod isa;
 pub mod memory_access;
-mod operands;
 pub mod status_register;
 mod utils;
 

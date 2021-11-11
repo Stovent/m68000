@@ -1,5 +1,4 @@
-use super::instruction::Instruction;
-use super::operands::Direction;
+use super::instruction::{Direction, Instruction};
 use super::status_register::disassemble_conditional_test;
 use super::utils::bits;
 

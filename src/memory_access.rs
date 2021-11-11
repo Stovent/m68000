@@ -2,7 +2,7 @@
 
 use super::M68000;
 use super::addressing_modes::EffectiveAddress;
-use super::operands::Size;
+use super::instruction::Size;
 use super::utils::SliceAs;
 
 /// The trait to be implemented by the memory system that will be used by the core.
@@ -116,17 +116,9 @@ impl<M: MemoryAccess> M68000<M> {
 
     pub(super) fn get_next_word(&mut self) -> u16 {
         let data = self.memory.get_word(self.pc);
-        // println!("[get_next_word] read {} {:#X} at {:#X}", data, data, self.pc);
         self.pc += 2;
         data
     }
-
-    // pub(super) fn get_next_long(&mut self) -> u32 {
-    //     let data = self.memory.get_long(self.pc);
-    //     println!("[get_next_long] read {} {:#X} at {:#X}", data, data, self.pc);
-    //     self.pc += 4;
-    //     data
-    // }
 
     /// Pops the 16-bits value from the stack.
     pub(super) fn pop_word(&mut self) -> u16 {

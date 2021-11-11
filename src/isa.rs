@@ -2,7 +2,7 @@ use super::{M68000, MemoryAccess};
 use super::disassembler::*;
 use super::instruction::Instruction;
 use super::memory_access::MemoryIter;
-use super::operands::*;
+use super::instruction::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Isa {
