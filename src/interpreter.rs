@@ -1957,7 +1957,7 @@ impl<M: MemoryAccess> M68000<M> {
                 (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
             };
 
-            // TODO: replace with carrying_add when it will behave correctly on signed data.
+            // TODO: replace with borrowing_sub when it will behave correctly on signed data.
             let src = src + self.sr.x as u8;
             let (sres, v) = (dst as i8).overflowing_sub(src as i8);
             let (ures, c) = dst.overflowing_sub(src);
