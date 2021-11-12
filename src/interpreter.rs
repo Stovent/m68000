@@ -43,13 +43,13 @@ impl<M: MemoryAccess> M68000<M> {
 
         if size.byte() {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i8, self.get_byte(ea) as i8)
+                (self.d[reg as usize] as u8, self.get_byte(ea))
             } else {
-                (self.get_byte(ea) as i8, self.d[reg as usize] as i8)
+                (self.get_byte(ea), self.d[reg as usize] as u8)
             };
 
-            let (res, v) = src.overflowing_add(dst);
-            let (_, c) = src.carrying_add(dst, false);
+            let (res, v) = (src as i8).overflowing_add(dst as i8);
+            let (_, c) = src.overflowing_add(dst);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -64,13 +64,13 @@ impl<M: MemoryAccess> M68000<M> {
             }
         } else if size.word() {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i16, self.get_word(ea) as i16)
+                (self.d[reg as usize] as u16, self.get_word(ea))
             } else {
-                (self.get_word(ea) as i16, self.d[reg as usize] as i16)
+                (self.get_word(ea), self.d[reg as usize] as u16)
             };
 
-            let (res, v) = src.overflowing_add(dst);
-            let (_, c) = src.carrying_add(dst, false);
+            let (res, v) = (src as i16).overflowing_add(dst as i16);
+            let (_, c) = src.overflowing_add(dst);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -85,13 +85,13 @@ impl<M: MemoryAccess> M68000<M> {
             }
         } else {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i32, self.get_long(ea) as i32)
+                (self.d[reg as usize] as u32, self.get_long(ea))
             } else {
-                (self.get_long(ea) as i32, self.d[reg as usize] as i32)
+                (self.get_long(ea), self.d[reg as usize] as u32)
             };
 
-            let (res, v) = src.overflowing_add(dst);
-            let (_, c) = src.carrying_add(dst, false);
+            let (res, v) = (src as i32).overflowing_add(dst as i32);
+            let (_, c) = src.overflowing_add(dst);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -127,9 +127,9 @@ impl<M: MemoryAccess> M68000<M> {
         let (size, ea, imm) = inst.operands.size_effective_address_immediate();
 
         if size.byte() {
-            let data = self.get_byte(ea) as i8;
-            let (res, v) = data.overflowing_add(imm as i8);
-            let (_, c) = data.carrying_add(imm as i8, false);
+            let data = self.get_byte(ea);
+            let (res, v) = (data as i8).overflowing_add(imm as i8);
+            let (_, c) = data.overflowing_add(imm as u8);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -138,9 +138,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let data = self.get_word(ea) as i16;
-            let (res, v) = data.overflowing_add(imm as i16);
-            let (_, c) = data.carrying_add(imm as i16, false);
+            let data = self.get_word(ea);
+            let (res, v) = (data as i16).overflowing_add(imm as i16);
+            let (_, c) = data.overflowing_add(imm as u16);
             self.set_word(ea, res as u16);
 
             self.sr.x = c;
@@ -149,9 +149,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else {
-            let data = self.get_long(ea) as i32;
-            let (res, v) = data.overflowing_add(imm as i32);
-            let (_, c) = data.carrying_add(imm as i32, false);
+            let data = self.get_long(ea);
+            let (res, v) = (data as i32).overflowing_add(imm as i32);
+            let (_, c) = data.overflowing_add(imm);
             self.set_long(ea, res as u32);
 
             self.sr.x = c;
@@ -168,9 +168,9 @@ impl<M: MemoryAccess> M68000<M> {
         let (imm, size, ea) = inst.operands.data_size_effective_address();
 
         if size.byte() {
-            let data = self.get_byte(ea) as i8;
-            let (res, v) = data.overflowing_add(imm as i8);
-            let (_, c) = data.carrying_add(imm as i8, false);
+            let data = self.get_byte(ea);
+            let (res, v) = (data as i8).overflowing_add(imm as i8);
+            let (_, c) = data.overflowing_add(imm);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -179,9 +179,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let data = self.get_word(ea) as i16;
-            let (res, v) = data.overflowing_add(imm as i16);
-            let (_, c) = data.carrying_add(imm as i16, false);
+            let data = self.get_word(ea);
+            let (res, v) = (data as i16).overflowing_add(imm as i16);
+            let (_, c) = data.overflowing_add(imm as u16);
             self.set_word(ea, res as u16);
 
             if !ea.mode.ard() {
@@ -192,9 +192,9 @@ impl<M: MemoryAccess> M68000<M> {
                 self.sr.c = c;
             }
         } else {
-            let data = self.get_long(ea) as i32;
-            let (res, v) = data.overflowing_add(imm as i32);
-            let (_, c) = data.carrying_add(imm as i32, false);
+            let data = self.get_long(ea);
+            let (res, v) = (data as i32).overflowing_add(imm as i32);
+            let (_, c) = data.overflowing_add(imm as u32);
             self.set_long(ea, res as u32);
 
             if !ea.mode.ard() {
@@ -221,6 +221,7 @@ impl<M: MemoryAccess> M68000<M> {
                 (self.d[ry as usize] as i8, self.d[rx as usize] as i8)
             };
 
+            // TODO: replace with carrying_add when it will behave correctly on signed data.
             let (_, v) = src.overflowing_add(dst + self.sr.x as i8);
             let (res, c) = src.carrying_add(dst, self.sr.x);
 
@@ -626,33 +627,33 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, _, size, ea) = inst.operands.register_direction_size_effective_address();
 
         if size.byte() {
-            let src = self.get_byte(ea) as i8;
-            let dst = self.d[reg as usize] as i8;
+            let src = self.get_byte(ea);
+            let dst = self.d[reg as usize] as u8;
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i8).overflowing_sub(src as i8);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let src = self.get_word(ea) as i16;
-            let dst = self.d[reg as usize] as i16;
+            let src = self.get_word(ea);
+            let dst = self.d[reg as usize] as u16;
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i16).overflowing_sub(src as i16);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
             self.sr.v = v;
             self.sr.c = c;
         } else {
-            let src = self.get_long(ea) as i32;
-            let dst = self.d[reg as usize] as i32;
+            let src = self.get_long(ea);
+            let dst = self.d[reg as usize];
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i32).overflowing_sub(src as i32);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
@@ -667,13 +668,13 @@ impl<M: MemoryAccess> M68000<M> {
         let (reg, size, ea) = inst.operands.register_size_effective_address();
 
         let src = if size.word() {
-            self.get_word(ea) as i16 as i32
+            self.get_word(ea) as i16 as u32
         } else {
-            self.get_long(ea) as i32
+            self.get_long(ea)
         };
 
-        let (res, v) = (self.a(reg) as i32).overflowing_sub(src);
-        let (_, c) = (self.a(reg) as i32).borrowing_sub(src, false);
+        let (res, v) = (self.a(reg) as i32).overflowing_sub(src as i32);
+        let (_, c) = self.a(reg).overflowing_sub(src);
 
         self.sr.n = res < 0;
         self.sr.z = res == 0;
@@ -687,27 +688,27 @@ impl<M: MemoryAccess> M68000<M> {
         let (size, ea, imm) = inst.operands.size_effective_address_immediate();
 
         if size.byte() {
-            let data = self.get_byte(ea) as i8;
-            let (res, v) = data.overflowing_sub(imm as i8);
-            let (_, c) = data.borrowing_sub(imm as i8, false);
+            let data = self.get_byte(ea);
+            let (res, v) = (data as i8).overflowing_sub(imm as i8);
+            let (_, c) = data.overflowing_sub(imm as u8);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let data = self.get_word(ea) as i16;
-            let (res, v) = data.overflowing_sub(imm as i16);
-            let (_, c) = data.borrowing_sub(imm as i16, false);
+            let data = self.get_word(ea);
+            let (res, v) = (data as i16).overflowing_sub(imm as i16);
+            let (_, c) = data.overflowing_sub(imm as u16);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
             self.sr.v = v;
             self.sr.c = c;
         } else {
-            let data = self.get_long(ea) as i32;
-            let (res, v) = data.overflowing_sub(imm as i32);
-            let (_, c) = data.borrowing_sub(imm as i32, false);
+            let data = self.get_long(ea);
+            let (res, v) = (data as i32).overflowing_sub(imm as i32);
+            let (_, c) = data.overflowing_sub(imm);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
@@ -724,11 +725,11 @@ impl<M: MemoryAccess> M68000<M> {
         if size.byte() {
             let ay = self.ariwpo(ay, size);
             let ax = self.ariwpo(ax, size);
-            let src = self.memory.get_byte(ay) as i8;
-            let dst = self.memory.get_byte(ax) as i8;
+            let src = self.memory.get_byte(ay);
+            let dst = self.memory.get_byte(ax);
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i8).overflowing_sub(src as i8);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
@@ -737,11 +738,11 @@ impl<M: MemoryAccess> M68000<M> {
         } else if size.word() {
             let ay = self.ariwpo(ay, size);
             let ax = self.ariwpo(ax, size);
-            let src = self.memory.get_word(ay) as i16;
-            let dst = self.memory.get_word(ax) as i16;
+            let src = self.memory.get_word(ay);
+            let dst = self.memory.get_word(ax);
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i16).overflowing_sub(src as i16);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
@@ -750,11 +751,11 @@ impl<M: MemoryAccess> M68000<M> {
         } else {
             let ay = self.ariwpo(ay, size);
             let ax = self.ariwpo(ax, size);
-            let src = self.memory.get_long(ay) as i32;
-            let dst = self.memory.get_long(ax) as i32;
+            let src = self.memory.get_long(ay);
+            let dst = self.memory.get_long(ax);
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i32).overflowing_sub(src as i32);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.n = res < 0;
             self.sr.z = res == 0;
@@ -1778,13 +1779,13 @@ impl<M: MemoryAccess> M68000<M> {
 
         if size.byte() {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i8, self.get_byte(ea) as i8)
+                (self.d[reg as usize] as u8, self.get_byte(ea))
             } else {
-                (self.get_byte(ea) as i8, self.d[reg as usize] as i8)
+                (self.get_byte(ea), self.d[reg as usize] as u8)
             };
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i8).overflowing_sub(src as i8);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -1799,13 +1800,13 @@ impl<M: MemoryAccess> M68000<M> {
             }
         } else if size.word() {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i16, self.get_word(ea) as i16)
+                (self.d[reg as usize] as u16, self.get_word(ea))
             } else {
-                (self.get_word(ea) as i16, self.d[reg as usize] as i16)
+                (self.get_word(ea), self.d[reg as usize] as u16)
             };
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i16).overflowing_sub(src as i16);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -1820,13 +1821,13 @@ impl<M: MemoryAccess> M68000<M> {
             }
         } else {
             let (src, dst) = if dir == Direction::DstEa {
-                (self.d[reg as usize] as i32, self.get_long(ea) as i32)
+                (self.d[reg as usize] as u32, self.get_long(ea))
             } else {
-                (self.get_long(ea) as i32, self.d[reg as usize] as i32)
+                (self.get_long(ea), self.d[reg as usize] as u32)
             };
 
-            let (res, v) = dst.overflowing_sub(src);
-            let (_, c) = dst.borrowing_sub(src, false);
+            let (res, v) = (dst as i32).overflowing_sub(src as i32);
+            let (_, c) = dst.overflowing_sub(src);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -1862,9 +1863,9 @@ impl<M: MemoryAccess> M68000<M> {
         let (size, ea, imm) = inst.operands.size_effective_address_immediate();
 
         if size.byte() {
-            let data = self.get_byte(ea) as i8;
-            let (res, v) = data.overflowing_sub(imm as i8);
-            let (_, c) = data.borrowing_sub(imm as i8, false);
+            let data = self.get_byte(ea);
+            let (res, v) = (data as i8).overflowing_sub(imm as i8);
+            let (_, c) = data.overflowing_sub(imm as u8);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -1873,9 +1874,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let data = self.get_word(ea) as i16;
-            let (res, v) = data.overflowing_sub(imm as i16);
-            let (_, c) = data.borrowing_sub(imm as i16, false);
+            let data = self.get_word(ea);
+            let (res, v) = (data as i16).overflowing_sub(imm as i16);
+            let (_, c) = data.overflowing_sub(imm as u16);
             self.set_word(ea, res as u16);
 
             self.sr.x = c;
@@ -1884,9 +1885,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else {
-            let data = self.get_long(ea) as i32;
-            let (res, v) = data.overflowing_sub(imm as i32);
-            let (_, c) = data.borrowing_sub(imm as i32, false);
+            let data = self.get_long(ea);
+            let (res, v) = (data as i32).overflowing_sub(imm as i32);
+            let (_, c) = data.overflowing_sub(imm);
             self.set_long(ea, res as u32);
 
             self.sr.x = c;
@@ -1903,9 +1904,9 @@ impl<M: MemoryAccess> M68000<M> {
         let (imm, size, ea) = inst.operands.data_size_effective_address();
 
         if size.byte() {
-            let data = self.get_byte(ea) as i8;
-            let (res, v) = data.overflowing_sub(imm as i8);
-            let (_, c) = data.borrowing_sub(imm as i8, false);
+            let data = self.get_byte(ea);
+            let (res, v) = (data as i8).overflowing_sub(imm as i8);
+            let (_, c) = data.overflowing_sub(imm);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -1914,9 +1915,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.v = v;
             self.sr.c = c;
         } else if size.word() {
-            let data = self.get_word(ea) as i16;
-            let (res, v) = data.overflowing_sub(imm as i16);
-            let (_, c) = data.borrowing_sub(imm as i16, false);
+            let data = self.get_word(ea);
+            let (res, v) = (data as i16).overflowing_sub(imm as i16);
+            let (_, c) = data.overflowing_sub(imm as u16);
             self.set_word(ea, res as u16);
 
             if !ea.mode.ard() {
@@ -1927,9 +1928,9 @@ impl<M: MemoryAccess> M68000<M> {
                 self.sr.c = c;
             }
         } else {
-            let data = self.get_long(ea) as i32;
-            let (res, v) = data.overflowing_sub(imm as i32);
-            let (_, c) = data.borrowing_sub(imm as i32, false);
+            let data = self.get_long(ea);
+            let (res, v) = (data as i32).overflowing_sub(imm as i32);
+            let (_, c) = data.overflowing_sub(imm as u32);
             self.set_long(ea, res as u32);
 
             if !ea.mode.ard() {
@@ -1956,6 +1957,7 @@ impl<M: MemoryAccess> M68000<M> {
                 (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
             };
 
+            // TODO: replace with carrying_add when it will behave correctly on signed data.
             let src = src + self.sr.x as u8;
             let (sres, v) = (dst as i8).overflowing_sub(src as i8);
             let (ures, c) = dst.overflowing_sub(src);
