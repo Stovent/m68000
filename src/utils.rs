@@ -8,13 +8,13 @@ pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
 
 /// Trait that convert the first bytes of slices to their big-endian integer value.
 pub trait SliceAs {
-    /// Returns self[0] and self[1] as if it is a big-endian 16 bits integer.
+    /// Returns `self[0]` and `self[1]` as if it is a big-endian 16 bits integer.
     fn u16_be(self) -> u16;
-    /// Returns self[0], self[1], self[2] and self[3] as if it is a big-endian 32 bits integer.
+    /// Returns `self[0]`, `self[1]`, `self[2]` and `self[3]` as if it is a big-endian 32 bits integer.
     fn u32_be(self) -> u32;
-    /// Returns self[1] for Byte size, self.u16_be() for Word size and self.u32_be() for Long size.
+    /// Returns `self[1]` for Byte size, `self.u16_be()` for Word size or `self.u32_be()` for Long size.
     fn i32_be_sized(self, size: Size) -> i32;
-    /// Return self.u16_be() then makes self advance by two bytes in the slice.
+    /// Return `self.u16_be()` then makes self advance by two bytes in the slice.
     fn get_next_word(&mut self) -> u16;
 }
 

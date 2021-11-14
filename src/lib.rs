@@ -1,7 +1,7 @@
 //! Motorola 68000 emulator.
 //!
 //! Applications creates their memory management system, implementing the
-//! [MemoryAccess](memory_access::MemoryAccess) trait, and passing it to the core.
+//! [MemoryAccess](memory_access::MemoryAccess) trait, and passes it to the core.
 //!
 //! # Example
 //!

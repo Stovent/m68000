@@ -3,8 +3,8 @@
 //! Its responsibility is only to retrive the operands and format them approprately.
 //! It is the interpreter's role to interpret the operand.
 //!
-//! In the returned tuples, the first operand is the left-most operand in the instruction word (high-order bits).
-//! The last operand is the right-most operand in the instruction word (low-order bits) or the extention words (if any).
+//! The functions returns the operands and the number of extention words used by the instruction.
+//! They take as parameters the opcode of the instruction and an iterator over the extention words.
 
 use super::addressing_modes::EffectiveAddress;
 use super::decoder::DECODER;
@@ -155,6 +155,7 @@ impl std::fmt::Display for Size {
     }
 }
 
+/// Operands of an instruction.
 #[derive(Clone, Debug)]
 pub(super) enum Operands {
     /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
@@ -217,6 +218,8 @@ pub(super) enum Operands {
     RotationDirectionSizeModeRegister(u8, Direction, Size, u8, u8),
 }
 
+/// In the returned values, the first operand is the left-most operand in the instruction word (high-order bits).
+/// The last operand is the right-most operand in the instruction word (low-order bits) or the extention words (if any).
 impl Operands {
     /// ANDI/EORI/ORI CCR/SR, STOP
     pub fn immediate(&self) -> u16 {
@@ -442,10 +445,6 @@ impl Operands {
         }
     }
 }
-
-/// All these functions returns the operands and the number of extention words used by the instruction.
-///
-/// The idea is to send an iterator over u16 values, starting at the first extention word.
 
 /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
 pub(super) fn no_operands(_: u16, _: &mut MemoryIter) -> (Operands, usize) {
