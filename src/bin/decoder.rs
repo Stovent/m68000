@@ -10,9 +10,21 @@ use std::fs::File;
 use std::io::Write;
 use std::str;
 
-const FILE_BEGIN: &[u8] = b"use super::isa::{Isa, Isa::*};
+const FILE_BEGIN: &[u8] = b"//! Instruction decoding module.
 
-pub(super) const DECODER: [Isa; 65536] = [";
+use crate::isa::{Isa, Isa::*};
+
+/// Look up the Isa of the given opcode.
+///
+/// This is a look-up table. Use the raw opcode as the index in the array.
+///
+/// # Example
+///
+/// ```rs
+/// let opcode = memory.get_word(instruction_address); // get the opcode
+/// let isa = DECODER[opcode as usize];
+/// ```
+pub const DECODER: [Isa; 65536] = [";
 
 const FILE_END: &[u8] = b"
 ];
