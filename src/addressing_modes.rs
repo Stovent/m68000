@@ -1,16 +1,16 @@
-//! This module defines all the addressing mode-related functions.
+//! Addressing mode-related structs, enums and functions.
 
-use super::{M68000, MemoryAccess};
-use super::memory_access::MemoryIter;
-use super::instruction::Size;
-use super::utils::{AsArray, bits, SliceAs};
+use crate::{M68000, MemoryAccess};
+use crate::memory_access::MemoryIter;
+use crate::instruction::Size;
+use crate::utils::{AsArray, bits, SliceAs};
 
-/// Struct representing the `mode` part of an effective address field.
+/// The `mode` part of an effective address field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub(super) enum AddressingMode {
+pub enum AddressingMode {
     /// Data Register Direct
     Drd = 0,
-    // Address Register Direct
+    /// Address Register Direct
     Ard = 1,
     /// Address Register Indirect
     Ari = 2,
@@ -27,43 +27,33 @@ pub(super) enum AddressingMode {
 }
 
 impl AddressingMode {
+    /// Returns true if `self` is `Drd`, false otherwise.
     #[inline(always)]
-    pub(super) fn drd(self) -> bool {
+    pub fn drd(self) -> bool {
         self == Self::Drd
     }
 
+    /// Returns true if `self` is `Ard`, false otherwise.
     #[inline(always)]
-    pub(super) fn ard(self) -> bool {
+    pub fn ard(self) -> bool {
         self == Self::Ard
     }
 
-    // #[inline(always)]
-    // pub(super) fn ari(self) -> bool {
-    //     self == Self::Ari
-    // }
-
+    /// Returns true if `self` is `Ariwpo`, false otherwise.
     #[inline(always)]
-    pub(super) fn ariwpo(self) -> bool {
+    pub fn ariwpo(self) -> bool {
         self == Self::Ariwpo
     }
 
+    /// Returns true if `self` is `Ariwpr`, false otherwise.
     #[inline(always)]
-    pub(super) fn ariwpr(self) -> bool {
+    pub fn ariwpr(self) -> bool {
         self == Self::Ariwpr
     }
 
-    // #[inline(always)]
-    // pub(super) fn ariwd(self) -> bool {
-    //     self == Self::Ariwd
-    // }
-
-    // #[inline(always)]
-    // pub(super) fn ariwi8(self) -> bool {
-    //     self == Self::Ariwi8
-    // }
-
+    /// Returns true if `self` is `Mode7`, false otherwise.
     #[inline(always)]
-    pub(super) fn mode7(self) -> bool {
+    pub fn mode7(self) -> bool {
         self == Self::Mode7
     }
 }
@@ -86,7 +76,7 @@ impl From<u16> for AddressingMode {
 
 /// Represents an effective address, with mode, register, size and extension words.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub(super) struct EffectiveAddress {
+pub struct EffectiveAddress {
     /// The addressing mode.
     pub mode: AddressingMode,
     /// The addressing register.
@@ -102,8 +92,8 @@ pub(super) struct EffectiveAddress {
 }
 
 impl EffectiveAddress {
-    /// New effective address with an empty `address` field, with mode and reg at the low 6 bits.
-    pub(super) fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    /// New effective address with an empty `address` field.
+    pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let (ext, pc): (Box<[u8]>, u32) = match mode {
             AddressingMode::Ari => (Box::new([]), 0),
             AddressingMode::Ariwpo => (Box::new([]), 0),
@@ -160,15 +150,15 @@ impl EffectiveAddress {
         }
     }
 
-    /// New effective address with mode and reg pulled from the standard opcodes locations (lower 6 bits).
-    pub(super) fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    /// New effective address with mode and reg pulled from the lower 6 bits.
+    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         Self::new(mode, reg, size, memory)
     }
 
     /// Returns the destination (left tuple) and source (right tuple) effective addresses from a `MOVE` instruction opcode.
-    pub(super) fn from_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> (Self, Self) {
+    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> (Self, Self) {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         let src = Self::new(mode, reg, size, memory);
@@ -181,6 +171,7 @@ impl EffectiveAddress {
 }
 
 impl std::fmt::Display for EffectiveAddress {
+    /// Disassembles the effective address field.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.mode {
             AddressingMode::Drd => write!(f, "D{}", self.reg),
@@ -212,6 +203,7 @@ impl std::fmt::UpperHex for EffectiveAddress {
     }
 }
 
+/// Disassembles the index register field of a brief extension word.
 fn disassemble_index_register(bew: u16) -> String {
     let x = if bew & 0x8000 != 0 { "A" } else { "D" };
     let reg = bits(bew, 12, 14);
@@ -221,8 +213,6 @@ fn disassemble_index_register(bew: u16) -> String {
 
 impl<M: MemoryAccess> M68000<M> {
     /// Calculates the value of the given effective address.
-    ///
-    /// `pc` must be the address of the instruction + 2.
     ///
     /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
     /// Otherwise the address is computed and assigned to `ea.address` and returned, or None if the addressing mode is not in memory.

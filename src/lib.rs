@@ -15,7 +15,7 @@
 
 #![feature(bigint_helper_methods)]
 
-mod addressing_modes;
+pub mod addressing_modes;
 mod decoder;
 mod disassembler;
 mod exception;
