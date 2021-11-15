@@ -17,9 +17,9 @@
 
 pub mod addressing_modes;
 pub mod decoder;
-mod disassembler;
+pub mod disassembler;
 mod exception;
-mod instruction;
+pub mod instruction;
 mod interpreter;
 pub mod isa;
 pub mod memory_access;
