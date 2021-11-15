@@ -4,7 +4,7 @@ use super::{M68000, MemoryAccess, StackFrame, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
-use super::utils::{bits, from_pbcd, to_pbcd};
+use super::utils::bits;
 
 impl<M: MemoryAccess> M68000<M> {
     pub fn interpreter(&mut self) {
@@ -35,7 +35,31 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn abcd(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (rx, _, mode, ry) = inst.operands.register_size_mode_register();
+
+        let (src, dst) = if mode == Direction::MemoryToMemory {
+            let src_addr = self.ariwpr(ry, Size::Byte);
+            let dst_addr = self.ariwpr(rx, Size::Byte);
+            (self.memory.get_byte(src_addr), self.memory.get_byte(dst_addr))
+        } else {
+            (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
+        };
+
+        let low = (src & 0x0F) + (dst & 0x0F) + self.sr.x as u8;
+        let high = (src >> 4 & 0x0F) + (dst >> 4 & 0x0F) + (low > 10) as u8;
+        let res = (high << 4) | low;
+
+        if mode == Direction::MemoryToMemory {
+            self.memory.set_byte(self.a(rx), res);
+        } else {
+            self.d_byte(rx, res);
+        }
+
+        if res != 0 { self.sr.z = false; }
+        self.sr.c = high > 10;
+        self.sr.x = self.sr.c;
+
+        1
     }
 
     pub(super) fn add(&mut self, inst: &mut Instruction) -> usize {
@@ -1306,7 +1330,22 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn nbcd(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let ea = inst.operands.effective_address();
+
+        let data = self.get_byte(ea);
+
+        let low = 0 - (data as i8 & 0x0F) - self.sr.x as i8;
+        let high = 0 - (data as i8 >> 4 & 0x0F) - (low < 0) as i8;
+        let res = (if high < 0 { 10 + high } else { high } as u8) << 4 |
+                      if low < 0 { 10 + low } else { low } as u8;
+
+        self.set_byte(ea, res);
+
+        if res != 0 { self.sr.z = false; }
+        self.sr.c = res != 0;
+        self.sr.x = self.sr.c;
+
+        1
     }
 
     pub(super) fn neg(&mut self, inst: &mut Instruction) -> usize {
@@ -1755,7 +1794,32 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn sbcd(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let (ry, _, mode, rx) = inst.operands.register_size_mode_register();
+
+        let (src, dst) = if mode == Direction::MemoryToMemory {
+            let src_addr = self.ariwpr(rx, Size::Byte);
+            let dst_addr = self.ariwpr(ry, Size::Byte);
+            (self.memory.get_byte(src_addr), self.memory.get_byte(dst_addr))
+        } else {
+            (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
+        };
+
+        let low = (dst as i8 & 0x0F) - (src as i8 & 0x0F) - self.sr.x as i8;
+        let high = (dst as i8 >> 4 & 0x0F) - (src as i8 >> 4 & 0x0F) - (low < 0) as i8;
+        let res = (if high < 0 { 10 + high } else { high } as u8) << 4 |
+                      if low < 0 { 10 + low } else { low } as u8;
+
+        if mode == Direction::MemoryToMemory {
+            self.memory.set_byte(self.a(ry), res);
+        } else {
+            self.d_byte(ry, res);
+        }
+
+        if res != 0 { self.sr.z = false; }
+        self.sr.c = high < 0;
+        self.sr.x = self.sr.c;
+
+        1
     }
 
     pub(super) fn scc(&mut self, inst: &mut Instruction) -> usize {
