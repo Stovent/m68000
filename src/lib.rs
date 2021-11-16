@@ -10,13 +10,14 @@
 //! # TODO:
 //! - Exceptions.
 //! - Calculation times.
+//! - Bus and Address errors.
 
 #![feature(bigint_helper_methods)]
 
 pub mod addressing_modes;
 pub mod decoder;
 pub mod disassembler;
-mod exception;
+pub mod exception;
 pub mod instruction;
 mod interpreter;
 pub mod isa;
@@ -27,12 +28,14 @@ mod utils;
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
+use std::collections::VecDeque;
+
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
 // const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
 
 /// A M68000 core.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct M68000<M: MemoryAccess> {
     d: [u32; 8],
     a_: [u32; 7],
@@ -41,6 +44,7 @@ pub struct M68000<M: MemoryAccess> {
     sr: StatusRegister,
     pc: u32,
 
+    exceptions: VecDeque<u8>,
     memory: M,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
     extra_cycles: usize,
@@ -58,13 +62,13 @@ impl<M: MemoryAccess> M68000<M> {
             sr: StatusRegister::default(),
             pc: 0,
 
+            exceptions: VecDeque::new(),
             memory,
             extra_cycles: 0,
             config,
         };
 
-        cpu.exception(exception::Vector::ResetSsp as u32);
-        cpu.exception(exception::Vector::ResetPc as u32);
+        cpu.exception(exception::Vector::ResetSspPc as u8);
 
         cpu
     }

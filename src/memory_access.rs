@@ -114,6 +114,7 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
+    /// Returns the word at `self.pc` then advances `self.pc` by 2.
     pub(super) fn get_next_word(&mut self) -> u16 {
         let data = self.memory.get_word(self.pc);
         self.pc += 2;

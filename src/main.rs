@@ -67,7 +67,10 @@ impl MemoryAccess for Memory68070 {
 
 fn main()
 {
-    let mut  ram = Memory68070 { memory_swap: 0, ram: vec![0; MB].into_boxed_slice() };
+    let mut ram = Memory68070 {
+        memory_swap: 0,
+        ram: vec![0; MB].into_boxed_slice(),
+    };
     let mut bios_file = File::open("cpudiag40.rom").expect("no cpudiag40.rom");
     match bios_file.read(&mut ram.ram[0x40_0000..]) {
         Ok(i) => println!("Successfully read {} bytes from cpudiag40.rom", i),

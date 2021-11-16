@@ -1,17 +1,16 @@
-#![allow(dead_code)]
+//! Exception processing.
 
-use super::{M68000, MemoryAccess};
+use crate::{M68000, MemoryAccess};
 
-/// The exception vectors of the 68000.
+/// Exception vectors of the 68000.
 pub enum Vector {
-    ResetSsp = 0,
-    ResetPc,
-    BusError, // Access error
+    ResetSspPc = 0,
+    AccessError = 2,
     AddressError,
     IllegalInstruction,
     ZeroDivide,
     ChkInstruction,
-    TRAPV,
+    TrapVInstruction,
     PrivilegeViolation,
     Trace,
     Line1010Emulator,
@@ -45,18 +44,18 @@ pub enum Vector {
 }
 
 impl<M: MemoryAccess> M68000<M> {
-    pub(super) fn exception(&mut self, vector: u32) -> usize {
+    /// Appends an exception.
+    pub fn exception(&mut self, vector: u8) {
+        self.exceptions.push_back(vector);
+    }
+
+    pub(super) fn process_exception(&mut self, vector: u8) -> usize {
         let sr = self.sr.into();
         self.sr.s = true;
 
-        println!("exception {}", vector);
-
         if vector == 0 {
             self.ssp = self.memory.get_long(0);
-            return 1;
-        }
-        if vector == 1 {
-            self.pc = self.memory.get_long(4);
+            self.pc  = self.memory.get_long(4);
             return 1;
         }
 
@@ -90,7 +89,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.push_word(sr);
         // }
 
-        self.pc = self.memory.get_long(vector * 4);
+        self.pc = self.memory.get_long(vector as u32 * 4);
 
         1
     }

@@ -21,6 +21,12 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// Executes a single instruction, returning the cycle count necessary to execute it.
     pub fn interpreter(&mut self) -> usize {
+        let mut cycle_count = 0;
+
+        if let Some(vector) = self.exceptions.pop_front() {
+            cycle_count += self.process_exception(vector);
+        }
+
         let pc = self.pc;
         let opcode = self.get_next_word();
         let isa = DECODER[opcode as usize];
@@ -39,7 +45,8 @@ impl<M: MemoryAccess> M68000<M> {
         #[cfg(debug_assertions)]
         println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));
 
-        (entry.execute)(self, &mut instruction)
+        cycle_count += (entry.execute)(self, &mut instruction);
+        cycle_count
     }
 
     pub(super) fn unknown_instruction(&mut self, _: &mut Instruction) -> usize {
@@ -634,7 +641,7 @@ impl<M: MemoryAccess> M68000<M> {
         let data = self.d[reg as usize] as i16;
 
         if data < 0 || data > src {
-            self.exception(Vector::ChkInstruction as u32);
+            self.exception(Vector::ChkInstruction as u8);
             0
         } else {
             1
@@ -991,7 +998,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn illegal(&mut self, _: &mut Instruction) -> usize {
-        self.exception(Vector::IllegalInstruction as u32);
+        self.exception(Vector::IllegalInstruction as u8);
         0
     }
 
@@ -2141,10 +2148,15 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn trap(&mut self, inst: &mut Instruction) -> usize {
+        let vector = inst.operands.vector();
+        self.exception(vector);
         0
     }
 
-    pub(super) fn trapv(&mut self, inst: &mut Instruction) -> usize {
+    pub(super) fn trapv(&mut self, _: &mut Instruction) -> usize {
+        if self.sr.v {
+            self.exception(Vector::TrapVInstruction as u8);
+        }
         0
     }
 
