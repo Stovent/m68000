@@ -7,18 +7,31 @@ use super::instruction::{Direction, Instruction, Size};
 use super::utils::bits;
 
 impl<M: MemoryAccess> M68000<M> {
-    pub fn interpreter(&mut self) {
+    /// Runs the CPU for `cycles` number of cycles.
+    ///
+    /// This function executes *at least* the given number of cycles.
+    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
+    /// it will be executed and the 2 extra cycles will be subtracted in the next call.
+    pub fn execute_cycles(&mut self, cycles: usize) {
+        while self.extra_cycles < cycles {
+            self.extra_cycles += self.interpreter();
+        }
+        self.extra_cycles -= cycles;
+    }
+
+    /// Executes a single instruction, returning the cycle count necessary to execute it.
+    pub fn interpreter(&mut self) -> usize {
         let pc = self.pc;
-        self.current_opcode = self.get_next_word();
-        let isa = DECODER[self.current_opcode as usize];
+        let opcode = self.get_next_word();
+        let isa = DECODER[opcode as usize];
         let entry = &Self::ISA_ENTRY[isa as usize];
 
         let mut iter = self.memory.iter(self.pc);
-        let (operands, len) = (entry.decode)(self.current_opcode, &mut iter);
+        let (operands, len) = (entry.decode)(opcode, &mut iter);
         self.pc += len as u32;
 
         let mut instruction = Instruction {
-            opcode: self.current_opcode,
+            opcode,
             pc,
             operands,
         };
@@ -26,7 +39,7 @@ impl<M: MemoryAccess> M68000<M> {
         #[cfg(debug_assertions)]
         println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));
 
-        (entry.execute)(self, &mut instruction);
+        (entry.execute)(self, &mut instruction)
     }
 
     pub(super) fn unknown_instruction(&mut self, _: &mut Instruction) -> usize {

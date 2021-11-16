@@ -9,9 +9,7 @@
 //!
 //! # TODO:
 //! - Exceptions.
-//! - Documentation.
 //! - Calculation times.
-//! - Read-Modify-Write cycles to only have get/set_word.
 
 #![feature(bigint_helper_methods)]
 
@@ -43,9 +41,9 @@ pub struct M68000<M: MemoryAccess> {
     sr: StatusRegister,
     pc: u32,
 
-    current_opcode: u16,
-
     memory: M,
+    /// Stores the number of extra cycles executed during the last call to execute_cycles.
+    extra_cycles: usize,
     config: Config,
 }
 
@@ -60,9 +58,8 @@ impl<M: MemoryAccess> M68000<M> {
             sr: StatusRegister::default(),
             pc: 0,
 
-            current_opcode: 0xFFFF,
-
             memory,
+            extra_cycles: 0,
             config,
         };
 
