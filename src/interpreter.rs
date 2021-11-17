@@ -1,6 +1,6 @@
 #![allow(overflowing_literals)]
 
-use super::{M68000, MemoryAccess, StackFrame, SR_UPPER_MASK, CCR_MASK};
+use super::{M68000, MemoryAccess, StackFormat, SR_UPPER_MASK, CCR_MASK};
 use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
@@ -50,7 +50,7 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn unknown_instruction(&mut self, _: &mut Instruction) -> usize {
-        self.exception(Vector::IllegalInstruction as u32);
+        self.exception(Vector::IllegalInstruction as u8);
         0
     }
 
@@ -1780,7 +1780,7 @@ impl<M: MemoryAccess> M68000<M> {
             let sr = self.pop_word();
             self.pc = self.pop_long();
 
-            if self.config.stack == StackFrame::Stack68070 {
+            if self.stack_format == StackFormat::Stack68010 {
                 let format = self.pop_word();
                 if format & 0xF000 == 0xF000 {
                     *self.sp_mut() += 26;

@@ -1,9 +1,9 @@
 //! Memory access-related traits and structs.
 
-use super::M68000;
-use super::addressing_modes::EffectiveAddress;
-use super::instruction::Size;
-use super::utils::SliceAs;
+use crate::M68000;
+use crate::addressing_modes::EffectiveAddress;
+use crate::instruction::Size;
+use crate::utils::SliceAs;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 pub trait MemoryAccess {

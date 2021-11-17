@@ -1,6 +1,6 @@
 //! This program is a test function that runs a M68000 test ROM.
 
-use m68000::{Config, M68000, StackFrame};
+use m68000::{M68000, StackFormat};
 use m68000::memory_access::{MemoryAccess, MemoryIter};
 
 use std::fs::File;
@@ -77,13 +77,13 @@ fn main()
         Err(e) => panic!("Failed to read from cpudiag40.rom: {}", e),
     }
 
-    let config = Config { stack: StackFrame::Stack68070 };
-    let mut cpu = M68000::new(ram, config);
+    let mut cpu = M68000::new(ram, StackFormat::Stack68010);
 
     // Execute 1 000 000 000 instructions
     for _ in 0..1_000_000_000 {
         cpu.interpreter();
     }
+
     // Check that the CPU loops at the correct end point
-    // assert_eq!(cpu.pc, 0x0)
+    // assert_eq!(cpu.pc, 0x40042A);
 }

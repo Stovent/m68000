@@ -32,7 +32,6 @@ use std::collections::VecDeque;
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
-// const SR_MASK: u16 = SR_UPPER_MASK | CCR_MASK;
 
 /// A M68000 core.
 #[derive(Clone, Debug)]
@@ -48,12 +47,12 @@ pub struct M68000<M: MemoryAccess> {
     memory: M,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
     extra_cycles: usize,
-    config: Config,
+    stack_format: StackFormat,
 }
 
 impl<M: MemoryAccess> M68000<M> {
     /// Creates a new M68000 core, with the given memory.
-    pub fn new(memory: M, config: Config) -> Self {
+    pub fn new(memory: M, stack_format: StackFormat) -> Self {
         let mut cpu = Self {
             d: [0; 8],
             a_: [0; 7],
@@ -65,7 +64,7 @@ impl<M: MemoryAccess> M68000<M> {
             exceptions: VecDeque::new(),
             memory,
             extra_cycles: 0,
-            config,
+            stack_format,
         };
 
         cpu.exception(exception::Vector::ResetSspPc as u8);
@@ -120,15 +119,9 @@ impl<M: MemoryAccess> M68000<M> {
     }
 }
 
-/// Configuration of the core.
-#[derive(Clone, Copy, Debug)]
-pub struct Config {
-    pub stack: StackFrame,
-}
-
-/// Stack frame format based on the processor type.
+/// The stack frame format to use, which will decide the behaviour of exception handling.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StackFrame {
-    // Stack68000,
-    Stack68070,
+pub enum StackFormat {
+    Stack68000,
+    Stack68010,
 }
