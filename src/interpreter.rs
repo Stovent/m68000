@@ -30,6 +30,10 @@ impl<M: MemoryAccess> M68000<M> {
             cycle_count += self.process_exception(vector);
         }
 
+        if self.stop {
+            return if cycle_count != 0 { cycle_count } else { 1 };
+        }
+
         let pc = self.pc;
         let opcode = self.get_next_word();
         let isa = DECODER[opcode as usize];
@@ -1858,7 +1862,18 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     pub(super) fn stop(&mut self, inst: &mut Instruction) -> usize {
-        0
+        let imm = inst.operands.immediate();
+
+        if self.sr.s {
+            // TODO: trace.
+            self.sr = imm.into();
+            self.stop = true;
+            // TODO: how to regain control?
+        } else {
+            self.exception(Vector::PrivilegeViolation as u8);
+        }
+
+        1
     }
 
     pub(super) fn sub(&mut self, inst: &mut Instruction) -> usize {

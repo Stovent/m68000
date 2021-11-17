@@ -56,7 +56,13 @@ impl<M: MemoryAccess> M68000<M> {
         if vector == 0 {
             self.ssp = self.memory.get_long(0);
             self.pc  = self.memory.get_long(4);
+            self.stop = false;
             return 1;
+        }
+
+        if vector == Vector::Trace as u8 ||
+           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7InterruptAutovector as u8 {
+            self.stop = false;
         }
 
         // if self.config.stack == StackFrame::Stack68000 {

@@ -40,6 +40,7 @@ pub struct M68000<M: MemoryAccess> {
     sr: StatusRegister,
     pc: u32,
 
+    stop: bool,
     exceptions: VecDeque<u8>,
     memory: M,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
@@ -58,6 +59,7 @@ impl<M: MemoryAccess> M68000<M> {
             sr: StatusRegister::default(),
             pc: 0,
 
+            stop: false,
             exceptions: VecDeque::new(),
             memory,
             extra_cycles: 0,
