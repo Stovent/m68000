@@ -6,7 +6,7 @@
 use crate::addressing_modes::EffectiveAddress;
 use crate::decoder::DECODER;
 use crate::isa::Isa;
-use crate::memory_access::MemoryIter;
+use crate::memory_access::U16Iter;
 use crate::utils::bits;
 
 /// M68000 instruction.
@@ -454,18 +454,18 @@ impl Operands {
 }
 
 /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
-pub fn no_operands(_: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn no_operands(_: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     (Operands::NoOperands, 0)
 }
 
 /// ANDI/EORI/ORI CCR/SR, STOP
-pub fn immediate(_: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn immediate(_: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let imm = memory.next().unwrap(); // get immediate word
     (Operands::Immediate(imm), 2)
 }
 
 /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
-pub fn size_effective_address_immediate(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn size_effective_address_immediate(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
 
     let size = Size::from(bits(opcode, 6, 7));
@@ -487,7 +487,7 @@ pub fn size_effective_address_immediate(opcode: u16, memory: &mut MemoryIter) ->
 }
 
 /// BCHG, BCLR, BSET, BTST
-pub fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn effective_address_count(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let count = if bits(opcode, 8, 8) != 0 { // dynamic bit number
         bits(opcode, 9, 11) as u8
@@ -505,7 +505,7 @@ pub fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (Operand
 }
 
 /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
-pub fn effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let isa = DECODER[opcode as usize];
 
@@ -525,7 +525,7 @@ pub fn effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usi
 }
 
 /// CLR, NEG, NEGX, NOT, TST
-pub fn size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn size_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let size = Size::from(bits(opcode, 6, 7));
     let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
@@ -534,7 +534,7 @@ pub fn size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands
 }
 
 /// CHK, DIVS, DIVU, LEA, MULS, MULU
-pub fn register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let isa = DECODER[opcode as usize];
 
@@ -551,7 +551,7 @@ pub fn register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Oper
 }
 
 /// MOVEP
-pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let dreg = bits(opcode, 9, 11) as u8;
     let dir = if bits(opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
     let size = if bits(opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
@@ -561,7 +561,7 @@ pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut M
 }
 
 /// MOVEA
-pub fn size_register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn size_register_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let size = Size::from_move(bits(opcode, 12, 13));
     let areg = bits(opcode, 9, 11) as u8;
@@ -571,7 +571,7 @@ pub fn size_register_effective_address(opcode: u16, memory: &mut MemoryIter) -> 
 }
 
 /// MOVE
-pub fn size_effective_address_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn size_effective_address_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let size = Size::from_move(bits(opcode, 12, 13));
 
@@ -582,7 +582,7 @@ pub fn size_effective_address_effective_address(opcode: u16, memory: &mut Memory
 }
 
 /// EXG
-pub fn register_opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_opmode_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let regl = bits(opcode, 9, 11) as u8;
     let opmode = bits(opcode, 3, 7) as u8;
     let regr = bits(opcode, 0, 2) as u8;
@@ -590,40 +590,40 @@ pub fn register_opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, u
 }
 
 /// EXT
-pub fn opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn opmode_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let opmode = bits(opcode, 6, 8) as u8;
     let reg = bits(opcode, 0, 2) as u8;
     (Operands::OpmodeRegister(opmode, reg), 0)
 }
 
 /// TRAP
-pub fn vector(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn vector(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let vector = bits(opcode, 0, 3) as u8;
     (Operands::Vector(vector), 0)
 }
 
 /// LINK
-pub fn register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let reg = bits(opcode, 0, 2) as u8;
     let disp = memory.next().unwrap() as i16;
     (Operands::RegisterDisp(reg, disp), 2)
 }
 
 /// UNLK
-pub fn register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let reg = bits(opcode, 0, 2) as u8;
     (Operands::Register(reg), 0)
 }
 
 /// MOVE USP
-pub fn direction_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn direction_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let dir = if bits(opcode, 3, 3) != 0 { Direction::UspToRegister } else { Direction::RegisterToUsp };
     let reg = bits(opcode, 0, 2) as u8;
     (Operands::DirectionRegister(dir, reg), 0)
 }
 
 /// MOVEM
-pub fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn direction_size_effective_address_list(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 2;
     let list = memory.next().unwrap();
     let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
@@ -636,7 +636,7 @@ pub fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIte
 }
 
 /// ADDQ, SUBQ
-pub fn data_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn data_size_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let data = bits(opcode, 9, 11) as u8;
     let size = Size::from(bits(opcode, 6, 7));
@@ -648,7 +648,7 @@ pub fn data_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
 }
 
 /// Scc
-pub fn condition_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn condition_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let condition = bits(opcode, 8, 11) as u8;
 
@@ -659,7 +659,7 @@ pub fn condition_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
 }
 
 /// DBcc
-pub fn condition_register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn condition_register_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let disp = memory.next().unwrap() as i16;
     let condition = bits(opcode, 8, 11) as u8;
     let reg = bits(opcode, 0, 2) as u8;
@@ -667,7 +667,7 @@ pub fn condition_register_displacement(opcode: u16, memory: &mut MemoryIter) -> 
 }
 
 /// BRA, BSR
-pub fn displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
@@ -678,7 +678,7 @@ pub fn displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
 }
 
 /// Bcc
-pub fn condition_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn condition_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
@@ -690,14 +690,14 @@ pub fn condition_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands
 }
 
 /// MOVEQ
-pub fn register_data(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_data(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let reg = bits(opcode, 9, 11) as u8;
     let data = opcode as i8;
     (Operands::RegisterData(reg, data), 0)
 }
 
 /// ADD, AND, CMP, EOR, OR, SUB
-pub fn register_direction_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_direction_size_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let reg = bits(opcode, 9, 11) as u8;
     let dir = if bits(opcode, 8, 8) != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
@@ -710,7 +710,7 @@ pub fn register_direction_size_effective_address(opcode: u16, memory: &mut Memor
 }
 
 /// ADDA, CMPA, SUBA
-pub fn register_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_size_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let reg = bits(opcode, 9, 11) as u8;
     let size = Size::from_bit(bits(opcode, 8, 8));
@@ -722,7 +722,7 @@ pub fn register_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> 
 }
 
 /// ABCD, ADDX, SBCD, SUBX
-pub fn register_size_mode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_size_mode_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let regl = bits(opcode, 9, 11) as u8;
     let size = Size::from(bits(opcode, 6, 7));
     let mode = if bits(opcode, 3, 3) != 0 { Direction::MemoryToMemory } else { Direction::RegisterToRegister };
@@ -731,7 +731,7 @@ pub fn register_size_mode_register(opcode: u16, _: &mut MemoryIter) -> (Operands
 }
 
 /// CMPM
-pub fn register_size_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn register_size_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let regl = bits(opcode, 9, 11) as u8;
     let size = Size::from(bits(opcode, 6, 7));
     let regr = bits(opcode, 0, 2) as u8;
@@ -739,7 +739,7 @@ pub fn register_size_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usi
 }
 
 /// ASm, LSm, ROm, ROXm
-pub fn direction_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
+pub fn direction_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 0;
     let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
     let ea = EffectiveAddress::from_opcode(opcode, Some(Size::Byte), memory);
@@ -748,7 +748,7 @@ pub fn direction_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
 }
 
 /// ASr, LSr, ROr, ROXr
-pub fn rotation_direction_size_mode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
+pub fn rotation_direction_size_mode_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
     let count = bits(opcode, 9, 11) as u8;
     let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
     let size = Size::from(bits(opcode, 6, 7));

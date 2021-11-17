@@ -7,8 +7,6 @@ use crate::utils::SliceAs;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 pub trait MemoryAccess {
-    /// Returns an iterator over 16-bits values, starting at the given address.
-    fn iter(&mut self, addr: u32) -> MemoryIter;
     /// Returns a 8-bits integer from the given address.
     fn get_byte(&mut self, addr: u32) -> u8;
     /// Returns a big-endian 16-bits integer from the given address.
@@ -28,20 +26,30 @@ pub trait MemoryAccess {
 }
 
 /// Iterator over 16-bits values in memory.
-pub struct MemoryIter<'a> {
+pub trait U16Iter : Iterator<Item = u16> {
+    fn next_addr(&self) -> u32;
+}
+
+pub(super) struct MemoryIter<'a> {
     /// The memory system that will be used to get the values.
-    pub cpu: &'a mut dyn MemoryAccess,
+    pub memory: &'a mut dyn MemoryAccess,
     /// The address of the next value to be returned.
     pub next_addr: u32,
 }
 
-impl<'a> Iterator for MemoryIter<'a> {
+impl Iterator for MemoryIter<'_> {
     type Item = u16;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let data = self.cpu.get_word(self.next_addr);
+        let data = self.memory.get_word(self.next_addr);
         self.next_addr += 2;
         Some(data)
+    }
+}
+
+impl U16Iter for MemoryIter<'_> {
+    fn next_addr(&self) -> u32 {
+        self.next_addr
     }
 }
 

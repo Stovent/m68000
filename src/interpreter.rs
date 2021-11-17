@@ -4,6 +4,7 @@ use super::{M68000, MemoryAccess, StackFormat};
 use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
+use super::memory_access::MemoryIter;
 use super::utils::bits;
 
 const SR_UPPER_MASK: u16 = 0xA700;
@@ -39,7 +40,10 @@ impl<M: MemoryAccess> M68000<M> {
         let isa = DECODER[opcode as usize];
         let entry = &Self::ISA_ENTRY[isa as usize];
 
-        let mut iter = self.memory.iter(self.pc);
+        let mut iter = MemoryIter {
+            memory: &mut self.memory,
+            next_addr: self.pc,
+        };
         let (operands, len) = (entry.decode)(opcode, &mut iter);
         self.pc += len as u32;
 

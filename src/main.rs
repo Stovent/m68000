@@ -1,7 +1,7 @@
 //! This program is a test function that runs a M68000 test ROM.
 
 use m68000::{M68000, StackFormat};
-use m68000::memory_access::{MemoryAccess, MemoryIter};
+use m68000::memory_access::MemoryAccess;
 
 use std::fs::File;
 use std::io::Read;
@@ -14,13 +14,6 @@ struct Memory68070 {
 }
 
 impl MemoryAccess for Memory68070 {
-    fn iter(&mut self, addr: u32) -> MemoryIter {
-        MemoryIter {
-            cpu: self,
-            next_addr: addr,
-        }
-    }
-
     fn get_byte(&mut self, addr: u32) -> u8 {
         if addr == 0x80002013 {
             0b0000_1110

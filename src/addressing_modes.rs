@@ -1,7 +1,7 @@
 //! Addressing mode-related structs, enums and functions.
 
 use crate::{M68000, MemoryAccess};
-use crate::memory_access::MemoryIter;
+use crate::memory_access::U16Iter;
 use crate::instruction::Size;
 use crate::utils::{AsArray, bits, SliceAs};
 
@@ -83,7 +83,7 @@ pub struct EffectiveAddress {
     pub reg: u8,
     /// The address of the extension word.
     pub pc: u32,
-    /// The address of the operand. None if the value is not in memory.
+    /// Where this effective address points to. `None` if the value is not in memory.
     pub address: Option<u32>,
     /// The size of the data.
     pub size: Option<Size>,
@@ -93,40 +93,40 @@ pub struct EffectiveAddress {
 
 impl EffectiveAddress {
     /// New effective address with an empty `address` field.
-    pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut dyn U16Iter) -> Self {
         let (ext, pc): (Box<[u8]>, u32) = match mode {
             AddressingMode::Ari => (Box::new([]), 0),
             AddressingMode::Ariwpo => (Box::new([]), 0),
             AddressingMode::Ariwpr => (Box::new([]), 0),
             AddressingMode::Ariwd  => {
-                let pc = memory.next_addr;
+                let pc = memory.next_addr();
                 (Box::new(memory.next().unwrap().as_array_be()), pc)
             },
             AddressingMode::Ariwi8 => {
-                let pc = memory.next_addr;
+                let pc = memory.next_addr();
                 (Box::new(memory.next().unwrap().as_array_be()), pc)
             },
             AddressingMode::Mode7 => match reg {
                 0 => {
-                    let pc = memory.next_addr;
+                    let pc = memory.next_addr();
                     (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 1 => {
-                    let pc = memory.next_addr;
+                    let pc = memory.next_addr();
                     let high = memory.next().unwrap();
                     let low = memory.next().unwrap();
                     (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                 },
                 2 => {
-                    let pc = memory.next_addr;
+                    let pc = memory.next_addr();
                     (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 3 => {
-                    let pc = memory.next_addr;
+                    let pc = memory.next_addr();
                     (Box::new(memory.next().unwrap().as_array_be()), pc)
                 },
                 4 => {
-                    let pc = memory.next_addr;
+                    let pc = memory.next_addr();
                     if size.unwrap().long() {
                         let high = memory.next().unwrap();
                         let low = memory.next().unwrap();
@@ -151,14 +151,14 @@ impl EffectiveAddress {
     }
 
     /// New effective address with mode and reg pulled from the lower 6 bits.
-    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut dyn U16Iter) -> Self {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         Self::new(mode, reg, size, memory)
     }
 
     /// Returns the destination (left tuple) and source (right tuple) effective addresses from a `MOVE` instruction opcode.
-    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> (Self, Self) {
+    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut dyn U16Iter) -> (Self, Self) {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         let src = Self::new(mode, reg, size, memory);
