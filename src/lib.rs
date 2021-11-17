@@ -23,15 +23,12 @@ mod interpreter;
 pub mod isa;
 pub mod memory_access;
 pub mod status_register;
-mod utils;
+pub mod utils;
 
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
 use std::collections::VecDeque;
-
-const SR_UPPER_MASK: u16 = 0xA700;
-const CCR_MASK: u16 = 0x001F;
 
 /// A M68000 core.
 #[derive(Clone, Debug)]

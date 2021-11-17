@@ -1,10 +1,13 @@
 #![allow(overflowing_literals)]
 
-use super::{M68000, MemoryAccess, StackFormat, SR_UPPER_MASK, CCR_MASK};
+use super::{M68000, MemoryAccess, StackFormat};
 use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
 use super::utils::bits;
+
+const SR_UPPER_MASK: u16 = 0xA700;
+const CCR_MASK: u16 = 0x001F;
 
 impl<M: MemoryAccess> M68000<M> {
     /// Runs the CPU for `cycles` number of cycles.
@@ -433,7 +436,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr &= imm;
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -832,7 +835,7 @@ impl<M: MemoryAccess> M68000<M> {
         let dst = self.d[reg as usize] as i32;
 
         if src == 0 {
-            // TODO: zero divide exception
+            self.exception(Vector::ZeroDivide as u8);
             0
         } else {
             let quot = dst / src;
@@ -855,7 +858,7 @@ impl<M: MemoryAccess> M68000<M> {
         let dst = self.d[reg as usize];
 
         if src == 0 {
-            // TODO: zero divide exception
+            self.exception(Vector::ZeroDivide as u8);
             0
         } else {
             let quot = dst / src;
@@ -955,7 +958,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr ^= imm;
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -1177,7 +1180,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr = sr.into();
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -1192,7 +1195,7 @@ impl<M: MemoryAccess> M68000<M> {
             }
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -1581,7 +1584,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr |= imm;
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -1600,7 +1603,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.memory.reset();
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -1785,7 +1788,7 @@ impl<M: MemoryAccess> M68000<M> {
                 if format & 0xF000 == 0xF000 {
                     *self.sp_mut() += 26;
                 } else if format & 0xF000 != 0 {
-                    // TODO: format error
+                    self.exception(Vector::FormatError as u8);
                 }
             }
 
@@ -1793,7 +1796,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             1
         } else {
-            // TODO: trap
+            self.exception(Vector::PrivilegeViolation as u8);
             0
         }
     }
@@ -2156,8 +2159,10 @@ impl<M: MemoryAccess> M68000<M> {
     pub(super) fn trapv(&mut self, _: &mut Instruction) -> usize {
         if self.sr.v {
             self.exception(Vector::TrapVInstruction as u8);
+            0
+        } else {
+            1
         }
-        0
     }
 
     pub(super) fn tst(&mut self, inst: &mut Instruction) -> usize {
