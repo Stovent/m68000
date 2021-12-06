@@ -40,6 +40,7 @@ pub struct M68000<M: MemoryAccess> {
     sr: StatusRegister,
     pc: u32,
 
+    current_opcode: u16,
     stop: bool,
     exceptions: VecDeque<u8>,
     memory: M,
@@ -59,6 +60,7 @@ impl<M: MemoryAccess> M68000<M> {
             sr: StatusRegister::default(),
             pc: 0,
 
+            current_opcode: 0xFFFF,
             stop: false,
             exceptions: VecDeque::new(),
             memory,

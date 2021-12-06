@@ -163,7 +163,7 @@ impl std::fmt::Display for Size {
 }
 
 /// Operands of an instruction.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Operands {
     /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
     NoOperands,

@@ -1,6 +1,6 @@
 //! Exception processing.
 
-use crate::{M68000, MemoryAccess};
+use crate::{M68000, MemoryAccess, StackFormat};
 
 /// Exception vectors of the 68000.
 pub enum Vector {
@@ -65,16 +65,16 @@ impl<M: MemoryAccess> M68000<M> {
             self.stop = false;
         }
 
-        // if self.config.stack == StackFrame::Stack68000 {
-        //     if vector == 2 || vector == 3 { // Long format
-        //         self.push_word(self.current_opcode);
-        //         self.push_long(0); // Access address
-        //         self.push_word(0); // function code
-        //     }
+        if self.stack_format == StackFormat::Stack68000 {
+            self.push_long(self.pc);
+            self.push_word(sr);
 
-        //     self.push_long(self.pc);
-        //     self.push_word(sr);
-        // } else { // if self.config.stack == StackFrame::Stack68070
+            if vector == 2 || vector == 3 { // Long format
+                self.push_word(self.current_opcode);
+                self.push_long(0); // Access address
+                self.push_word(0); // function code
+            }
+        } else { // if self.config.stack == StackFrame::Stack68070
             if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(0);
                 self.push_word(0);
@@ -93,7 +93,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             self.push_long(self.pc);
             self.push_word(sr);
-        // }
+        }
 
         self.pc = self.memory.get_long(vector as u32 * 4);
 
