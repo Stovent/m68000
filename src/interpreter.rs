@@ -278,7 +278,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             // TODO: replace with carrying_add when it will behave correctly on signed data.
             let (_, v) = src.overflowing_add(dst + self.sr.x as i8);
-            let (res, c) = src.carrying_add(dst, self.sr.x);
+            let (res, c) = (src as u8).carrying_add(dst as u8, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -303,7 +303,7 @@ impl<M: MemoryAccess> M68000<M> {
             };
 
             let (_, v) = src.overflowing_add(dst + self.sr.x as i16);
-            let (res, c) = src.carrying_add(dst, self.sr.x);
+            let (res, c) = (src as u16).carrying_add(dst as u16, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -328,7 +328,7 @@ impl<M: MemoryAccess> M68000<M> {
             };
 
             let (_, v) = src.overflowing_add(dst + self.sr.x as i32);
-            let (res, c) = src.carrying_add(dst, self.sr.x);
+            let (res, c) = (src as u32).carrying_add(dst as u32, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -1426,7 +1426,7 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_byte(ea) as i8;
             let res = 0 - data - self.sr.x as i8;
             let vres = 0 - (data as i16) - self.sr.x as i16;
-            let (_, c) = 0i8.borrowing_sub(data, self.sr.x);
+            let (_, c) = 0u8.borrowing_sub(data as u8, self.sr.x);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -1438,7 +1438,7 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_word(ea) as i16;
             let res = 0 - data - self.sr.x as i16;
             let vres = 0 - (data as i32) - self.sr.x as i32;
-            let (_, c) = 0i16.borrowing_sub(data, self.sr.x);
+            let (_, c) = 0u16.borrowing_sub(data as u16, self.sr.x);
             self.set_word(ea, res as u16);
 
             self.sr.x = c;
@@ -1450,7 +1450,7 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_long(ea) as i32;
             let res = 0 - data - self.sr.x as i32;
             let vres = 0 - (data as i64) - self.sr.x as i64;
-            let (_, c) = 0i32.borrowing_sub(data, self.sr.x);
+            let (_, c) = 0u32.borrowing_sub(data as u32, self.sr.x);
             self.set_long(ea, res as u32);
 
             self.sr.x = c;

@@ -21,7 +21,7 @@ pub trait MemoryAccess {
     /// Stores the given 32-bits value at the given address, in big-endian format.
     fn set_long(&mut self, addr: u32, value: u32);
 
-    /// Calls when the CPU executes a RESET instruction.
+    /// Called when the CPU executes a RESET instruction.
     fn reset(&mut self);
 }
 
