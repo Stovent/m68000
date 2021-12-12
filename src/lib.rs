@@ -12,8 +12,6 @@
 //! - Calculation times.
 //! - Bus and Address errors.
 
-#![feature(bigint_helper_methods)]
-
 pub mod addressing_modes;
 pub mod decoder;
 pub mod disassembler;

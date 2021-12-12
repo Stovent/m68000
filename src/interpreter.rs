@@ -5,7 +5,7 @@ use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
 use super::memory_access::MemoryIter;
-use super::utils::bits;
+use super::utils::{BigInt, bits};
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
@@ -271,14 +271,13 @@ impl<M: MemoryAccess> M68000<M> {
             let (src, dst) = if mode == Direction::MemoryToMemory {
                 let src_addr = self.ariwpr(ry, size);
                 let dst_addr = self.ariwpr(rx, size);
-                (self.memory.get_byte(src_addr) as i8, self.memory.get_byte(dst_addr) as i8)
+                (self.memory.get_byte(src_addr), self.memory.get_byte(dst_addr))
             } else {
-                (self.d[ry as usize] as i8, self.d[rx as usize] as i8)
+                (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
             };
 
-            // TODO: replace with carrying_add when it will behave correctly on signed data.
-            let (_, v) = src.overflowing_add(dst + self.sr.x as i8);
-            let (res, c) = (src as u8).carrying_add(dst as u8, self.sr.x);
+            let (res, v) = (src as i8).extended_add(dst as i8, self.sr.x);
+            let (_, c) = src.extended_add(dst, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -297,13 +296,13 @@ impl<M: MemoryAccess> M68000<M> {
             let (src, dst) = if mode == Direction::MemoryToMemory {
                 let src_addr = self.ariwpr(ry, size);
                 let dst_addr = self.ariwpr(rx, size);
-                (self.memory.get_word(src_addr) as i16, self.memory.get_word(dst_addr) as i16)
+                (self.memory.get_word(src_addr), self.memory.get_word(dst_addr))
             } else {
-                (self.d[ry as usize] as i16, self.d[rx as usize] as i16)
+                (self.d[ry as usize] as u16, self.d[rx as usize] as u16)
             };
 
-            let (_, v) = src.overflowing_add(dst + self.sr.x as i16);
-            let (res, c) = (src as u16).carrying_add(dst as u16, self.sr.x);
+            let (res, v) = (src as i16).extended_add(dst as i16, self.sr.x);
+            let (_, c) = src.extended_add(dst, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -322,13 +321,13 @@ impl<M: MemoryAccess> M68000<M> {
             let (src, dst) = if mode == Direction::MemoryToMemory {
                 let src_addr = self.ariwpr(ry, size);
                 let dst_addr = self.ariwpr(rx, size);
-                (self.memory.get_long(src_addr) as i32, self.memory.get_long(dst_addr) as i32)
+                (self.memory.get_long(src_addr), self.memory.get_long(dst_addr))
             } else {
-                (self.d[ry as usize] as i32, self.d[rx as usize] as i32)
+                (self.d[ry as usize], self.d[rx as usize])
             };
 
-            let (_, v) = src.overflowing_add(dst + self.sr.x as i32);
-            let (res, c) = (src as u32).carrying_add(dst as u32, self.sr.x);
+            let (res, v) = (src as i32).extended_add(dst as i32, self.sr.x);
+            let (_, c) = src.extended_add(dst, self.sr.x);
 
             self.sr.x = c;
             self.sr.n = res < 0;
@@ -1425,8 +1424,8 @@ impl<M: MemoryAccess> M68000<M> {
         if size.byte() {
             let data = self.get_byte(ea) as i8;
             let res = 0 - data - self.sr.x as i8;
-            let vres = 0 - (data as i16) - self.sr.x as i16;
-            let (_, c) = 0u8.borrowing_sub(data as u8, self.sr.x);
+            let vres = 0 - data as i16 - self.sr.x as i16;
+            let (_, c) = 0u8.extended_sub(data as u8, self.sr.x);
             self.set_byte(ea, res as u8);
 
             self.sr.x = c;
@@ -1437,8 +1436,8 @@ impl<M: MemoryAccess> M68000<M> {
         } else if size.word() {
             let data = self.get_word(ea) as i16;
             let res = 0 - data - self.sr.x as i16;
-            let vres = 0 - (data as i32) - self.sr.x as i32;
-            let (_, c) = 0u16.borrowing_sub(data as u16, self.sr.x);
+            let vres = 0 - data as i32 - self.sr.x as i32;
+            let (_, c) = 0u16.extended_sub(data as u16, self.sr.x);
             self.set_word(ea, res as u16);
 
             self.sr.x = c;
@@ -1449,8 +1448,8 @@ impl<M: MemoryAccess> M68000<M> {
         } else {
             let data = self.get_long(ea) as i32;
             let res = 0 - data - self.sr.x as i32;
-            let vres = 0 - (data as i64) - self.sr.x as i64;
-            let (_, c) = 0u32.borrowing_sub(data as u32, self.sr.x);
+            let vres = 0 - data as i64 - self.sr.x as i64;
+            let (_, c) = 0u32.extended_sub(data as u32, self.sr.x);
             self.set_long(ea, res as u32);
 
             self.sr.x = c;
@@ -2063,13 +2062,11 @@ impl<M: MemoryAccess> M68000<M> {
                 (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
             };
 
-            // TODO: replace with borrowing_sub when it will behave correctly on signed data.
-            let src = src + self.sr.x as u8;
-            let (sres, v) = (dst as i8).overflowing_sub(src as i8);
-            let (ures, c) = dst.overflowing_sub(src);
+            let (res, v) = (dst as i8).extended_sub(src as i8, self.sr.x);
+            let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = sres < 0;
-            if ures != 0 {
+            self.sr.n = res < 0;
+            if res != 0 {
                 self.sr.z = false;
             }
             self.sr.v = v;
@@ -2077,9 +2074,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.x = c;
 
             if mode == Direction::MemoryToMemory {
-                self.memory.set_byte(self.a(ry), ures);
+                self.memory.set_byte(self.a(ry), res as u8);
             } else {
-                self.d_byte(ry, ures);
+                self.d_byte(ry, res as u8);
             }
         } else if size.word() {
             let (src, dst) = if mode == Direction::MemoryToMemory {
@@ -2090,12 +2087,11 @@ impl<M: MemoryAccess> M68000<M> {
                 (self.d[rx as usize] as u16, self.d[ry as usize] as u16)
             };
 
-            let src = src + self.sr.x as u16;
-            let (sres, v) = (dst as i16).overflowing_sub(src as i16);
-            let (ures, c) = dst.overflowing_sub(src);
+            let (res, v) = (dst as i16).extended_sub(src as i16, self.sr.x);
+            let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = sres < 0;
-            if ures != 0 {
+            self.sr.n = res < 0;
+            if res != 0 {
                 self.sr.z = false;
             }
             self.sr.v = v;
@@ -2103,25 +2099,24 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.x = c;
 
             if mode == Direction::MemoryToMemory {
-                self.memory.set_word(self.a(ry), ures);
+                self.memory.set_word(self.a(ry), res as u16);
             } else {
-                self.d_word(ry, ures);
+                self.d_word(ry, res as u16);
             }
         } else {
             let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(ry, size);
-                let dst_addr = self.ariwpr(rx, size);
+                let src_addr = self.ariwpr(rx, size);
+                let dst_addr = self.ariwpr(ry, size);
                 (self.memory.get_long(src_addr), self.memory.get_long(dst_addr))
             } else {
-                (self.d[rx as usize] as u32, self.d[ry as usize] as u32)
+                (self.d[rx as usize], self.d[ry as usize])
             };
 
-            let src = src + self.sr.x as u32;
-            let (sres, v) = (dst as i32).overflowing_sub(src as i32);
-            let (ures, c) = dst.overflowing_sub(src);
+            let (res, v) = (dst as i32).extended_sub(src as i32, self.sr.x);
+            let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = sres < 0;
-            if ures != 0 {
+            self.sr.n = res < 0;
+            if res != 0 {
                 self.sr.z = false;
             }
             self.sr.v = v;
@@ -2129,9 +2124,9 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.x = c;
 
             if mode == Direction::MemoryToMemory {
-                self.memory.set_long(self.a(ry), ures);
+                self.memory.set_long(self.a(ry), res as u32);
             } else {
-                self.d[ry as usize] = ures;
+                self.d[ry as usize] = res as u32;
             }
         }
 
