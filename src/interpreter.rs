@@ -1629,7 +1629,7 @@ impl<M: MemoryAccess> M68000<M> {
             let bit = data & 1;
             data >>= 1;
             if bit != 0 {
-                data |= sign;
+                data |= 0x8000;
             }
             self.sr.c = bit != 0;
         }
