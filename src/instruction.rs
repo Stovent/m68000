@@ -30,7 +30,7 @@ pub struct Instruction {
 /// `UspToRegister` and `RegisterToUsp` are used by MOVE USP.
 ///
 /// `RegisterToRegister` and `MemoryToMemory` is used by ABCD, ADDX, SBCD and SUBX.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     /// Transfert from a register to memory.
     RegisterToMemory,

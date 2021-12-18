@@ -72,8 +72,8 @@ fn main()
 
     let mut cpu = M68000::new(ram, StackFormat::Stack68010);
 
-    // Execute 1 000 000 000 instructions
-    for _ in 0..1_000_000_000 {
+    // Execute 1 000 000 instructions
+    for _ in 0..1_000_000 {
         cpu.interpreter();
     }
 

@@ -64,7 +64,7 @@ pub trait BigInt {
     fn extended_sub(self, rhs: Self, carry: bool) -> (Self, bool) where Self: Sized;
 }
 
-macro_rules! impl_bigint_signed {
+macro_rules! impl_bigint {
     ($type:ty, $bigtype:ty) => {
         impl BigInt for $type {
             fn extended_add(self, rhs: Self, carry: bool) -> (Self, bool)
@@ -82,29 +82,11 @@ macro_rules! impl_bigint_signed {
     };
 }
 
-macro_rules! impl_bigint_unsigned {
-    ($type:ty, $bigtype:ty) => {
-        impl BigInt for $type {
-            fn extended_add(self, rhs: Self, carry: bool) -> (Self, bool)
-            where Self: Sized {
-                let res = self as $bigtype + rhs as $bigtype + carry as $bigtype;
-                (res as Self, res < 0 || res > <$type>::MAX as $bigtype)
-            }
+impl_bigint!(u8, i16);
+impl_bigint!(i8, i16);
 
-            fn extended_sub(self, rhs: Self, carry: bool) -> (Self, bool)
-            where Self: Sized {
-                let res = self as $bigtype - rhs as $bigtype - carry as $bigtype;
-                (res as Self, res < 0 || res > <$type>::MAX as $bigtype)
-            }
-        }
-    };
-}
+impl_bigint!(u16, i32);
+impl_bigint!(i16, i32);
 
-impl_bigint_unsigned!(u8, i16);
-impl_bigint_signed!(i8, i16);
-
-impl_bigint_unsigned!(u16, i32);
-impl_bigint_signed!(i16, i32);
-
-impl_bigint_unsigned!(u32, i64);
-impl_bigint_signed!(i32, i64);
+impl_bigint!(u32, i64);
+impl_bigint!(i32, i64);
