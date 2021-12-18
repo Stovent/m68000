@@ -1,6 +1,6 @@
 #![allow(overflowing_literals)]
 
-use super::{M68000, MemoryAccess, StackFormat};
+use super::{M68000, MemoryAccess};
 use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
@@ -1790,9 +1790,11 @@ impl<M: MemoryAccess> M68000<M> {
             let sr = self.pop_word();
             self.pc = self.pop_long();
 
-            if self.stack_format == StackFormat::Stack68010 {
+            if !self.stack_format.is_68000() {
                 let format = self.pop_word();
-                if format & 0xF000 == 0xF000 {
+
+                if self.stack_format.is_68010() && format & 0xF000 == 0x8000 ||
+                   self.stack_format.is_68070() && format & 0xF000 == 0xF000 {
                     *self.sp_mut() += 26;
                 } else if format & 0xF000 != 0 {
                     self.exception(Vector::FormatError as u8);

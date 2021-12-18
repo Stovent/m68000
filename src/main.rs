@@ -6,8 +6,6 @@ use m68000::memory_access::MemoryAccess;
 use std::fs::File;
 use std::io::Read;
 
-const MB: usize = 1024 * 1024 * 5;
-
 struct Memory68070 {
     pub memory_swap: usize,
     pub ram: Box<[u8]>,
@@ -17,7 +15,7 @@ impl MemoryAccess for Memory68070 {
     fn get_byte(&mut self, addr: u32) -> u8 {
         if addr == 0x80002013 {
             0b0000_1110
-        } else if addr < 0x50_0000 {
+        } else if (addr as usize) < self.ram.len() {
             self.ram[addr as usize]
         } else {
             0
@@ -40,7 +38,7 @@ impl MemoryAccess for Memory68070 {
     fn set_byte(&mut self, addr: u32, value: u8) {
         if addr == 0x8000_2019 {
             print!("{}", value as char);
-        } else if addr < 0x50_0000 {
+        } else if (addr as usize) < self.ram.len() {
             self.ram[addr as usize] = value;
         }
     }
@@ -62,7 +60,7 @@ fn main()
 {
     let mut ram = Memory68070 {
         memory_swap: 0,
-        ram: vec![0; MB].into_boxed_slice(),
+        ram: vec![0; 0x50_0000].into_boxed_slice(),
     };
     let mut bios_file = File::open("cpudiag40.rom").expect("no cpudiag40.rom");
     match bios_file.read(&mut ram.ram[0x40_0000..]) {
@@ -70,7 +68,7 @@ fn main()
         Err(e) => panic!("Failed to read from cpudiag40.rom: {}", e),
     }
 
-    let mut cpu = M68000::new(ram, StackFormat::Stack68010);
+    let mut cpu = M68000::new(ram, StackFormat::Stack68070);
 
     // Execute 1 000 000 instructions
     for _ in 0..1_000_000 {

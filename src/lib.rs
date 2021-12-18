@@ -8,9 +8,8 @@
 //! For a basic example of how to use, see the [main.rs](https://github.com/Stovent/m68000/blob/master/src/main.rs) file in the repo.
 //!
 //! # TODO:
-//! - Exceptions.
 //! - Calculation times.
-//! - Bus and Address errors.
+//! - How to restore MC68000 Bus and Address errors?
 
 pub mod addressing_modes;
 pub mod decoder;
@@ -123,4 +122,22 @@ impl<M: MemoryAccess> M68000<M> {
 pub enum StackFormat {
     Stack68000,
     Stack68010,
+    Stack68070,
+}
+
+impl StackFormat {
+    /// Returns true if self is a M68000 stack.
+    pub fn is_68000(self) -> bool {
+        self == StackFormat::Stack68000
+    }
+
+    /// Returns true if self is a M68010 stack.
+    pub fn is_68010(self) -> bool {
+        self == StackFormat::Stack68010
+    }
+
+    /// Returns true if self is a M68070 stack.
+    pub fn is_68070(self) -> bool {
+        self == StackFormat::Stack68070
+    }
 }

@@ -1,8 +1,9 @@
 //! Exception processing.
 
-use crate::{M68000, MemoryAccess, StackFormat};
+use crate::{M68000, MemoryAccess};
 
 /// Exception vectors of the 68000.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Vector {
     ResetSspPc = 0,
     AccessError = 2,
@@ -65,7 +66,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.stop = false;
         }
 
-        if self.stack_format == StackFormat::Stack68000 {
+        if self.stack_format.is_68000() {
             self.push_long(self.pc);
             self.push_word(sr);
 
@@ -74,7 +75,7 @@ impl<M: MemoryAccess> M68000<M> {
                 self.push_long(0); // Access address
                 self.push_word(0); // function code
             }
-        } else { // if self.config.stack == StackFrame::Stack68070
+        } else { // if self.stack_format.is_68010() || self.stack_format.is_68070() {
             if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(0);
                 self.push_word(0);
@@ -86,7 +87,11 @@ impl<M: MemoryAccess> M68000<M> {
                 self.push_word(0);
                 self.push_word(0);
                 self.push_word(0);
-                self.push_word(0xF000 | (vector * 4) as u16);
+                if self.stack_format.is_68010() {
+                    self.push_word(0x8000 | vector as u16 * 4);
+                } else { // if self.stack_format.is_68070() {
+                    self.push_word(0xF000 | vector as u16 * 4);
+                }
             } else { // Short format
                 self.push_word(vector as u16 * 4);
             }
