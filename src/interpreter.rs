@@ -1,5 +1,3 @@
-#![allow(overflowing_literals)]
-
 use super::{M68000, MemoryAccess};
 use super::decoder::DECODER;
 use super::exception::Vector;
@@ -9,6 +7,9 @@ use super::utils::{BigInt, bits};
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
+const SIGN_BIT_8: u8 = 0x80;
+const SIGN_BIT_16: u16 = 0x8000;
+const SIGN_BIT_32: u32 = 0x8000_0000;
 
 impl<M: MemoryAccess> M68000<M> {
     /// Runs the CPU for `cycles` number of cycles.
@@ -356,7 +357,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src & dst;
 
-            self.sr.n = res & 0x80 != 0;
+            self.sr.n = res & SIGN_BIT_8 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -370,7 +371,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src & dst;
 
-            self.sr.n = res & 0x8000 != 0;
+            self.sr.n = res & SIGN_BIT_16 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -384,7 +385,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src & dst;
 
-            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.n = res & SIGN_BIT_32 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -407,19 +408,19 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_byte(ea) & imm as u8;
             self.set_byte(ea, data);
 
-            self.sr.n = data & 0x80 != 0;
+            self.sr.n = data & SIGN_BIT_8 != 0;
             self.sr.z = data == 0;
         } else if size.word() {
             let data = self.get_word(ea) & imm as u16;
             self.set_word(ea, data);
 
-            self.sr.n = data & 0x8000 != 0;
+            self.sr.n = data & SIGN_BIT_16 != 0;
             self.sr.z = data == 0;
         } else {
             let data = self.get_long(ea) & imm;
             self.set_long(ea, data);
 
-            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.n = data & SIGN_BIT_32 != 0;
             self.sr.z = data == 0;
         }
 
@@ -452,12 +453,12 @@ impl<M: MemoryAccess> M68000<M> {
         let (dir, ea) = inst.operands.direction_effective_address();
 
         let mut data = self.get_word(ea) as i16;
-        let sign = data & 0x8000;
+        let sign = data & SIGN_BIT_16 as i16;
 
         if dir == Direction::Left {
             data <<= 1;
             self.sr.x = sign != 0;
-            self.sr.v = sign ^ data & 0x8000 != 0;
+            self.sr.v = sign ^ data & SIGN_BIT_16 as i16 != 0;
             self.sr.c = sign != 0;
         } else {
             let bit = data & 1;
@@ -488,11 +489,11 @@ impl<M: MemoryAccess> M68000<M> {
         };
 
         let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
         } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
         } else {
-            (self.d[reg as usize], 0x8000_0000)
+            (self.d[reg as usize], SIGN_BIT_32)
         };
 
         if dir == Direction::Left {
@@ -890,7 +891,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src ^ dst;
 
-            self.sr.n = res & 0x80 != 0;
+            self.sr.n = res & SIGN_BIT_8 != 0;
             self.sr.z = res == 0;
 
             self.set_byte(ea, res);
@@ -900,7 +901,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src ^ dst;
 
-            self.sr.n = res & 0x8000 != 0;
+            self.sr.n = res & SIGN_BIT_16 != 0;
             self.sr.z = res == 0;
 
             self.set_word(ea, res);
@@ -910,7 +911,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src ^ dst;
 
-            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.n = res & SIGN_BIT_32 != 0;
             self.sr.z = res == 0;
 
             self.set_long(ea, res);
@@ -929,19 +930,19 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_byte(ea) ^ imm as u8;
             self.set_byte(ea, data);
 
-            self.sr.n = data & 0x80 != 0;
+            self.sr.n = data & SIGN_BIT_8 != 0;
             self.sr.z = data == 0;
         } else if size.word() {
             let data = self.get_word(ea) ^ imm as u16;
             self.set_word(ea, data);
 
-            self.sr.n = data & 0x8000 != 0;
+            self.sr.n = data & SIGN_BIT_16 != 0;
             self.sr.z = data == 0;
         } else {
             let data = self.get_long(ea) ^ imm;
             self.set_long(ea, data);
 
-            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.n = data & SIGN_BIT_32 != 0;
             self.sr.z = data == 0;
         }
 
@@ -999,7 +1000,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.d[reg as usize] = self.d[reg as usize] as i16 as u32;
         }
 
-        self.sr.n = self.d[reg as usize] & 0x8000_0000 != 0;
+        self.sr.n = self.d[reg as usize] & SIGN_BIT_32 != 0;
         self.sr.z = self.d[reg as usize] == 0;
         self.sr.v = false;
         self.sr.c = false;
@@ -1053,7 +1054,7 @@ impl<M: MemoryAccess> M68000<M> {
         let mut data = self.get_word(ea);
 
         if dir == Direction::Left {
-            let sign = data & 0x8000;
+            let sign = data & SIGN_BIT_16;
             data <<= 1;
             self.sr.x = sign != 0;
             self.sr.c = sign != 0;
@@ -1064,7 +1065,7 @@ impl<M: MemoryAccess> M68000<M> {
             self.sr.c = bit != 0;
         }
 
-        self.sr.n = data & 0x8000 != 0;
+        self.sr.n = data & SIGN_BIT_16 != 0;
         self.sr.z = data == 0;
         self.sr.v = false;
 
@@ -1086,11 +1087,11 @@ impl<M: MemoryAccess> M68000<M> {
         };
 
         let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
         } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
         } else {
-            (self.d[reg as usize], 0x8000_0000)
+            (self.d[reg as usize], SIGN_BIT_32)
         };
 
         if dir == Direction::Left {
@@ -1131,17 +1132,17 @@ impl<M: MemoryAccess> M68000<M> {
         if size.byte() {
             let d = self.get_byte(src);
             self.set_byte(dst, d);
-            self.sr.n = d & 0x80 != 0;
+            self.sr.n = d & SIGN_BIT_8 != 0;
             self.sr.z = d == 0;
         } else if size.word() {
             let d = self.get_word(src);
             self.set_word(dst, d);
-            self.sr.n = d & 0x8000 != 0;
+            self.sr.n = d & SIGN_BIT_16 != 0;
             self.sr.z = d == 0;
         } else {
             let d = self.get_long(src);
             self.set_long(dst, d);
-            self.sr.n = d & 0x8000_0000 != 0;
+            self.sr.n = d & SIGN_BIT_32 != 0;
             self.sr.z = d == 0;
         }
 
@@ -1351,7 +1352,7 @@ impl<M: MemoryAccess> M68000<M> {
         let res = src * dst;
         self.d[reg as usize] = res;
 
-        self.sr.n = res & 0x8000_0000 != 0;
+        self.sr.n = res & SIGN_BIT_32 != 0;
         self.sr.z = res == 0;
         self.sr.v = false;
         self.sr.c = false;
@@ -1473,19 +1474,19 @@ impl<M: MemoryAccess> M68000<M> {
             let data = !self.get_byte(ea);
             self.set_byte(ea, data);
 
-            self.sr.n = data & 0x80 != 0;
+            self.sr.n = data & SIGN_BIT_8 != 0;
             self.sr.z = data == 0;
         } else if size.word() {
             let data = !self.get_word(ea);
             self.set_word(ea, data);
 
-            self.sr.n = data & 0x8000 != 0;
+            self.sr.n = data & SIGN_BIT_16 != 0;
             self.sr.z = data == 0;
         } else {
             let data = !self.get_long(ea);
             self.set_long(ea, data);
 
-            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.n = data & SIGN_BIT_32 != 0;
             self.sr.z = data == 0;
         }
 
@@ -1504,7 +1505,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src | dst;
 
-            self.sr.n = res & 0x80 != 0;
+            self.sr.n = res & SIGN_BIT_8 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -1518,7 +1519,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src | dst;
 
-            self.sr.n = res & 0x8000 != 0;
+            self.sr.n = res & SIGN_BIT_16 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -1532,7 +1533,7 @@ impl<M: MemoryAccess> M68000<M> {
 
             let res = src | dst;
 
-            self.sr.n = res & 0x8000_0000 != 0;
+            self.sr.n = res & SIGN_BIT_32 != 0;
             self.sr.z = res == 0;
 
             if dir == Direction::DstEa {
@@ -1555,19 +1556,19 @@ impl<M: MemoryAccess> M68000<M> {
             let data = self.get_byte(ea) | imm as u8;
             self.set_byte(ea, data);
 
-            self.sr.n = data & 0x80 != 0;
+            self.sr.n = data & SIGN_BIT_8 != 0;
             self.sr.z = data == 0;
         } else if size.word() {
             let data = self.get_word(ea) | imm as u16;
             self.set_word(ea, data);
 
-            self.sr.n = data & 0x8000 != 0;
+            self.sr.n = data & SIGN_BIT_16 != 0;
             self.sr.z = data == 0;
         } else {
             let data = self.get_long(ea) | imm;
             self.set_long(ea, data);
 
-            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.n = data & SIGN_BIT_32 != 0;
             self.sr.z = data == 0;
         }
 
@@ -1619,7 +1620,7 @@ impl<M: MemoryAccess> M68000<M> {
         let (dir, ea) = inst.operands.direction_effective_address();
 
         let mut data = self.get_word(ea);
-        let sign = data & 0x8000;
+        let sign = data & SIGN_BIT_16;
 
         if dir == Direction::Left {
             data <<= 1;
@@ -1629,12 +1630,12 @@ impl<M: MemoryAccess> M68000<M> {
             let bit = data & 1;
             data >>= 1;
             if bit != 0 {
-                data |= 0x8000;
+                data |= SIGN_BIT_16;
             }
             self.sr.c = bit != 0;
         }
 
-        self.sr.n = data & 0x8000 != 0;
+        self.sr.n = data & SIGN_BIT_16 != 0;
         self.sr.z = data == 0;
         self.sr.v = false;
 
@@ -1656,11 +1657,11 @@ impl<M: MemoryAccess> M68000<M> {
         };
 
         let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
         } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
         } else {
-            (self.d[reg as usize], 0x8000_0000)
+            (self.d[reg as usize], SIGN_BIT_32)
         };
 
         if dir == Direction::Left {
@@ -1703,7 +1704,7 @@ impl<M: MemoryAccess> M68000<M> {
         let (dir, ea) = inst.operands.direction_effective_address();
 
         let mut data = self.get_word(ea);
-        let sign = data & 0x8000;
+        let sign = data & SIGN_BIT_16;
 
         if dir == Direction::Left {
             data <<= 1;
@@ -1714,13 +1715,13 @@ impl<M: MemoryAccess> M68000<M> {
             let bit = data & 1;
             data >>= 1;
             if self.sr.x {
-                data |= 0x8000;
+                data |= SIGN_BIT_16;
             }
             self.sr.x = bit != 0;
             self.sr.c = bit != 0;
         }
 
-        self.sr.n = data & 0x8000 != 0;
+        self.sr.n = data & SIGN_BIT_16 != 0;
         self.sr.z = data == 0;
         self.sr.v = false;
 
@@ -1742,11 +1743,11 @@ impl<M: MemoryAccess> M68000<M> {
         };
 
         let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, 0x80u32)
+            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
         } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, 0x8000)
+            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
         } else {
-            (self.d[reg as usize], 0x8000_0000)
+            (self.d[reg as usize], SIGN_BIT_32)
         };
 
         if dir == Direction::Left {
@@ -2142,7 +2143,7 @@ impl<M: MemoryAccess> M68000<M> {
         self.d[reg as usize] <<= 16;
         self.d[reg as usize] |= high;
 
-        self.sr.n = self.d[reg as usize] & 0x8000_0000 != 0;
+        self.sr.n = self.d[reg as usize] & SIGN_BIT_32 != 0;
         self.sr.z = self.d[reg as usize] == 0;
         self.sr.v = false;
         self.sr.c = false;
@@ -2155,12 +2156,12 @@ impl<M: MemoryAccess> M68000<M> {
 
         let mut data = self.get_byte(ea);
 
-        self.sr.n = data & 0x80 != 0;
+        self.sr.n = data & SIGN_BIT_8 != 0;
         self.sr.z = data == 0;
         self.sr.v = false;
         self.sr.c = false;
 
-        data |= 0x80;
+        data |= SIGN_BIT_8;
         self.set_byte(ea, data);
 
         1
@@ -2186,15 +2187,15 @@ impl<M: MemoryAccess> M68000<M> {
 
         if size.byte() {
             let data = self.get_byte(ea);
-            self.sr.n = data & 0x80 != 0;
+            self.sr.n = data & SIGN_BIT_8 != 0;
             self.sr.z = data == 0;
         } else if size.word() {
             let data = self.get_word(ea);
-            self.sr.n = data & 0x8000 != 0;
+            self.sr.n = data & SIGN_BIT_16 != 0;
             self.sr.z = data == 0;
         } else {
             let data = self.get_long(ea);
-            self.sr.n = data & 0x8000_0000 != 0;
+            self.sr.n = data & SIGN_BIT_32 != 0;
             self.sr.z = data == 0;
         }
 
