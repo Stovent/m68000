@@ -8,7 +8,7 @@ use crate::isa::{Isa, Isa::*};
 ///
 /// # Example
 ///
-/// ```rs
+/// ```ignore
 /// let opcode = memory.get_word(instruction_address); // get the opcode
 /// let isa = DECODER[opcode as usize];
 /// ```
