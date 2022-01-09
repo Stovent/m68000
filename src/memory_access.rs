@@ -23,6 +23,17 @@ pub trait MemoryAccess {
 
     /// Called when the CPU executes a RESET instruction.
     fn reset(&mut self);
+
+    /// Override this function to modify the exception processing behaviour.
+    ///
+    /// This function is called by the interpreter when an exception has to be processed.
+    /// It has to return `true` if the CPU has to effectively create an exception stack frame.
+    /// If it returns `false`, then the CPU won't create a stack frame and the exception will not be further processed.
+    /// The default implementation simply returns `true` and does nothing else.
+    ///
+    /// The point of this is to allow this library to be used in HLE environments, where traps are caughts by the application
+    /// and appears transparent to the process. In this case `false` has to be returned.
+    fn exception(&mut self, _vector: u8) -> bool { true }
 }
 
 /// Iterator over 16-bits values in memory.
@@ -123,7 +134,10 @@ impl<M: MemoryAccess> M68000<M> {
     }
 
     /// Returns the word at `self.pc` then advances `self.pc` by 2.
-    pub(super) fn get_next_word(&mut self) -> u16 {
+    ///
+    /// Please note that this function advances the program counter. This function is public because ic can be useful
+    /// in OS9 environments where the trap ID is the immediate next word after the TRAP instruction.
+    pub fn get_next_word(&mut self) -> u16 {
         let data = self.memory.get_word(self.pc);
         self.pc += 2;
         data

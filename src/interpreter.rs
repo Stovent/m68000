@@ -29,7 +29,9 @@ impl<M: MemoryAccess> M68000<M> {
         let mut cycle_count = 0;
 
         if let Some(vector) = self.exceptions.pop_front() {
-            cycle_count += self.process_exception(vector);
+            if self.memory.exception(vector) {
+                cycle_count += self.process_exception(vector);
+            }
         }
 
         if self.stop {

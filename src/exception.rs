@@ -45,11 +45,12 @@ pub enum Vector {
 }
 
 impl<M: MemoryAccess> M68000<M> {
-    /// Appends an exception.
+    /// Requests the CPU to execute the given exception.
     pub fn exception(&mut self, vector: u8) {
         self.exceptions.push_back(vector);
     }
 
+    /// Effectively execute an exception.
     pub(super) fn process_exception(&mut self, vector: u8) -> usize {
         let sr = self.sr.into();
         self.sr.s = true;

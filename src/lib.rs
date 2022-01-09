@@ -9,6 +9,7 @@
 //!
 //! # TODO:
 //! - Calculation times.
+//! - Throw Bus and Address errors in the middle of an instruction.
 //! - How to restore MC68000 Bus and Address errors?
 
 pub mod addressing_modes;
@@ -30,11 +31,11 @@ use std::collections::VecDeque;
 /// A M68000 core.
 #[derive(Clone, Debug)]
 pub struct M68000<M: MemoryAccess> {
-    d: [u32; 8],
+    pub d: [u32; 8],
     a_: [u32; 7],
     usp: u32,
     ssp: u32,
-    sr: StatusRegister,
+    pub sr: StatusRegister,
     pc: u32,
 
     current_opcode: u16,
@@ -72,19 +73,20 @@ impl<M: MemoryAccess> M68000<M> {
 
     /// Sets the lower 8-bits to the given register to the given value.
     /// The higher 24-bits remains untouched.
-    fn d_byte(&mut self, reg: u8, value: u8) {
+    pub fn d_byte(&mut self, reg: u8, value: u8) {
         self.d[reg as usize] &= 0xFFFF_FF00;
         self.d[reg as usize] |= value as u32;
     }
 
     /// Sets the lower 16-bits to the given register to the given value.
     /// The higher 16-bits remains untouched.
-    fn d_word(&mut self, reg: u8, value: u16) {
+    pub fn d_word(&mut self, reg: u8, value: u16) {
         self.d[reg as usize] &= 0xFFFF_0000;
         self.d[reg as usize] |= value as u32;
     }
 
-    fn a(&self, reg: u8) -> u32 {
+    /// Returns an address register.
+    pub fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
             self.a_[reg as usize]
         } else {
@@ -92,7 +94,8 @@ impl<M: MemoryAccess> M68000<M> {
         }
     }
 
-    fn a_mut(&mut self, reg: u8) -> &mut u32 {
+    /// Returns a mutable reference to an address register.
+    pub fn a_mut(&mut self, reg: u8) -> &mut u32 {
         if reg < 7 {
             &mut self.a_[reg as usize]
         } else {
