@@ -68,11 +68,11 @@ fn main()
         Err(e) => panic!("Failed to read from cpudiag40.rom: {}", e),
     }
 
-    let mut cpu = M68000::new(ram, StackFormat::Stack68070);
+    let mut cpu = M68000::new(StackFormat::Stack68070);
 
     // Execute 1 000 000 instructions
     for _ in 0..1_000_000 {
-        cpu.interpreter();
+        cpu.interpreter(&mut ram);
     }
 
     // Check that the CPU loops at the correct end point

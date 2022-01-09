@@ -30,7 +30,7 @@ use std::collections::VecDeque;
 
 /// A M68000 core.
 #[derive(Clone, Debug)]
-pub struct M68000<M: MemoryAccess> {
+pub struct M68000 {
     pub d: [u32; 8],
     a_: [u32; 7],
     usp: u32,
@@ -41,15 +41,14 @@ pub struct M68000<M: MemoryAccess> {
     current_opcode: u16,
     stop: bool,
     exceptions: VecDeque<u8>,
-    memory: M,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
     extra_cycles: usize,
     stack_format: StackFormat,
 }
 
-impl<M: MemoryAccess> M68000<M> {
-    /// Creates a new M68000 core, with the given memory.
-    pub fn new(memory: M, stack_format: StackFormat) -> Self {
+impl M68000 {
+    /// Creates a new M68000 core.
+    pub fn new(stack_format: StackFormat) -> Self {
         let mut cpu = Self {
             d: [0; 8],
             a_: [0; 7],
@@ -61,7 +60,6 @@ impl<M: MemoryAccess> M68000<M> {
             current_opcode: 0xFFFF,
             stop: false,
             exceptions: VecDeque::new(),
-            memory,
             extra_cycles: 0,
             stack_format,
         };

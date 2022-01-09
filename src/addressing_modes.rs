@@ -1,6 +1,6 @@
 //! Addressing mode-related structs, enums and functions.
 
-use crate::{M68000, MemoryAccess};
+use crate::M68000;
 use crate::memory_access::U16Iter;
 use crate::instruction::Size;
 use crate::utils::{AsArray, bits, SliceAs};
@@ -211,7 +211,7 @@ fn disassemble_index_register(bew: u16) -> String {
     format!("{}{}.{}", x, reg, size)
 }
 
-impl<M: MemoryAccess> M68000<M> {
+impl M68000 {
     /// Calculates the value of the given effective address.
     ///
     /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
