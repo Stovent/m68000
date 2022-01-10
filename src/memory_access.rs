@@ -135,7 +135,7 @@ impl M68000 {
 
     /// Returns the word at `self.pc` then advances `self.pc` by 2.
     ///
-    /// Please note that this function advances the program counter. This function is public because ic can be useful
+    /// Please note that this function advances the program counter. This function is public because it can be useful
     /// in OS9 environments where the trap ID is the immediate next word after the TRAP instruction.
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> u16 {
         let data = memory.get_word(self.pc);

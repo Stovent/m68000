@@ -3,9 +3,15 @@
 //! Applications creates their memory management system, implementing the
 //! [MemoryAccess](memory_access::MemoryAccess) trait, and passes it to the core.
 //!
+//! # How to use
+//!
+//! m68000 is intended to be used as a general Motorola 68000 interpreter, surrounded by a more complex environment.
+//!
 //! # Example
 //!
-//! For a basic example of how to use, see the [main.rs](https://github.com/Stovent/m68000/blob/master/src/main.rs) file in the repo.
+//! The standard use case is when having to emulate a M68k-based microcontroller (such as the SCC68070), that includes a 68000 CPU
+//! along with other peripherals.
+//! In this context, see the [main.rs](https://github.com/Stovent/m68000/blob/master/src/main.rs) file in the repo.
 //!
 //! # TODO:
 //! - Calculation times.
