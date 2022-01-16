@@ -29,7 +29,7 @@ pub struct Instruction {
 ///
 /// `UspToRegister` and `RegisterToUsp` are used by MOVE USP.
 ///
-/// `RegisterToRegister` and `MemoryToMemory` is used by ABCD, ADDX, SBCD and SUBX.
+/// `RegisterToRegister` and `MemoryToMemory` are used by ABCD, ADDX, SBCD and SUBX.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Direction {
     /// Transfert from a register to memory.
@@ -180,7 +180,7 @@ pub enum Operands {
     /// CHK, DIVS, DIVU, LEA, MULS, MULU
     RegisterEffectiveAddress(u8, EffectiveAddress),
     /// MOVEP
-    RegisterDirectionSizeRegisterDisp(u8, Direction, Size, u8, i16),
+    RegisterDirectionSizeRegisterDisplacement(u8, Direction, Size, u8, i16),
     /// MOVEA
     SizeRegisterEffectiveAddress(Size, u8, EffectiveAddress),
     /// MOVE
@@ -192,7 +192,7 @@ pub enum Operands {
     /// TRAP
     Vector(u8),
     /// LINK
-    RegisterDisp(u8, i16),
+    RegisterDisplacement(u8, i16),
     /// SWAP, UNLK
     Register(u8),
     /// MOVE USP
@@ -204,7 +204,7 @@ pub enum Operands {
     /// Scc
     ConditionEffectiveAddress(u8, EffectiveAddress),
     /// DBcc
-    ConditionRegisterDisp(u8, u8, i16),
+    ConditionRegisterDisplacement(u8, u8, i16),
     /// BRA, BSR
     Displacement(i16),
     /// Bcc
@@ -279,8 +279,8 @@ impl Operands {
     /// MOVEP
     pub fn register_direction_size_register_displacement(&self) -> (u8, Direction, Size, u8, i16) {
         match *self {
-            Self::RegisterDirectionSizeRegisterDisp(r, d, s, rr, dd) => (r, d, s, rr, dd),
-            _ => panic!("[Operands::register_direction_size_register_disp]"),
+            Self::RegisterDirectionSizeRegisterDisplacement(r, d, s, rr, dd) => (r, d, s, rr, dd),
+            _ => panic!("[Operands::register_direction_size_register_displacement]"),
         }
     }
 
@@ -327,8 +327,8 @@ impl Operands {
     /// LINK
     pub fn register_displacement(&self) -> (u8, i16) {
         match *self {
-            Self::RegisterDisp(r, d) => (r, d),
-            _ => panic!("[Operands::register_disp]"),
+            Self::RegisterDisplacement(r, d) => (r, d),
+            _ => panic!("[Operands::register_displacement]"),
         }
     }
 
@@ -375,8 +375,8 @@ impl Operands {
     /// DBcc
     pub fn condition_register_displacement(&self) -> (u8, u8, i16) {
         match *self {
-            Self::ConditionRegisterDisp(c, r, d) => (c, r, d),
-            _ => panic!("[Operands::condition_register_disp]"),
+            Self::ConditionRegisterDisplacement(c, r, d) => (c, r, d),
+            _ => panic!("[Operands::condition_register_displacement]"),
         }
     }
 
@@ -460,7 +460,7 @@ pub fn no_operands(_: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
 
 /// ANDI/EORI/ORI CCR/SR, STOP
 pub fn immediate(_: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
-    let imm = memory.next().unwrap(); // get immediate word
+    let imm = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e)); // Get immediate word
     (Operands::Immediate(imm), 2)
 }
 
@@ -472,12 +472,12 @@ pub fn size_effective_address_immediate(opcode: u16, memory: &mut dyn U16Iter) -
 
     let imm = if size.long() {
         len += 4;
-        let high = memory.next().unwrap();
-        let low = memory.next().unwrap();
+        let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand high: {}", e));
+        let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand low: {}", e));
         (high as u32) << 16 | low as u32
     } else {
         len += 2;
-        memory.next().unwrap() as u32
+        memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e)) as u32
     };
 
     let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
@@ -493,7 +493,7 @@ pub fn effective_address_count(opcode: u16, memory: &mut dyn U16Iter) -> (Operan
         bits(opcode, 9, 11) as u8
     } else { // Static bit number
         len += 2;
-        memory.next().unwrap() as u8
+        memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get count operand: {}", e)) as u8
     };
 
     let size = if bits(opcode, 3, 5) == 0 { Some(Size::Long) } else { Some(Size::Byte) };
@@ -556,8 +556,8 @@ pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut d
     let dir = if bits(opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
     let size = if bits(opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
     let areg = bits(opcode, 0, 2) as u8;
-    let disp = memory.next().unwrap() as i16;
-    (Operands::RegisterDirectionSizeRegisterDisp(dreg, dir, size, areg, disp), 2)
+    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+    (Operands::RegisterDirectionSizeRegisterDisplacement(dreg, dir, size, areg, disp), 2)
 }
 
 /// MOVEA
@@ -605,8 +605,8 @@ pub fn vector(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize) {
 /// LINK
 pub fn register_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let reg = bits(opcode, 0, 2) as u8;
-    let disp = memory.next().unwrap() as i16;
-    (Operands::RegisterDisp(reg, disp), 2)
+    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+    (Operands::RegisterDisplacement(reg, disp), 2)
 }
 
 /// UNLK
@@ -625,7 +625,7 @@ pub fn direction_register(opcode: u16, _: &mut dyn U16Iter) -> (Operands, usize)
 /// MOVEM
 pub fn direction_size_effective_address_list(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
     let mut len = 2;
-    let list = memory.next().unwrap();
+    let list = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get list operand: {}", e));
     let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
     let size = Size::from_bit(bits(opcode, 6, 6));
 
@@ -660,10 +660,10 @@ pub fn condition_effective_address(opcode: u16, memory: &mut dyn U16Iter) -> (Op
 
 /// DBcc
 pub fn condition_register_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) {
-    let disp = memory.next().unwrap() as i16;
+    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
     let condition = bits(opcode, 8, 11) as u8;
     let reg = bits(opcode, 0, 2) as u8;
-    (Operands::ConditionRegisterDisp(condition, reg, disp), 2)
+    (Operands::ConditionRegisterDisplacement(condition, reg, disp), 2)
 }
 
 /// BRA, BSR
@@ -672,7 +672,7 @@ pub fn displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operands, usize) 
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
         len += 2;
-        disp = memory.next().unwrap() as i16;
+        disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
     }
     (Operands::Displacement(disp), len)
 }
@@ -683,7 +683,7 @@ pub fn condition_displacement(opcode: u16, memory: &mut dyn U16Iter) -> (Operand
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
         len += 2;
-        disp = memory.next().unwrap() as i16;
+        disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
     }
     let condition = bits(opcode, 8, 11) as u8;
     (Operands::ConditionDisplacement(condition, disp), len)

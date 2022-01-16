@@ -26,6 +26,17 @@ pub enum AddressingMode {
     Mode7 = 7,
 }
 
+/// Register number for Absolute Short addressing mode.
+pub const ABSOLUTE_SHORT: u8 = 0;
+/// Register number for Absolute Long addressing mode.
+pub const ABSOLUTE_LONG: u8 = 1;
+/// Register number for Program Counter Indirect With Displacement addressing mode.
+pub const PCIWD: u8 = 2;
+/// Register number for Program Counter Indirect With Index 8 addressing mode.
+pub const PCIWI8: u8 = 3;
+/// Register number for Immediate Data addressing mode.
+pub const IMMEDIATE_DATA: u8 = 4;
+
 impl AddressingMode {
     /// Returns true if `self` is `Drd`, false otherwise.
     #[inline(always)]
@@ -100,39 +111,39 @@ impl EffectiveAddress {
             AddressingMode::Ariwpr => (Box::new([]), 0),
             AddressingMode::Ariwd  => {
                 let pc = memory.next_addr();
-                (Box::new(memory.next().unwrap().as_array_be()), pc)
+                (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
             },
             AddressingMode::Ariwi8 => {
                 let pc = memory.next_addr();
-                (Box::new(memory.next().unwrap().as_array_be()), pc)
+                (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
             },
             AddressingMode::Mode7 => match reg {
-                0 => {
+                ABSOLUTE_SHORT => {
                     let pc = memory.next_addr();
-                    (Box::new(memory.next().unwrap().as_array_be()), pc)
+                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute short at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
-                1 => {
+                ABSOLUTE_LONG => {
                     let pc = memory.next_addr();
-                    let high = memory.next().unwrap();
-                    let low = memory.next().unwrap();
+                    let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long high at {:#X}: {}", pc, e));
+                    let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long low at {:#X}: {}", pc, e));
                     (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                 },
-                2 => {
+                PCIWD => {
                     let pc = memory.next_addr();
-                    (Box::new(memory.next().unwrap().as_array_be()), pc)
+                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
-                3 => {
+                PCIWI8 => {
                     let pc = memory.next_addr();
-                    (Box::new(memory.next().unwrap().as_array_be()), pc)
+                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
-                4 => {
+                IMMEDIATE_DATA => {
                     let pc = memory.next_addr();
                     if size.unwrap().long() {
-                        let high = memory.next().unwrap();
-                        let low = memory.next().unwrap();
+                        let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data high at {:#X}: {}", pc, e));
+                        let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data low at {:#X}: {}", pc, e));
                         (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                     } else {
-                        (Box::new(memory.next().unwrap().as_array_be()), pc)
+                        (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data at {:#X}: {}", pc, e)).as_array_be()), pc)
                     }
                 },
                 _ => (Box::new([]), 0),

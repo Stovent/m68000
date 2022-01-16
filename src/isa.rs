@@ -2,6 +2,7 @@ use super::{M68000, MemoryAccess};
 #[cfg(debug_assertions)]
 use super::disassembler::*;
 use super::instruction::Instruction;
+use super::interpreter::InterpreterResult;
 use super::memory_access::U16Iter;
 use super::instruction::*;
 
@@ -102,7 +103,7 @@ pub struct IsaEntry<M: MemoryAccess> {
     /// Function used to decode the instruction.
     pub decode: fn(u16, &mut dyn U16Iter) -> (Operands, usize),
     /// Function used to executing the instruction.
-    pub execute: fn(&mut M68000, &mut M, &mut Instruction) -> usize,
+    pub execute: fn(&mut M68000, &mut M, &mut Instruction) -> InterpreterResult,
     /// Function used to diassemble the instruction.
     #[cfg(debug_assertions)]
     pub disassemble: fn(&mut Instruction) -> String,
