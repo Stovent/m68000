@@ -3,7 +3,7 @@ use super::{M68000, MemoryAccess};
 use super::disassembler::*;
 use super::instruction::Instruction;
 use super::interpreter::InterpreterResult;
-use super::memory_access::U16Iter;
+use super::memory_access::MemoryIter;
 use super::instruction::*;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -101,7 +101,7 @@ pub struct IsaEntry<M: MemoryAccess> {
     // /// The ISA value.
     // pub isa: Isa,
     /// Function used to decode the instruction.
-    pub decode: fn(u16, &mut dyn U16Iter) -> (Operands, usize),
+    pub decode: fn(u16, &mut MemoryIter) -> (Operands, usize),
     /// Function used to executing the instruction.
     pub execute: fn(&mut M68000, &mut M, &mut Instruction) -> InterpreterResult,
     /// Function used to diassemble the instruction.

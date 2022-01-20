@@ -1,7 +1,7 @@
 //! Addressing mode-related structs, enums and functions.
 
 use crate::M68000;
-use crate::memory_access::U16Iter;
+use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
 use crate::utils::{AsArray, bits, SliceAs};
 
@@ -104,40 +104,40 @@ pub struct EffectiveAddress {
 
 impl EffectiveAddress {
     /// New effective address with an empty `address` field.
-    pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut dyn U16Iter) -> Self {
+    pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let (ext, pc): (Box<[u8]>, u32) = match mode {
             AddressingMode::Ari => (Box::new([]), 0),
             AddressingMode::Ariwpo => (Box::new([]), 0),
             AddressingMode::Ariwpr => (Box::new([]), 0),
             AddressingMode::Ariwd  => {
-                let pc = memory.next_addr();
+                let pc = memory.next_addr;
                 (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
             },
             AddressingMode::Ariwi8 => {
-                let pc = memory.next_addr();
+                let pc = memory.next_addr;
                 (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
             },
             AddressingMode::Mode7 => match reg {
                 ABSOLUTE_SHORT => {
-                    let pc = memory.next_addr();
+                    let pc = memory.next_addr;
                     (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute short at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
                 ABSOLUTE_LONG => {
-                    let pc = memory.next_addr();
+                    let pc = memory.next_addr;
                     let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long high at {:#X}: {}", pc, e));
                     let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long low at {:#X}: {}", pc, e));
                     (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
                 },
                 PCIWD => {
-                    let pc = memory.next_addr();
+                    let pc = memory.next_addr;
                     (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
                 PCIWI8 => {
-                    let pc = memory.next_addr();
+                    let pc = memory.next_addr;
                     (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
                 },
                 IMMEDIATE_DATA => {
-                    let pc = memory.next_addr();
+                    let pc = memory.next_addr;
                     if size.unwrap().long() {
                         let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data high at {:#X}: {}", pc, e));
                         let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data low at {:#X}: {}", pc, e));
@@ -162,14 +162,14 @@ impl EffectiveAddress {
     }
 
     /// New effective address with mode and reg pulled from the lower 6 bits.
-    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut dyn U16Iter) -> Self {
+    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         Self::new(mode, reg, size, memory)
     }
 
     /// Returns the destination (left tuple) and source (right tuple) effective addresses from a `MOVE` instruction opcode.
-    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut dyn U16Iter) -> (Self, Self) {
+    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> (Self, Self) {
         let reg = bits(opcode, 0, 2) as u8;
         let mode = AddressingMode::from(bits(opcode, 3, 5));
         let src = Self::new(mode, reg, size, memory);

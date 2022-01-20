@@ -41,6 +41,10 @@ pub trait MemoryAccess {
     #[must_use]
     fn set_long(&mut self, addr: u32, value: u32) -> SetResult;
 
+    /// Not meant to be overridden. Returns a [MemoryIter] starting at the given address that will be used to decode instructions.
+    #[must_use]
+    fn iter_u16(&mut self, addr: u32) -> MemoryIter where Self: Sized { MemoryIter { memory: self, next_addr: addr } }
+
     /// Called when the CPU executes a RESET instruction.
     fn reset(&mut self);
 
@@ -57,11 +61,7 @@ pub trait MemoryAccess {
 }
 
 /// Iterator over 16-bits values in memory.
-pub trait U16Iter : Iterator<Item = GetResult<u16>> {
-    fn next_addr(&self) -> u32;
-}
-
-pub(super) struct MemoryIter<'a> {
+pub struct MemoryIter<'a> {
     /// The memory system that will be used to get the values.
     pub memory: &'a mut dyn MemoryAccess,
     /// The address of the next value to be returned.
@@ -75,12 +75,6 @@ impl Iterator for MemoryIter<'_> {
         let data = self.memory.get_word(self.next_addr);
         self.next_addr += 2;
         Some(data)
-    }
-}
-
-impl U16Iter for MemoryIter<'_> {
-    fn next_addr(&self) -> u32 {
-        self.next_addr
     }
 }
 
