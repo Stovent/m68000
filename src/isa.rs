@@ -1,4 +1,5 @@
 use super::{M68000, MemoryAccess};
+use super::decoder::DECODER;
 #[cfg(debug_assertions)]
 use super::disassembler::*;
 use super::instruction::Instruction;
@@ -94,6 +95,12 @@ pub enum Isa {
     Tst,
     Unlk,
     Size_,
+}
+
+impl From<u16> for Isa {
+    fn from(opcode: u16) -> Self {
+        DECODER[opcode as usize]
+    }
 }
 
 #[derive(Clone, Copy)]

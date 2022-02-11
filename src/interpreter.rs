@@ -1,8 +1,7 @@
 use super::{M68000, MemoryAccess};
-use super::decoder::DECODER;
 use super::exception::Vector;
 use super::instruction::{Direction, Instruction, Size};
-use super::isa::IsaEntry;
+use super::isa::{Isa, IsaEntry};
 use super::utils::{BigInt, bits};
 
 const SR_UPPER_MASK: u16 = 0xA700;
@@ -53,18 +52,12 @@ impl M68000 {
                 return 0;
             },
         };
-        let isa = DECODER[opcode as usize];
+        let isa: Isa = opcode.into();
         let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
 
         let mut iter = memory.iter_u16(self.pc);
-        let (operands, len) = (entry.decode)(opcode, &mut iter);
+        let (mut instruction, len) = Instruction::from_opcode::<M>(opcode, pc, &mut iter).unwrap();
         self.pc += len as u32;
-
-        let mut instruction = Instruction {
-            opcode,
-            pc,
-            operands,
-        };
 
         #[cfg(debug_assertions)]
         println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));

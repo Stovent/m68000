@@ -19,7 +19,8 @@ pub type SetResult = Result<(), u8>;
 ///
 /// It is the implementor's responsibility to send those errors.
 /// Access errors are sent when the accessed address is not in the memory range of the system.
-/// Address errors are sent when the address is not aligned on a word (2-bytes) boundary.
+/// Address errors are sent when the address of word and long data are not aligned on a word (2-bytes) boundary.
+/// Byte data never generates address errors.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]
