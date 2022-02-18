@@ -1,6 +1,6 @@
 //! M68000 status register.
 
-use super::utils::bits;
+use crate::utils::bits;
 
 /// M68000 status register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -188,7 +188,7 @@ impl std::ops::BitXorAssign<u16> for StatusRegister {
     }
 }
 
-pub(super) fn disassemble_conditional_test(test: u8) -> &'static str {
+pub(crate) fn disassemble_conditional_test(test: u8) -> &'static str {
     match test {
         0  => "T",
         1  => "F",

@@ -1,8 +1,10 @@
-use super::{M68000, MemoryAccess};
-use super::exception::Vector;
-use super::instruction::{Direction, Instruction, Size};
-use super::isa::{Isa, IsaEntry};
-use super::utils::{BigInt, bits};
+use crate::{M68000, MemoryAccess};
+use crate::exception::Vector;
+use crate::instruction::{Direction, Instruction, Size};
+use crate::isa::{Execute, Isa};
+#[cfg(debug_assertions)]
+use crate::isa::IsaEntry;
+use crate::utils::{BigInt, bits};
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
@@ -53,16 +55,15 @@ impl M68000 {
             },
         };
         let isa: Isa = opcode.into();
-        let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
 
         let mut iter = memory.iter_u16(self.pc);
-        let (mut instruction, len) = Instruction::from_opcode::<M>(opcode, pc, &mut iter);
+        let (mut instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
         self.pc += len as u32;
 
         #[cfg(debug_assertions)]
-        println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));
+        println!("{:#X} {}", pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&mut instruction));
 
-        match (entry.execute)(self, memory, &mut instruction) {
+        match Execute::<M>::EXECUTE[isa as usize](self, memory, &mut instruction) {
             Ok(cycles) => cycle_count += cycles,
             Err(e) => self.exception(e), // TODO: return 0 cycles ?
         }

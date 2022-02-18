@@ -3,7 +3,6 @@
 //! The functions returns the operands and the number of extention words used by the instruction.
 //! They take as parameters the opcode of the instruction and an iterator over the extention words.
 
-use crate::MemoryAccess;
 use crate::addressing_modes::EffectiveAddress;
 use crate::decoder::DECODER;
 use crate::isa::{Isa, IsaEntry};
@@ -22,10 +21,10 @@ pub struct Instruction {
 
 impl Instruction {
     /// Decodes the given opcode.
-    pub fn from_opcode<M: MemoryAccess>(opcode: u16, pc: u32, memory: &mut MemoryIter) -> (Self, usize) {
+    pub fn from_opcode(opcode: u16, pc: u32, memory: &mut MemoryIter) -> (Self, usize) {
         let isa: Isa = opcode.into();
-        let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
-        let (operands, len) = (entry.decode)(opcode, memory);
+        let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
+        let (operands, len) = decode(opcode, memory);
 
         (Instruction {
             opcode,
@@ -37,10 +36,10 @@ impl Instruction {
     /// Decodes the opcode at the given memory location.
     ///
     /// Returns Err when there was an error when reading memory (Access or Address error).
-    pub fn from_memory<M: MemoryAccess>(memory: &mut MemoryIter) -> Result<(Self, usize), u8> {
+    pub fn from_memory(memory: &mut MemoryIter) -> Result<(Self, usize), u8> {
         let pc = memory.next_addr;
         let opcode = memory.next().unwrap()?;
-        Ok(Self::from_opcode::<M>(opcode, pc, memory))
+        Ok(Self::from_opcode(opcode, pc, memory))
     }
 }
 
