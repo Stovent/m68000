@@ -22,30 +22,25 @@ pub struct Instruction {
 
 impl Instruction {
     /// Decodes the given opcode.
-    pub fn from_opcode<M: MemoryAccess>(opcode: u16, pc: u32, memory: &mut MemoryIter) -> Option<(Self, usize)> {
+    pub fn from_opcode<M: MemoryAccess>(opcode: u16, pc: u32, memory: &mut MemoryIter) -> (Self, usize) {
         let isa: Isa = opcode.into();
-        if isa == Isa::Unknown {
-            None
-        } else {
-            let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
-            let (operands, len) = (entry.decode)(opcode, memory);
+        let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
+        let (operands, len) = (entry.decode)(opcode, memory);
 
-            Some((Instruction {
-                opcode,
-                pc,
-                operands,
-            }, len))
-        }
+        (Instruction {
+            opcode,
+            pc,
+            operands,
+        }, len)
     }
 
     /// Decodes the opcode at the given memory location.
-    pub fn from_memory<M: MemoryAccess>(memory: &mut MemoryIter) -> Option<(Self, usize)> {
+    ///
+    /// Returns Err when there was an error when reading memory (Access or Address error).
+    pub fn from_memory<M: MemoryAccess>(memory: &mut MemoryIter) -> Result<(Self, usize), u8> {
         let pc = memory.next_addr;
-        if let Ok(opcode) = memory.next().unwrap() {
-            Self::from_opcode::<M>(opcode, pc, memory)
-        } else {
-            None
-        }
+        let opcode = memory.next().unwrap()?;
+        Ok(Self::from_opcode::<M>(opcode, pc, memory))
     }
 }
 
