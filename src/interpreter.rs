@@ -56,8 +56,14 @@ impl M68000 {
         let entry = &IsaEntry::<M>::ISA_ENTRY[isa as usize];
 
         let mut iter = memory.iter_u16(self.pc);
-        let (mut instruction, len) = Instruction::from_opcode::<M>(opcode, pc, &mut iter).unwrap();
+        let (operands, len) = (entry.decode)(opcode, &mut iter);
         self.pc += len as u32;
+
+        let mut instruction = Instruction {
+            opcode,
+            pc,
+            operands,
+        };
 
         #[cfg(debug_assertions)]
         println!("{:#X} {}", pc, (entry.disassemble)(&mut instruction));
