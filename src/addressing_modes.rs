@@ -3,7 +3,7 @@
 use crate::M68000;
 use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
-use crate::utils::{AsArray, bits, SliceAs};
+use crate::utils::{bits, SliceAs};
 
 /// The `mode` part of an effective address field.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -40,31 +40,31 @@ pub const IMMEDIATE_DATA: u8 = 4;
 impl AddressingMode {
     /// Returns true if `self` is `Drd`, false otherwise.
     #[inline(always)]
-    pub fn drd(self) -> bool {
+    pub fn is_drd(self) -> bool {
         self == Self::Drd
     }
 
     /// Returns true if `self` is `Ard`, false otherwise.
     #[inline(always)]
-    pub fn ard(self) -> bool {
+    pub fn is_ard(self) -> bool {
         self == Self::Ard
     }
 
     /// Returns true if `self` is `Ariwpo`, false otherwise.
     #[inline(always)]
-    pub fn ariwpo(self) -> bool {
+    pub fn is_ariwpo(self) -> bool {
         self == Self::Ariwpo
     }
 
     /// Returns true if `self` is `Ariwpr`, false otherwise.
     #[inline(always)]
-    pub fn ariwpr(self) -> bool {
+    pub fn is_ariwpr(self) -> bool {
         self == Self::Ariwpr
     }
 
     /// Returns true if `self` is `Mode7`, false otherwise.
     #[inline(always)]
-    pub fn mode7(self) -> bool {
+    pub fn is_mode7(self) -> bool {
         self == Self::Mode7
     }
 }
@@ -99,51 +99,51 @@ pub struct EffectiveAddress {
     /// The size of the data.
     pub size: Option<Size>,
     /// The extension words.
-    pub ext: Box<[u8]>
+    pub ext: Box<[u16]>
 }
 
 impl EffectiveAddress {
     /// New effective address with an empty `address` field.
     pub fn new(mode: AddressingMode, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
-        let (ext, pc): (Box<[u8]>, u32) = match mode {
+        let (ext, pc): (Box<[u16]>, u32) = match mode {
             AddressingMode::Ari => (Box::new([]), 0),
             AddressingMode::Ariwpo => (Box::new([]), 0),
             AddressingMode::Ariwpr => (Box::new([]), 0),
             AddressingMode::Ariwd  => {
                 let pc = memory.next_addr;
-                (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
+                (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
             },
             AddressingMode::Ariwi8 => {
                 let pc = memory.next_addr;
-                (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
+                (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get index 8 at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
             },
             AddressingMode::Mode7 => match reg {
                 ABSOLUTE_SHORT => {
                     let pc = memory.next_addr;
-                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute short at {:#X}: {}", pc, e)).as_array_be()), pc)
+                    (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute short at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
                 },
                 ABSOLUTE_LONG => {
                     let pc = memory.next_addr;
                     let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long high at {:#X}: {}", pc, e));
                     let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get absolute long low at {:#X}: {}", pc, e));
-                    (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
+                    (vec![high, low].into_boxed_slice(), pc)
                 },
                 PCIWD => {
                     let pc = memory.next_addr;
-                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC displacement at {:#X}: {}", pc, e)).as_array_be()), pc)
+                    (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC displacement at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
                 },
                 PCIWI8 => {
                     let pc = memory.next_addr;
-                    (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC index 8 at {:#X}: {}", pc, e)).as_array_be()), pc)
+                    (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get PC index 8 at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
                 },
                 IMMEDIATE_DATA => {
                     let pc = memory.next_addr;
                     if size.unwrap().long() {
                         let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data high at {:#X}: {}", pc, e));
                         let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data low at {:#X}: {}", pc, e));
-                        (Box::new(((high as u32) << 16 | low as u32).as_array_be()), pc)
+                        (vec![high, low].into_boxed_slice(), pc)
                     } else {
-                        (Box::new(memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data at {:#X}: {}", pc, e)).as_array_be()), pc)
+                        (vec![memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate data at {:#X}: {}", pc, e))].into_boxed_slice(), pc)
                     }
                 },
                 _ => (Box::new([]), 0),
@@ -190,13 +190,13 @@ impl std::fmt::Display for EffectiveAddress {
             AddressingMode::Ari => write!(f, "(A{})", self.reg),
             AddressingMode::Ariwpo => write!(f, "(A{})+", self.reg),
             AddressingMode::Ariwpr => write!(f, "-(A{})", self.reg),
-            AddressingMode::Ariwd => write!(f, "({}, A{})", self.ext.u16_be() as i16, self.reg),
-            AddressingMode::Ariwi8 => write!(f, "({}, A{}, {})", self.ext[1] as i8, self.reg, disassemble_index_register(self.ext.u16_be())),
+            AddressingMode::Ariwd => write!(f, "({}, A{})", self.ext[0] as i16, self.reg),
+            AddressingMode::Ariwi8 => write!(f, "({}, A{}, {})", self.ext[0] as i8, self.reg, disassemble_index_register(self.ext[0])),
             AddressingMode::Mode7 => match self.reg {
-                0 => write!(f, "({:#X}).W", self.ext.u16_be()),
+                0 => write!(f, "({:#X}).W", self.ext[0]),
                 1 => write!(f, "({:#X}).L", self.ext.u32_be()),
-                2 => write!(f, "({}, PC)", self.ext.u16_be() as i16),
-                3 => write!(f, "({}, PC, {})", self.ext[1] as i8, disassemble_index_register(self.ext.u16_be())),
+                2 => write!(f, "({}, PC)", self.ext[0] as i16),
+                3 => write!(f, "({}, PC, {})", self.ext[0] as i8, disassemble_index_register(self.ext[0])),
                 4 => write!(f, "#{}", self.ext.i32_be_sized(self.size.expect("No associated size with immediate operand"))),
                 _ => write!(f, "Unknown addressing mode {} reg {}", self.mode as usize, self.reg),
             },
@@ -235,18 +235,18 @@ impl M68000 {
                 AddressingMode::Ariwpr => Some(self.ariwpr(ea.reg, ea.size.expect("ariwpr must have a size"))),
                 AddressingMode::Ariwd  => {
                     let a = self.a(ea.reg);
-                    let disp = ea.ext.u16_be() as i16 as u32;
+                    let disp = ea.ext[0] as i16 as u32;
                     Some(a + disp)
                 },
                 AddressingMode::Ariwi8 => {
                     let a = self.a(ea.reg);
-                    let bew = ea.ext.u16_be();
+                    let bew = ea.ext[0];
                     let disp = bew as i8 as u32;
                     Some(a + disp + self.get_index_register(bew))
                 },
                 AddressingMode::Mode7 => match ea.reg {
                     0 => {
-                        let a = ea.ext.u16_be() as i16 as u32;
+                        let a = ea.ext[0] as i16 as u32;
                         Some(a)
                     },
                     1 => {
@@ -254,11 +254,11 @@ impl M68000 {
                         Some(a)
                     },
                     2 => {
-                        let disp = ea.ext.u16_be() as i16 as u32;
+                        let disp = ea.ext[0] as i16 as u32;
                         Some(ea.pc + disp)
                     },
                     3 => {
-                        let bew = ea.ext.u16_be();
+                        let bew = ea.ext[0];
                         let disp = bew as i8 as u32;
                         Some(ea.pc + disp + self.get_index_register(bew))
                     },

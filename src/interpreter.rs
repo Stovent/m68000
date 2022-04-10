@@ -13,7 +13,6 @@ const SIGN_BIT_16: u16 = 0x8000;
 const SIGN_BIT_32: u32 = 0x8000_0000;
 
 /// Returns the execution time on success, an exception vector on error. Alias for `Result<usize, u8>`.
-#[must_use]
 pub(super) type InterpreterResult = Result<usize, u8>;
 
 impl M68000 {
@@ -37,7 +36,7 @@ impl M68000 {
             if memory.exception(vector) {
                 cycle_count += match self.process_exception(memory, vector) {
                     Ok(cycles) => cycles,
-                    Err(e) => panic!("An exception occured during exception processing: {}", e),
+                    Err(e) => panic!("An exception occured during exception processing: {} (at {:#X})", e, self.pc),
                 };
             }
         }
@@ -249,7 +248,7 @@ impl M68000 {
             let (_, c) = data.overflowing_add(imm as u16);
             self.set_word(memory, ea, res as u16)?;
 
-            if !ea.mode.ard() {
+            if !ea.mode.is_ard() {
                 self.sr.x = c;
                 self.sr.n = res < 0;
                 self.sr.z = res == 0;
@@ -262,7 +261,7 @@ impl M68000 {
             let (_, c) = data.overflowing_add(imm as u32);
             self.set_long(memory, ea, res as u32)?;
 
-            if !ea.mode.ard() {
+            if !ea.mode.is_ard() {
                 self.sr.x = c;
                 self.sr.n = res < 0;
                 self.sr.z = res == 0;
@@ -558,7 +557,7 @@ impl M68000 {
             count = self.d[count as usize] as u8;
         }
 
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] ^= 1 << count;
@@ -580,7 +579,7 @@ impl M68000 {
             count = self.d[count as usize] as u8;
         }
 
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] &= !(1 << count);
@@ -610,7 +609,7 @@ impl M68000 {
             count = self.d[count as usize] as u8;
         }
 
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
             self.d[ea.reg as usize] |= 1 << count;
@@ -641,7 +640,7 @@ impl M68000 {
             count = self.d[count as usize] as u8;
         }
 
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             count %= 32;
             self.sr.z = self.d[ea.reg as usize] & 1 << count == 0;
         } else {
@@ -1214,7 +1213,7 @@ impl M68000 {
 
         let gap = size as u32;
 
-        if ea.mode.ariwpr() {
+        if ea.mode.is_ariwpr() {
             let mut addr = self.a(ea.reg);
 
             for reg in (0..8).rev() {
@@ -1239,7 +1238,7 @@ impl M68000 {
 
             *self.a_mut(ea.reg) = addr;
         } else {
-            let mut addr = if ea.mode.ariwpo() {
+            let mut addr = if ea.mode.is_ariwpo() {
                 self.a(ea.reg)
             } else {
                 self.get_effective_address(ea).unwrap()
@@ -1279,7 +1278,7 @@ impl M68000 {
                 list >>= 1;
             }
 
-            if ea.mode.ariwpo() {
+            if ea.mode.is_ariwpo() {
                 *self.a_mut(ea.reg) = addr;
             }
         }
@@ -2025,7 +2024,7 @@ impl M68000 {
             let (_, c) = data.overflowing_sub(imm as u16);
             self.set_word(memory, ea, res as u16)?;
 
-            if !ea.mode.ard() {
+            if !ea.mode.is_ard() {
                 self.sr.x = c;
                 self.sr.n = res < 0;
                 self.sr.z = res == 0;
@@ -2038,7 +2037,7 @@ impl M68000 {
             let (_, c) = data.overflowing_sub(imm as u32);
             self.set_long(memory, ea, res as u32)?;
 
-            if !ea.mode.ard() {
+            if !ea.mode.is_ard() {
                 self.sr.x = c;
                 self.sr.n = res < 0;
                 self.sr.z = res == 0;

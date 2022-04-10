@@ -6,10 +6,8 @@ use crate::instruction::Size;
 use crate::utils::SliceAs;
 
 /// Returns the value asked on success, an exception vector on error. Alias for `Result<T, u8>`.
-#[must_use]
 pub type GetResult<T> = Result<T, u8>;
 /// Returns the value asked on success, an exception vector on error. Alias for `Result<(), u8>`.
-#[must_use]
 pub type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.
@@ -82,10 +80,10 @@ impl Iterator for MemoryIter<'_> {
 impl M68000 {
     #[must_use]
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u8> {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             Ok(self.d[ea.reg as usize] as u8)
-        } else if ea.mode.mode7() && ea.reg == 4 {
-            Ok(ea.ext.u16_be() as u8)
+        } else if ea.mode.is_mode7() && ea.reg == 4 {
+            Ok(ea.ext[0] as u8)
         } else {
             let addr = self.get_effective_address(ea).unwrap();
             memory.get_byte(addr)
@@ -94,12 +92,12 @@ impl M68000 {
 
     #[must_use]
     pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u16> {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             Ok(self.d[ea.reg as usize] as u16)
-        } else if ea.mode.ard() {
+        } else if ea.mode.is_ard() {
             Ok(self.a(ea.reg) as u16)
-        } else if ea.mode.mode7() && ea.reg == 4 {
-            Ok(ea.ext.u16_be())
+        } else if ea.mode.is_mode7() && ea.reg == 4 {
+            Ok(ea.ext[0])
         } else {
             let addr = self.get_effective_address(ea).unwrap();
             memory.get_word(addr)
@@ -108,11 +106,11 @@ impl M68000 {
 
     #[must_use]
     pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u32> {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             Ok(self.d[ea.reg as usize])
-        } else if ea.mode.ard() {
+        } else if ea.mode.is_ard() {
             Ok(self.a(ea.reg))
-        } else if ea.mode.mode7() && ea.reg == 4 {
+        } else if ea.mode.is_mode7() && ea.reg == 4 {
             Ok(ea.ext.u32_be())
         } else {
             let addr = self.get_effective_address(ea).unwrap();
@@ -122,7 +120,7 @@ impl M68000 {
 
     #[must_use]
     pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u8) -> SetResult {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             self.d_byte(ea.reg, value);
             Ok(())
         } else {
@@ -133,10 +131,10 @@ impl M68000 {
 
     #[must_use]
     pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u16) -> SetResult {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             self.d_word(ea.reg, value);
             Ok(())
-        } else if ea.mode.ard() {
+        } else if ea.mode.is_ard() {
             *self.a_mut(ea.reg) = value as i16 as u32;
             Ok(())
         } else {
@@ -147,10 +145,10 @@ impl M68000 {
 
     #[must_use]
     pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u32) -> SetResult {
-        if ea.mode.drd() {
+        if ea.mode.is_drd() {
             self.d[ea.reg as usize] = value;
             Ok(())
-        } else if ea.mode.ard() {
+        } else if ea.mode.is_ard() {
             *self.a_mut(ea.reg) = value;
             Ok(())
         } else {

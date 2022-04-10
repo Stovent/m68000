@@ -12,7 +12,7 @@ categories = ["compilers", "emulators", "no-std"]
 [[bin]]
 name = "decoder"
 path = "src/bin/decoder.rs"
-edition = "2018"
+edition = "2021"
 
 [profile.dev]
 overflow-checks = false
