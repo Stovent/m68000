@@ -1,9 +1,8 @@
 //! Memory access-related traits and structs.
 
 use crate::M68000;
-use crate::addressing_modes::EffectiveAddress;
+use crate::addressing_modes::{EffectiveAddress, AddressingMode, AddressingMode7};
 use crate::instruction::Size;
-use crate::utils::SliceAs;
 
 /// Returns the value asked on success, an exception vector on error. Alias for `Result<T, u8>`.
 pub type GetResult<T> = Result<T, u8>;
@@ -80,80 +79,56 @@ impl Iterator for MemoryIter<'_> {
 impl M68000 {
     #[must_use]
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u8> {
-        if ea.mode.is_drd() {
-            Ok(self.d[ea.reg as usize] as u8)
-        } else if ea.mode.is_mode7() && ea.reg == 4 {
-            Ok(ea.ext[0] as u8)
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.get_byte(addr)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u8),
+            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm as u8),
+            _ => memory.get_byte(self.get_effective_address(ea).unwrap()),
         }
     }
 
     #[must_use]
     pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u16> {
-        if ea.mode.is_drd() {
-            Ok(self.d[ea.reg as usize] as u16)
-        } else if ea.mode.is_ard() {
-            Ok(self.a(ea.reg) as u16)
-        } else if ea.mode.is_mode7() && ea.reg == 4 {
-            Ok(ea.ext[0])
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.get_word(addr)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u16),
+            AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
+            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm as u16),
+            _ => memory.get_word(self.get_effective_address(ea).unwrap()),
         }
     }
 
     #[must_use]
     pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u32> {
-        if ea.mode.is_drd() {
-            Ok(self.d[ea.reg as usize])
-        } else if ea.mode.is_ard() {
-            Ok(self.a(ea.reg))
-        } else if ea.mode.is_mode7() && ea.reg == 4 {
-            Ok(ea.ext.u32_be())
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.get_long(addr)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d[reg as usize]),
+            AddressingMode::Ard(reg) => Ok(self.a(reg)),
+            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm),
+            _ => memory.get_long(self.get_effective_address(ea).unwrap()),
         }
     }
 
     #[must_use]
     pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u8) -> SetResult {
-        if ea.mode.is_drd() {
-            self.d_byte(ea.reg, value);
-            Ok(())
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.set_byte(addr, value)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d_byte(reg, value)),
+            _ => memory.set_byte(self.get_effective_address(ea).unwrap(), value),
         }
     }
 
     #[must_use]
     pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u16) -> SetResult {
-        if ea.mode.is_drd() {
-            self.d_word(ea.reg, value);
-            Ok(())
-        } else if ea.mode.is_ard() {
-            *self.a_mut(ea.reg) = value as i16 as u32;
-            Ok(())
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.set_word(addr, value)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d_word(reg, value)),
+            AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
+            _ => memory.set_word(self.get_effective_address(ea).unwrap(), value),
         }
     }
 
     #[must_use]
     pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u32) -> SetResult {
-        if ea.mode.is_drd() {
-            self.d[ea.reg as usize] = value;
-            Ok(())
-        } else if ea.mode.is_ard() {
-            *self.a_mut(ea.reg) = value;
-            Ok(())
-        } else {
-            let addr = self.get_effective_address(ea).unwrap();
-            memory.set_long(addr, value)
+        match ea.mode {
+            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] = value),
+            AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
+            _ => memory.set_long(self.get_effective_address(ea).unwrap(), value),
         }
     }
 
