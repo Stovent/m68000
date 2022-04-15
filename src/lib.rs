@@ -90,7 +90,7 @@ impl M68000 {
     }
 
     /// Returns an address register.
-    pub fn a(&self, reg: u8) -> u32 {
+    pub const fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
             self.a_[reg as usize]
         } else {
@@ -107,7 +107,7 @@ impl M68000 {
         }
     }
 
-    fn sp(&self) -> u32 {
+    const fn sp(&self) -> u32 {
         if self.sr.s {
             self.ssp
         } else {

@@ -1,7 +1,7 @@
 //! Memory access-related traits and structs.
 
 use crate::M68000;
-use crate::addressing_modes::{EffectiveAddress, AddressingMode, AddressingMode7};
+use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::instruction::Size;
 
 /// Returns the value asked on success, an exception vector on error. Alias for `Result<T, u8>`.
@@ -81,7 +81,7 @@ impl M68000 {
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u8> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u8),
-            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm as u8),
+            AddressingMode::Immediate(imm) => Ok(imm as u8),
             _ => memory.get_byte(self.get_effective_address(ea).unwrap()),
         }
     }
@@ -91,7 +91,7 @@ impl M68000 {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u16),
             AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
-            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm as u16),
+            AddressingMode::Immediate(imm) => Ok(imm as u16),
             _ => memory.get_word(self.get_effective_address(ea).unwrap()),
         }
     }
@@ -101,7 +101,7 @@ impl M68000 {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize]),
             AddressingMode::Ard(reg) => Ok(self.a(reg)),
-            AddressingMode::Mode7(AddressingMode7::Immediate(imm)) => Ok(imm),
+            AddressingMode::Immediate(imm) => Ok(imm),
             _ => memory.get_long(self.get_effective_address(ea).unwrap()),
         }
     }
