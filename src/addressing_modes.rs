@@ -18,18 +18,18 @@ pub enum AddressingMode {
     Ariwpo(u8),
     /// Address Register Indirect With PRedecrement.
     Ariwpr(u8),
-    /// Address Register Indirect With Displacement (address reg, disp).
+    /// Address Register Indirect With Displacement (address reg, displacement).
     Ariwd(u8, i16),
-    /// Address Register Indirect With Index 8 (address reg, index reg).
-    Ariwi8(u8, IndexRegister),
+    /// Address Register Indirect With Index 8 (address reg, brief extension word).
+    Ariwi8(u8, BriefExtensionWord),
     /// Absolute Short.
     AbsShort(u16),
     /// Absolute Long.
     AbsLong(u32),
-    /// Program Counter Indirect With Displacement.
-    Pciwd(i16),
-    /// Program Counter Indirect With Index 8.
-    Pciwi8(IndexRegister),
+    /// Program Counter Indirect With Displacement (PC value, displacement).
+    Pciwd(u32, i16),
+    /// Program Counter Indirect With Index 8 (PC value, brief extension word).
+    Pciwi8(u32, BriefExtensionWord),
     /// Immediate Data (cast this variant to the correct type when used).
     Immediate(u32),
 }
@@ -44,7 +44,7 @@ impl AddressingMode {
             3 => Self::Ariwpo(reg),
             4 => Self::Ariwpr(reg),
             5 => Self::Ariwd(reg, memory.next().unwrap().unwrap() as i16),
-            6 => Self::Ariwi8(reg, IndexRegister(memory.next().unwrap().unwrap())),
+            6 => Self::Ariwi8(reg, BriefExtensionWord(memory.next().unwrap().unwrap())),
             7 => match reg {
                 0 => Self::AbsShort(memory.next().unwrap().unwrap()),
                 1 => {
@@ -52,8 +52,8 @@ impl AddressingMode {
                     let low = memory.next().unwrap().unwrap() as u32;
                     Self::AbsLong(high | low)
                 },
-                2 => Self::Pciwd(memory.next().unwrap().unwrap() as i16),
-                3 => Self::Pciwi8(IndexRegister(memory.next().unwrap().unwrap())),
+                2 => Self::Pciwd(memory.next_addr, memory.next().unwrap().unwrap() as i16),
+                3 => Self::Pciwi8(memory.next_addr, BriefExtensionWord(memory.next().unwrap().unwrap())),
                 4 => {
                     if size.unwrap().is_long() {
                         let high = (memory.next().unwrap().unwrap() as u32) << 16;
@@ -132,11 +132,11 @@ impl std::fmt::Display for AddressingMode {
             AddressingMode::Ariwpo(reg) => write!(f, "(A{})+", reg),
             AddressingMode::Ariwpr(reg) => write!(f, "-(A{})", reg),
             AddressingMode::Ariwd(reg, disp) => write!(f, "({}, A{})", disp, reg),
-            AddressingMode::Ariwi8(reg, index) => write!(f, "({}, A{}, {})", index.disp(), reg, index),
+            AddressingMode::Ariwi8(reg, bew) => write!(f, "({}, A{}, {})", bew.disp(), reg, bew),
             AddressingMode::AbsShort(addr) => write!(f, "({:#X}).W", addr),
             AddressingMode::AbsLong(addr) => write!(f, "({:#X}).L", addr),
-            AddressingMode::Pciwd(disp) => write!(f, "({}, PC)", disp),
-            AddressingMode::Pciwi8(index) => write!(f, "({}, PC, {})", index.disp(), index),
+            AddressingMode::Pciwd(_, disp) => write!(f, "({}, PC)", disp),
+            AddressingMode::Pciwi8(_, bew) => write!(f, "({}, PC, {})", bew.disp(), bew),
             AddressingMode::Immediate(imm) => write!(f, "#{}", imm),
         }
     }
@@ -152,17 +152,18 @@ impl std::fmt::UpperHex for AddressingMode {
     }
 }
 
-/// Index register.
+/// Raw Brief Extension Word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct IndexRegister(u16);
+pub struct BriefExtensionWord(u16);
 
-impl IndexRegister {
+impl BriefExtensionWord {
+    /// Returns the displacement associated with the brief extension word.
     pub const fn disp(self) -> i8 {
         self.0 as i8
     }
 }
 
-impl std::fmt::Display for IndexRegister {
+impl std::fmt::Display for BriefExtensionWord {
     /// Disassembles the index register field of a brief extension word.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let x = if self.0 & 0x8000 != 0 { "A" } else { "D" };
@@ -176,8 +177,6 @@ impl std::fmt::Display for IndexRegister {
 pub struct EffectiveAddress {
     /// The addressing mode.
     pub mode: AddressingMode,
-    /// The address of the extension word.
-    pub pc: u32,
     /// Where this effective address points to. `None` if the value is not in memory.
     pub address: Option<u32>,
     /// The size of the data.
@@ -185,47 +184,12 @@ pub struct EffectiveAddress {
 }
 
 impl EffectiveAddress {
-    /// New effective address with mode and reg pulled from the lower 6 bits with an empty `address` field.
-    pub fn from_opcode(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> Self {
-        let pc = memory.next_addr;
-        let mode = bits(opcode, 3, 5);
-        let reg = bits(opcode, 0, 2) as u8;
-        let am = AddressingMode::new(mode, reg, size, memory);
-
+    pub fn new(am: AddressingMode, size: Option<Size>) -> Self {
         Self {
             mode: am,
-            pc,
             address: None,
             size,
         }
-    }
-
-    /// Returns the destination (left tuple) and source (right tuple) effective addresses from a `MOVE` instruction opcode.
-    pub fn from_move(opcode: u16, size: Option<Size>, memory: &mut MemoryIter) -> (Self, Self) {
-        // First read the source operand then the destination.
-        let pc = memory.next_addr;
-        let mode = bits(opcode, 3, 5);
-        let reg = bits(opcode, 0, 2) as u8;
-        let am = AddressingMode::new(mode, reg, size, memory);
-        let src = Self {
-            mode: am,
-            pc,
-            address: None,
-            size,
-        };
-
-        let pc = memory.next_addr;
-        let reg = bits(opcode, 9, 11) as u8;
-        let mode = bits(opcode, 6, 8);
-        let am = AddressingMode::new(mode, reg, size, memory);
-        let dst = Self {
-            mode: am,
-            pc,
-            address: None,
-            size,
-        };
-
-        (dst, src)
     }
 }
 
@@ -241,11 +205,11 @@ impl M68000 {
                 AddressingMode::Ariwpo(reg) => Some(self.ariwpo(reg, ea.size.expect("ariwpo must have a size"))),
                 AddressingMode::Ariwpr(reg) => Some(self.ariwpr(reg, ea.size.expect("ariwpr must have a size"))),
                 AddressingMode::Ariwd(reg, disp)  => Some(self.a(reg) + disp as u32),
-                AddressingMode::Ariwi8(reg, index) => Some(self.a(reg) + index.disp() as u32 + self.get_index_register(index)),
+                AddressingMode::Ariwi8(reg, bew) => Some(self.a(reg) + bew.disp() as u32 + self.get_index_register(bew)),
                 AddressingMode::AbsShort(addr) => Some(addr as i16 as u32),
                 AddressingMode::AbsLong(addr) => Some(addr),
-                AddressingMode::Pciwd(disp) => Some(ea.pc + disp as u32),
-                AddressingMode::Pciwi8(index) => Some(ea.pc + index.disp() as u32 + self.get_index_register(index)),
+                AddressingMode::Pciwd(pc, disp) => Some(pc + disp as u32),
+                AddressingMode::Pciwi8(pc, bew) => Some(pc + bew.disp() as u32 + self.get_index_register(bew)),
                 _ => None,
             };
         }
@@ -253,17 +217,17 @@ impl M68000 {
         ea.address
     }
 
-    const fn get_index_register(&self, index: IndexRegister) -> u32 {
-        let reg = bits(index.0, 12, 14) as u8;
+    const fn get_index_register(&self, bew: BriefExtensionWord) -> u32 {
+        let reg = bits(bew.0, 12, 14) as u8;
 
-        if index.0 & 0x8000 != 0 { // Address register
-            if index.0 & 0x0800 != 0 { // Long
+        if bew.0 & 0x8000 != 0 { // Address register
+            if bew.0 & 0x0800 != 0 { // Long
                 self.a(reg)
             } else { // Word
                 self.a(reg) as i16 as u32
             }
         } else { // Data register
-            if index.0 & 0x0800 != 0 { // Long
+            if bew.0 & 0x0800 != 0 { // Long
                 self.d[reg as usize]
             } else { // Word
                 self.d[reg as usize] as i16 as u32

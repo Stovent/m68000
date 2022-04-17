@@ -144,6 +144,15 @@ impl M68000 {
         data
     }
 
+    /// Returns the word at `self.pc`.
+    ///
+    /// This function is public because it can be useful in some contexts such as OS9 environments
+    /// where the trap ID is the immediate next word after the TRAP instruction.
+    #[must_use]
+    pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
+        memory.get_word(self.pc)
+    }
+
     /// Pops the 16-bits value from the stack.
     #[must_use]
     pub(super) fn pop_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {

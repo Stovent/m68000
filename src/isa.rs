@@ -109,7 +109,7 @@ pub struct IsaEntry {
     /// Function used to decode the instruction.
     pub decode: fn(u16, &mut MemoryIter) -> (Operands, usize),
     /// Function used to diassemble the instruction.
-    pub disassemble: fn(&mut Instruction) -> String,
+    pub disassemble: fn(&Instruction) -> String,
 }
 
 impl IsaEntry {
@@ -208,7 +208,7 @@ pub(crate) struct Execute<M: MemoryAccess> {
 
 impl<M: MemoryAccess> Execute<M> {
     /// Function used to executing the instruction.
-    pub(crate) const EXECUTE: [fn(&mut M68000, &mut M, &mut Instruction) -> InterpreterResult; Isa::_Size as usize] = [
+    pub(crate) const EXECUTE: [fn(&mut M68000, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
         M68000::unknown_instruction,
         M68000::abcd,
         M68000::add,

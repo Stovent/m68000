@@ -3,7 +3,7 @@
 //! The functions returns the operands and the number of extention words used by the instruction.
 //! They take as parameters the opcode of the instruction and an iterator over the extention words.
 
-use crate::addressing_modes::EffectiveAddress;
+use crate::addressing_modes::AddressingMode;
 use crate::decoder::DECODER;
 use crate::isa::{Isa, IsaEntry};
 use crate::memory_access::MemoryIter;
@@ -105,6 +105,7 @@ impl Size {
     ///
     /// This is used in addressing modes, where byte post/pre increment
     /// increments the register by 2 instead of 1.
+    #[inline(always)]
     pub fn as_word_long(self) -> Self {
         if self == Self::Byte {
             Self::Word
@@ -118,6 +119,7 @@ impl Size {
     /// Size bit means:
     /// - 0 => Word
     /// - 1 => Long
+    #[inline(always)]
     pub fn from_bit(d: u16) -> Self {
         match d {
             0 => Self::Word,
@@ -131,6 +133,7 @@ impl Size {
     /// - 1 => Byte
     /// - 3 => Word
     /// - 2 => Long
+    #[inline(always)]
     pub fn from_move(d: u16) -> Self {
         match d {
             1 => Self::Byte,
@@ -195,21 +198,21 @@ pub enum Operands {
     /// ANDI/EORI/ORI CCR/SR, STOP
     Immediate(u16),
     /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
-    SizeEffectiveAddressImmediate(Size, EffectiveAddress, u32),
+    SizeEffectiveAddressImmediate(Size, AddressingMode, u32),
     /// BCHG, BCLR, BSET, BTST
-    EffectiveAddressCount(EffectiveAddress, u8),
+    EffectiveAddressCount(AddressingMode, u8),
     /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
-    EffectiveAddress(EffectiveAddress),
+    EffectiveAddress(AddressingMode),
     /// CLR, NEG, NEGX, NOT, TST
-    SizeEffectiveAddress(Size, EffectiveAddress),
+    SizeEffectiveAddress(Size, AddressingMode),
     /// CHK, DIVS, DIVU, LEA, MULS, MULU
-    RegisterEffectiveAddress(u8, EffectiveAddress),
+    RegisterEffectiveAddress(u8, AddressingMode),
     /// MOVEP
     RegisterDirectionSizeRegisterDisplacement(u8, Direction, Size, u8, i16),
     /// MOVEA
-    SizeRegisterEffectiveAddress(Size, u8, EffectiveAddress),
+    SizeRegisterEffectiveAddress(Size, u8, AddressingMode),
     /// MOVE
-    SizeEffectiveAddressEffectiveAddress(Size, EffectiveAddress, EffectiveAddress),
+    SizeEffectiveAddressEffectiveAddress(Size, AddressingMode, AddressingMode),
     /// EXG
     RegisterOpmodeRegister(u8, u8, u8),
     /// EXT
@@ -223,11 +226,11 @@ pub enum Operands {
     /// MOVE USP
     DirectionRegister(Direction, u8),
     /// MOVEM
-    DirectionSizeEffectiveAddressList(Direction, Size, EffectiveAddress, u16),
+    DirectionSizeEffectiveAddressList(Direction, Size, AddressingMode, u16),
     /// ADDQ, SUBQ
-    DataSizeEffectiveAddress(u8, Size, EffectiveAddress),
+    DataSizeEffectiveAddress(u8, Size, AddressingMode),
     /// Scc
-    ConditionEffectiveAddress(u8, EffectiveAddress),
+    ConditionEffectiveAddress(u8, AddressingMode),
     /// DBcc
     ConditionRegisterDisplacement(u8, u8, i16),
     /// BRA, BSR
@@ -237,15 +240,15 @@ pub enum Operands {
     /// MOVEQ
     RegisterData(u8, i8),
     /// ADD, AND, CMP, EOR, OR, SUB
-    RegisterDirectionSizeEffectiveAddress(u8, Direction, Size, EffectiveAddress),
+    RegisterDirectionSizeEffectiveAddress(u8, Direction, Size, AddressingMode),
     /// ADDA, CMPA, SUBA
-    RegisterSizeEffectiveAddress(u8, Size, EffectiveAddress),
+    RegisterSizeEffectiveAddress(u8, Size, AddressingMode),
     /// ABCD, ADDX, SBCD, SUBX
     RegisterSizeModeRegister(u8, Size, Direction, u8),
     /// CMPM
     RegisterSizeRegister(u8, Size, u8),
     /// ASm, LSm, ROm, ROXm
-    DirectionEffectiveAddress(Direction, EffectiveAddress),
+    DirectionEffectiveAddress(Direction, AddressingMode),
     /// ASr, LSr, ROr, ROXr
     RotationDirectionSizeModeRegister(u8, Direction, Size, u8, u8),
 }
@@ -254,224 +257,224 @@ pub enum Operands {
 /// The last operand is the right-most operand in the instruction word (low-order bits) or the extention words (if any).
 impl Operands {
     /// ANDI/EORI/ORI CCR/SR, STOP
-    pub fn immediate(&self) -> u16 {
-        match *self {
+    pub const fn immediate(self) -> u16 {
+        match self {
             Self::Immediate(i) => i,
             _ => panic!("[Operands::immediate]"),
         }
     }
 
     /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
-    pub fn size_effective_address_immediate(&mut self) -> (Size, &mut EffectiveAddress, u32) {
-        match &mut *self {
-            Self::SizeEffectiveAddressImmediate(s, e, i) => (*s, e, *i),
+    pub const fn size_effective_address_immediate(self) -> (Size, AddressingMode, u32) {
+        match self {
+            Self::SizeEffectiveAddressImmediate(s, e, i) => (s, e, i),
             _ => panic!("[Operands::size_effective_address_immediate]"),
         }
     }
 
     /// BCHG, BCLR, BSET, BTST
-    pub fn effective_address_count(&mut self) -> (&mut EffectiveAddress, u8) {
-        match &mut *self {
-            Self::EffectiveAddressCount(e, c) => (e, *c),
+    pub const fn effective_address_count(self) -> (AddressingMode, u8) {
+        match self {
+            Self::EffectiveAddressCount(e, c) => (e, c),
             _ => panic!("[Operands::effective_address_count]"),
         }
     }
 
     /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
-    pub fn effective_address(&mut self) -> &mut EffectiveAddress {
-        match &mut *self {
+    pub const fn effective_address(self) -> AddressingMode {
+        match self {
             Self::EffectiveAddress(e) => e,
             _ => panic!("[Operands::effective_address]"),
         }
     }
 
     /// CLR, NEG, NEGX, NOT, TST
-    pub fn size_effective_address(&mut self) -> (Size, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::SizeEffectiveAddress(s, e) => (*s, e),
+    pub const fn size_effective_address(self) -> (Size, AddressingMode) {
+        match self {
+            Self::SizeEffectiveAddress(s, e) => (s, e),
             _ => panic!("[Operands::size_effective_address]"),
         }
     }
 
     /// CHK, DIVS, DIVU, LEA, MULS, MULU
-    pub fn register_effective_address(&mut self) -> (u8, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::RegisterEffectiveAddress(r, e) => (*r, e),
+    pub const fn register_effective_address(self) -> (u8, AddressingMode) {
+        match self {
+            Self::RegisterEffectiveAddress(r, e) => (r, e),
             _ => panic!("[Operands::register_effective_address]"),
         }
     }
 
     /// MOVEP
-    pub fn register_direction_size_register_displacement(&self) -> (u8, Direction, Size, u8, i16) {
-        match *self {
+    pub const fn register_direction_size_register_displacement(self) -> (u8, Direction, Size, u8, i16) {
+        match self {
             Self::RegisterDirectionSizeRegisterDisplacement(r, d, s, rr, dd) => (r, d, s, rr, dd),
             _ => panic!("[Operands::register_direction_size_register_displacement]"),
         }
     }
 
     /// MOVEA
-    pub fn size_register_effective_address(&mut self) -> (Size, u8, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::SizeRegisterEffectiveAddress(s, r, e) => (*s, *r, e),
+    pub const fn size_register_effective_address(self) -> (Size, u8, AddressingMode) {
+        match self {
+            Self::SizeRegisterEffectiveAddress(s, r, e) => (s, r, e),
             _ => panic!("[Operands::size_register_effective_address]"),
         }
     }
 
     /// MOVE
-    pub fn size_effective_address_effective_address(&mut self) -> (Size, &mut EffectiveAddress, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::SizeEffectiveAddressEffectiveAddress(s, e, ee) => (*s, e, ee),
+    pub const fn size_effective_address_effective_address(self) -> (Size, AddressingMode, AddressingMode) {
+        match self {
+            Self::SizeEffectiveAddressEffectiveAddress(s, e, ee) => (s, e, ee),
             _ => panic!("[Operands::size_effective_address_effective_address]"),
         }
     }
 
     /// EXG
-    pub fn register_opmode_register(&self) -> (u8, u8, u8) {
-        match *self {
+    pub const fn register_opmode_register(self) -> (u8, u8, u8) {
+        match self {
             Self::RegisterOpmodeRegister(r, o, rr) => (r, o, rr),
             _ => panic!("[Operands::register_opmode_register]"),
         }
     }
 
     /// EXT
-    pub fn opmode_register(&self) -> (u8, u8) {
-        match *self {
+    pub const fn opmode_register(self) -> (u8, u8) {
+        match self {
             Self::OpmodeRegister(o, r) => (o, r),
             _ => panic!("[Operands::opmode_register]"),
         }
     }
 
     /// TRAP
-    pub fn vector(&self) -> u8 {
-        match *self {
+    pub const fn vector(self) -> u8 {
+        match self {
             Self::Vector(v) => v,
             _ => panic!("[Operands::vector]"),
         }
     }
 
     /// LINK
-    pub fn register_displacement(&self) -> (u8, i16) {
-        match *self {
+    pub const fn register_displacement(self) -> (u8, i16) {
+        match self {
             Self::RegisterDisplacement(r, d) => (r, d),
             _ => panic!("[Operands::register_displacement]"),
         }
     }
 
     /// SWAP, UNLK
-    pub fn register(&self) -> u8 {
-        match *self {
+    pub const fn register(self) -> u8 {
+        match self {
             Self::Register(r) => r,
             _ => panic!("[Operands::register]"),
         }
     }
 
     /// MOVE USP
-    pub fn direction_register(&self) -> (Direction, u8) {
-        match *self {
+    pub const fn direction_register(self) -> (Direction, u8) {
+        match self {
             Self::DirectionRegister(d, r) => (d, r),
             _ => panic!("[Operands::direction_register]"),
         }
     }
 
     /// MOVEM
-    pub fn direction_size_effective_address_list(&mut self) -> (Direction, Size, &mut EffectiveAddress, u16) {
-        match &mut *self {
-            Self::DirectionSizeEffectiveAddressList(d, s, e, l) => (*d, *s, e, *l),
+    pub const fn direction_size_effective_address_list(self) -> (Direction, Size, AddressingMode, u16) {
+        match self {
+            Self::DirectionSizeEffectiveAddressList(d, s, e, l) => (d, s, e, l),
             _ => panic!("[Operands::direction_size_effective_address_list]"),
         }
     }
 
     /// ADDQ, SUBQ
-    pub fn data_size_effective_address(&mut self) -> (u8, Size, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::DataSizeEffectiveAddress(d, s, e) => (*d, *s, e),
+    pub const fn data_size_effective_address(self) -> (u8, Size, AddressingMode) {
+        match self {
+            Self::DataSizeEffectiveAddress(d, s, e) => (d, s, e),
             _ => panic!("[Operands::data_size_effective_address]"),
         }
     }
 
     /// Scc
-    pub fn condition_effective_address(&mut self) -> (u8, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::ConditionEffectiveAddress(c, e) => (*c, e),
+    pub const fn condition_effective_address(self) -> (u8, AddressingMode) {
+        match self {
+            Self::ConditionEffectiveAddress(c, e) => (c, e),
             _ => panic!("[Operands::condition_effective_address]"),
         }
     }
 
     /// DBcc
-    pub fn condition_register_displacement(&self) -> (u8, u8, i16) {
-        match *self {
+    pub const fn condition_register_displacement(self) -> (u8, u8, i16) {
+        match self {
             Self::ConditionRegisterDisplacement(c, r, d) => (c, r, d),
             _ => panic!("[Operands::condition_register_displacement]"),
         }
     }
 
     /// BRA, BSR
-    pub fn displacement(&self) -> i16 {
-        match *self {
+    pub const fn displacement(self) -> i16 {
+        match self {
             Self::Displacement(d) => d,
             _ => panic!("[Operands::displacement]"),
         }
     }
 
     /// Bcc
-    pub fn condition_displacement(&self) -> (u8, i16) {
-        match *self {
+    pub const fn condition_displacement(self) -> (u8, i16) {
+        match self {
             Self::ConditionDisplacement(c, d) => (c, d),
             _ => panic!("[Operands::condition_displacement]"),
         }
     }
 
     /// MOVEQ
-    pub fn register_data(&self) -> (u8, i8) {
-        match *self {
+    pub const fn register_data(self) -> (u8, i8) {
+        match self {
             Self::RegisterData(r, d) => (r, d),
             _ => panic!("[Operands::register_data]"),
         }
     }
 
     /// ADD, AND, CMP, EOR, OR, SUB
-    pub fn register_direction_size_effective_address(&mut self) -> (u8, Direction, Size, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::RegisterDirectionSizeEffectiveAddress(r, d, s, e) => (*r, *d, *s, e),
+    pub const fn register_direction_size_effective_address(self) -> (u8, Direction, Size, AddressingMode) {
+        match self {
+            Self::RegisterDirectionSizeEffectiveAddress(r, d, s, e) => (r, d, s, e),
             _ => panic!("[Operands::register_direction_size_effective_address]"),
         }
     }
 
     /// ADDA, CMPA, SUBA
-    pub fn register_size_effective_address(&mut self) -> (u8, Size, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::RegisterSizeEffectiveAddress(r, s, e) => (*r, *s, e),
+    pub const fn register_size_effective_address(self) -> (u8, Size, AddressingMode) {
+        match self {
+            Self::RegisterSizeEffectiveAddress(r, s, e) => (r, s, e),
             _ => panic!("[Operands::register_size_effective_address]"),
         }
     }
 
     /// ABCD, ADDX, SBCD, SUBX
-    pub fn register_size_mode_register(&self) -> (u8, Size, Direction, u8) {
-        match *self {
+    pub const fn register_size_mode_register(self) -> (u8, Size, Direction, u8) {
+        match self {
             Self::RegisterSizeModeRegister(r, s, m, rr) => (r, s, m, rr),
             _ => panic!("[Operands::register_size_mode_register]"),
         }
     }
 
     /// CMPM
-    pub fn register_size_register(&self) -> (u8, Size, u8) {
-        match *self {
+    pub const fn register_size_register(self) -> (u8, Size, u8) {
+        match self {
             Self::RegisterSizeRegister(r, s, rr) => (r, s, rr),
             _ => panic!("[Operands::register_size_register]"),
         }
     }
 
     /// ASm, LSm, ROm, ROXm
-    pub fn direction_effective_address(&mut self) -> (Direction, &mut EffectiveAddress) {
-        match &mut *self {
-            Self::DirectionEffectiveAddress(d, e) => (*d, e),
+    pub const fn direction_effective_address(self) -> (Direction, AddressingMode) {
+        match self {
+            Self::DirectionEffectiveAddress(d, e) => (d, e),
             _ => panic!("[Operands::direction_effective_address]"),
         }
     }
 
     /// ASr, LSr, ROr, ROXr
-    pub fn rotation_direction_size_mode_register(&self) -> (u8, Direction, Size, u8, u8) {
-        match *self {
+    pub const fn rotation_direction_size_mode_register(self) -> (u8, Direction, Size, u8, u8) {
+        match self {
             Self::RotationDirectionSizeModeRegister(r, d, s, m, rr) => (r, d, s, m, rr),
             _ => panic!("[Operands::rotation_direction_size_mode_register]"),
         }
@@ -505,10 +508,12 @@ pub fn size_effective_address_immediate(opcode: u16, memory: &mut MemoryIter) ->
     };
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     len += memory.next_addr - naddr;
 
-    (Operands::SizeEffectiveAddressImmediate(size, ea, imm), len as usize)
+    (Operands::SizeEffectiveAddressImmediate(size, am, imm), len as usize)
 }
 
 /// BCHG, BCLR, BSET, BTST
@@ -522,12 +527,13 @@ pub fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (Operand
     };
 
     let naddr = memory.next_addr;
-    let size = if bits(opcode, 3, 5) == 0 { Some(Size::Long) } else { Some(Size::Byte) };
-    let mut ea = EffectiveAddress::from_opcode(opcode, size, memory);
-    ea.size = if ea.mode.is_drd() { Some(Size::Long) } else { Some(Size::Byte) };
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let size = if eamode == 0 { Some(Size::Long) } else { Some(Size::Byte) };
+    let am = AddressingMode::new(eamode, eareg, size, memory);
     len += memory.next_addr - naddr;
 
-    (Operands::EffectiveAddressCount(ea, count), len as usize)
+    (Operands::EffectiveAddressCount(am, count), len as usize)
 }
 
 /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
@@ -545,18 +551,22 @@ pub fn effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usi
     };
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, size, memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, size, memory);
     let len = memory.next_addr - naddr;
-    (Operands::EffectiveAddress(ea), len as usize)
+    (Operands::EffectiveAddress(am), len as usize)
 }
 
 /// CLR, NEG, NEGX, NOT, TST
 pub fn size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let naddr = memory.next_addr;
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
     let size = Size::from(bits(opcode, 6, 7));
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = memory.next_addr - naddr;
-    (Operands::SizeEffectiveAddress(size, ea), len as usize)
+    (Operands::SizeEffectiveAddress(size, am), len as usize)
 }
 
 /// CHK, DIVS, DIVU, LEA, MULS, MULU
@@ -571,9 +581,11 @@ pub fn register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Oper
     };
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, size, memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, size, memory);
     let len = memory.next_addr - naddr;
-    (Operands::RegisterEffectiveAddress(reg, ea), len as usize)
+    (Operands::RegisterEffectiveAddress(reg, am), len as usize)
 }
 
 /// MOVEP
@@ -589,22 +601,33 @@ pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut M
 /// MOVEA
 pub fn size_register_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let naddr = memory.next_addr;
-    let size = Size::from_move(bits(opcode, 12, 13));
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
     let areg = bits(opcode, 9, 11) as u8;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let size = Size::from_move(bits(opcode, 12, 13));
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = memory.next_addr - naddr;
-    (Operands::SizeRegisterEffectiveAddress(size, areg, ea), len as usize)
+    (Operands::SizeRegisterEffectiveAddress(size, areg, am), len as usize)
 }
 
 /// MOVE
 pub fn size_effective_address_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let size = Size::from_move(bits(opcode, 12, 13));
 
+    // First read the source operand then the destination.
     let naddr = memory.next_addr;
-    let (dst, src) = EffectiveAddress::from_move(opcode, Some(size), memory);
-    let len = memory.next_addr - naddr;
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let src = AddressingMode::new(eamode, eareg, Some(size), memory);
+    let lensrc = memory.next_addr - naddr;
 
-    (Operands::SizeEffectiveAddressEffectiveAddress(size, dst, src), len as usize)
+    let naddr = memory.next_addr;
+    let eamode = bits(opcode, 6, 8);
+    let eareg = bits(opcode, 9, 11) as u8;
+    let dst = AddressingMode::new(eamode, eareg, Some(size), memory);
+    let lendst = memory.next_addr - naddr;
+
+    (Operands::SizeEffectiveAddressEffectiveAddress(size, dst, src), lensrc as usize + lendst as usize)
 }
 
 /// EXG
@@ -655,10 +678,12 @@ pub fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIte
     let size = Size::from_bit(bits(opcode, 6, 6));
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = 2 + (memory.next_addr - naddr);
 
-    (Operands::DirectionSizeEffectiveAddressList(dir, size, ea, list), len as usize)
+    (Operands::DirectionSizeEffectiveAddressList(dir, size, am, list), len as usize)
 }
 
 /// ADDQ, SUBQ
@@ -667,10 +692,12 @@ pub fn data_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
     let size = Size::from(bits(opcode, 6, 7));
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = memory.next_addr - naddr;
 
-    (Operands::DataSizeEffectiveAddress(data, size, ea), len as usize)
+    (Operands::DataSizeEffectiveAddress(data, size, am), len as usize)
 }
 
 /// Scc
@@ -678,10 +705,12 @@ pub fn condition_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
     let condition = bits(opcode, 8, 11) as u8;
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(Size::Byte), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(Size::Byte), memory);
     let len = memory.next_addr - naddr;
 
-    (Operands::ConditionEffectiveAddress(condition, ea), len as usize)
+    (Operands::ConditionEffectiveAddress(condition, am), len as usize)
 }
 
 /// DBcc
@@ -729,10 +758,12 @@ pub fn register_direction_size_effective_address(opcode: u16, memory: &mut Memor
     let size = Size::from(bits(opcode, 6, 7));
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = memory.next_addr - naddr;
 
-    (Operands::RegisterDirectionSizeEffectiveAddress(reg, dir, size, ea), len as usize)
+    (Operands::RegisterDirectionSizeEffectiveAddress(reg, dir, size, am), len as usize)
 }
 
 /// ADDA, CMPA, SUBA
@@ -741,10 +772,12 @@ pub fn register_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> 
     let size = Size::from_bit(bits(opcode, 8, 8));
 
     let naddr = memory.next_addr;
-    let ea = EffectiveAddress::from_opcode(opcode, Some(size), memory);
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
+    let am = AddressingMode::new(eamode, eareg, Some(size), memory);
     let len = memory.next_addr - naddr;
 
-    (Operands::RegisterSizeEffectiveAddress(reg, size, ea), len as usize)
+    (Operands::RegisterSizeEffectiveAddress(reg, size, am), len as usize)
 }
 
 /// ABCD, ADDX, SBCD, SUBX
@@ -767,10 +800,12 @@ pub fn register_size_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usi
 /// ASm, LSm, ROm, ROXm
 pub fn direction_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let naddr = memory.next_addr;
+    let eareg = bits(opcode, 0, 2) as u8;
+    let eamode = bits(opcode, 3, 5);
     let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
-    let ea = EffectiveAddress::from_opcode(opcode, Some(Size::Byte), memory);
+    let am = AddressingMode::new(eamode, eareg, Some(Size::Byte), memory);
     let len = memory.next_addr - naddr;
-    (Operands::DirectionEffectiveAddress(dir, ea), len as usize)
+    (Operands::DirectionEffectiveAddress(dir, am), len as usize)
 }
 
 /// ASr, LSr, ROr, ROXr

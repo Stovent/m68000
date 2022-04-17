@@ -15,7 +15,6 @@
 //!
 //! # TODO:
 //! - Calculation times.
-//! - Throw Bus and Address errors in the middle of an instruction.
 //! - How to restore MC68000 Bus and Address errors?
 
 pub mod addressing_modes;

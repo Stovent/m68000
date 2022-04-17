@@ -1,6 +1,7 @@
 use crate::instruction::Size;
 
 /// Returns bits [beg, end] inclusive, starting at 0.
+#[inline(always)]
 pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
     let mask = (1 << end + 1 - beg) - 1;
     d >> beg & mask
