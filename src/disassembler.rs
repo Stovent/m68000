@@ -206,9 +206,9 @@ pub fn disassemble_eorisr(inst: &Instruction) -> String {
 
 pub fn disassemble_exg(inst: &Instruction) -> String {
     let (rx, mode, ry) = inst.operands.register_opmode_register();
-    if mode == 0b01000 {
+    if mode == Direction::ExchangeData {
         format!("EXG D{}, D{}", rx, ry)
-    } else if mode == 0b01001 {
+    } else if mode == Direction::ExchangeAddress {
         format!("EXG A{}, A{}", rx, ry)
     } else {
         format!("EXG D{}, A{}", rx, ry)

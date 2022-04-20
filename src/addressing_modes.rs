@@ -120,6 +120,84 @@ impl AddressingMode {
             _ => false,
         }
     }
+
+    /// Assembles `self` as an opcode effective address field.
+    ///
+    /// Set `long` to true if the immediate operand is long, false for byte and word sizes.
+    ///
+    /// Left contains the mode and register encoded as in the low 6 bits of the opcode.
+    /// Right contains the extension words.
+    pub fn assemble(self, long: bool) -> (u16, Box<[u16]>) {
+        match self {
+            AddressingMode::Drd(reg) => (reg as u16, Box::new([])),
+            AddressingMode::Ard(reg) => (1 << 3 | reg as u16, Box::new([])),
+            AddressingMode::Ari(reg) => (2 << 3 | reg as u16, Box::new([])),
+            AddressingMode::Ariwpo(reg) => (3 << 3 | reg as u16, Box::new([])),
+            AddressingMode::Ariwpr(reg) => (4 << 3 | reg as u16, Box::new([])),
+            AddressingMode::Ariwd(reg, disp) => (5 << 3 | reg as u16, Box::new([disp as u16])),
+            AddressingMode::Ariwi8(reg, bew) => (6 << 3 | reg as u16, Box::new([bew.0])),
+            AddressingMode::AbsShort(addr) => (7 << 3, Box::new([addr])),
+            AddressingMode::AbsLong(addr) => (7 << 3 | 1, Box::new([(addr >> 16) as u16, addr as u16])),
+            AddressingMode::Pciwd(_, disp) => (7 << 3 | 2, Box::new([disp as u16])),
+            AddressingMode::Pciwi8(_, bew) => (7 << 3 | 3, Box::new([bew.0])),
+            AddressingMode::Immediate(imm) => {
+                if long {
+                    (7 << 3 | 4, Box::new([(imm >> 16) as u16, imm as u16]))
+                } else {
+                    (7 << 3 | 4, Box::new([imm as u16]))
+                }
+            },
+        }
+    }
+
+    /// Assembles `self` as an opcode effective address field for MOVE or MOVEA destination field.
+    ///
+    /// Set `long` to true if the immediate operand is long, false for byte and word sizes.
+    ///
+    /// Left contains the mode and register encoded as in the destination (bits 6 to 11).
+    /// Right contains the extension words.
+    pub fn assemble_move_dst(self, long: bool) -> (u16, Box<[u16]>) {
+        match self {
+            AddressingMode::Drd(reg) => ((reg as u16) << 9, Box::new([])),
+            AddressingMode::Ard(reg) => ((reg as u16) << 9 | 1 << 6, Box::new([])),
+            AddressingMode::Ari(reg) => ((reg as u16) << 9 | 2 << 6, Box::new([])),
+            AddressingMode::Ariwpo(reg) => ((reg as u16) << 9 | 3 << 6, Box::new([])),
+            AddressingMode::Ariwpr(reg) => ((reg as u16) << 9 | 4 << 6, Box::new([])),
+            AddressingMode::Ariwd(reg, disp) => ((reg as u16) << 9 | 5 << 6, Box::new([disp as u16])),
+            AddressingMode::Ariwi8(reg, bew) => ((reg as u16) << 9 | 6 << 6, Box::new([bew.0])),
+            AddressingMode::AbsShort(addr) => (7 << 6, Box::new([addr])),
+            AddressingMode::AbsLong(addr) => (1 << 9 | 7 << 6, Box::new([(addr >> 16) as u16, addr as u16])),
+            AddressingMode::Pciwd(_, disp) => (2 << 9 | 7 << 6, Box::new([disp as u16])),
+            AddressingMode::Pciwi8(_, bew) => (3 << 9 | 7 << 6, Box::new([bew.0])),
+            AddressingMode::Immediate(imm) => {
+                if long {
+                    (4 << 9 | 7 << 6, Box::new([(imm >> 16) as u16, imm as u16]))
+                } else {
+                    (4 << 9 | 7 << 6, Box::new([imm as u16]))
+                }
+            },
+        }
+    }
+
+    /// Verifies that `self` is one of the given modes.
+    ///
+    /// `regs` are the valid Mode 7 registers.
+    pub fn verify(self, modes: &[u8], regs: &[u8]) -> bool {
+        match self {
+            AddressingMode::Drd(reg) => reg <= 7 && modes.contains(&0),
+            AddressingMode::Ard(reg) => reg <= 7 && modes.contains(&1),
+            AddressingMode::Ari(reg) => reg <= 7 && modes.contains(&2),
+            AddressingMode::Ariwpo(reg) => reg <= 7 && modes.contains(&3),
+            AddressingMode::Ariwpr(reg) => reg <= 7 && modes.contains(&4),
+            AddressingMode::Ariwd(reg, _) => reg <= 7 && modes.contains(&5),
+            AddressingMode::Ariwi8(reg,_) => reg <= 7 && modes.contains(&6),
+            AddressingMode::AbsShort(_) => modes.contains(&7) && regs.contains(&0),
+            AddressingMode::AbsLong(_) => modes.contains(&7) && regs.contains(&1),
+            AddressingMode::Pciwd(_, _) => modes.contains(&7) && regs.contains(&2),
+            AddressingMode::Pciwi8(_, _) => modes.contains(&7) && regs.contains(&3),
+            AddressingMode::Immediate(_) => modes.contains(&7) && regs.contains(&4),
+        }
+    }
 }
 
 impl std::fmt::Display for AddressingMode {
@@ -160,6 +238,20 @@ impl BriefExtensionWord {
     /// Returns the displacement associated with the brief extension word.
     pub const fn disp(self) -> i8 {
         self.0 as i8
+    }
+
+    /// Creates a new brief extension word, to be used when using the assembler.
+    ///
+    /// - `address`: true if the index register is an address register, false for a data register.
+    /// - `reg`: the register number.
+    /// - `long`: true if long size, false for word size.
+    /// - `disp:`: the associated displacement value.
+    pub const fn new(address: bool, reg: u8, long: bool, disp: i8) -> Self {
+        let a = (address as u16) << 15;
+        let r = (reg as u16 & 0x7) << 12;
+        let s = (long as u16) << 11;
+        let d = disp as u8 as u16;
+        Self(a | r | s | d)
     }
 }
 

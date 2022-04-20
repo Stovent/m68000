@@ -18,6 +18,7 @@
 //! - How to restore MC68000 Bus and Address errors?
 
 pub mod addressing_modes;
+pub mod assembler;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;

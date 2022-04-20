@@ -1022,9 +1022,9 @@ impl M68000 {
     pub(super) fn exg(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rx, mode, ry) = inst.operands.register_opmode_register();
 
-        if mode == 0b01000 {
+        if mode == Direction::ExchangeData {
             self.d.swap(rx as usize, ry as usize);
-        } else if mode == 0b01001 {
+        } else if mode == Direction::ExchangeAddress {
             // TODO: change to std::mem::swap when new borrow checker is available
             let y = self.a(ry);
             *self.a_mut(ry) = self.a(rx);

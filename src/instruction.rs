@@ -52,7 +52,7 @@ impl Instruction {
 ///
 /// `Left` and `Right` are used by the Shift and Rotate instructions.
 ///
-/// `UspToRegister` and `RegisterToUsp` are used by MOVE USP.
+/// `RegisterToUsp` and `UspToRegister` are used by MOVE USP.
 ///
 /// `RegisterToRegister` and `MemoryToMemory` are used by ABCD, ADDX, SBCD and SUBX.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -70,13 +70,19 @@ pub enum Direction {
     /// Right shift or rotation.
     Right,
     /// For MOVE USP only.
-    UspToRegister,
-    /// For MOVE USP only.
     RegisterToUsp,
+    /// For MOVE USP only.
+    UspToRegister,
     /// Register to register operation.
     RegisterToRegister,
     /// Memory to Memory operation.
     MemoryToMemory,
+    /// Exchange Data Registers (EXG only).
+    ExchangeData,
+    /// Exchange Address Registers (EXG only).
+    ExchangeAddress,
+    /// Exchange Data and Address Registers (EXG only).
+    ExchangeDataAddress,
 }
 
 impl std::fmt::Display for Direction {
@@ -128,6 +134,19 @@ impl Size {
         }
     }
 
+    /// Returns the binary encoding of the size as used by MOVEM and EXT.
+    ///
+    /// - Word => 0
+    /// - Long => 1
+    #[inline(always)]
+    pub fn into_bit(self) -> u16 {
+        match self {
+            Self::Word => 0,
+            Self::Long => 1,
+            _ => panic!("[Size::into_bit] Wrong size : expected word or long, got {}", self),
+        }
+    }
+
     /// Creates a new size from the size bits of a MOVE or MOVEA instruction.
     ///
     /// - 1 => Byte
@@ -140,6 +159,20 @@ impl Size {
             3 => Self::Word,
             2 => Self::Long,
             _ => panic!("[Size::from_move] Wrong Size : expected 1, 3 or 2, got {}", d),
+        }
+    }
+
+    /// Returns the binary encoding of the size as used by MOVE and MOVEA.
+    ///
+    /// - Byte => 1
+    /// - Word => 3
+    /// - Long => 2
+    #[inline(always)]
+    pub const fn into_move(self) -> u16 {
+        match self {
+            Self::Byte => 1,
+            Self::Word => 3,
+            Self::Long => 2,
         }
     }
 
@@ -179,6 +212,16 @@ impl From<u16> for Size {
     }
 }
 
+impl Into<u16> for Size {
+    fn into(self) -> u16 {
+        match self {
+            Size::Byte => 0,
+            Size::Word => 1,
+            Size::Long => 2,
+        }
+    }
+}
+
 impl std::fmt::Display for Size {
     /// Disassembles to `"B"`, `"W"` or `"L"`
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -214,7 +257,7 @@ pub enum Operands {
     /// MOVE
     SizeEffectiveAddressEffectiveAddress(Size, AddressingMode, AddressingMode),
     /// EXG
-    RegisterOpmodeRegister(u8, u8, u8),
+    RegisterOpmodeRegister(u8, Direction, u8),
     /// EXT
     OpmodeRegister(u8, u8),
     /// TRAP
@@ -329,7 +372,7 @@ impl Operands {
     }
 
     /// EXG
-    pub const fn register_opmode_register(self) -> (u8, u8, u8) {
+    pub const fn register_opmode_register(self) -> (u8, Direction, u8) {
         match self {
             Self::RegisterOpmodeRegister(r, o, rr) => (r, o, rr),
             _ => panic!("[Operands::register_opmode_register]"),
@@ -635,7 +678,14 @@ pub fn register_opmode_register(opcode: u16, _: &mut MemoryIter) -> (Operands, u
     let regl = bits(opcode, 9, 11) as u8;
     let opmode = bits(opcode, 3, 7) as u8;
     let regr = bits(opcode, 0, 2) as u8;
-    (Operands::RegisterOpmodeRegister(regl, opmode, regr), 0)
+    let dir = if opmode == 0b01000 {
+        Direction::ExchangeData
+    } else if opmode == 0b01001 {
+        Direction::ExchangeAddress
+    } else {
+        Direction::ExchangeDataAddress
+    };
+    (Operands::RegisterOpmodeRegister(regl, dir, regr), 0)
 }
 
 /// EXT
@@ -658,7 +708,7 @@ pub fn register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands,
     (Operands::RegisterDisplacement(reg, disp), 2)
 }
 
-/// UNLK
+/// SWAP, UNLK
 pub fn register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
     let reg = bits(opcode, 0, 2) as u8;
     (Operands::Register(reg), 0)
