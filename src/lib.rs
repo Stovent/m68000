@@ -16,6 +16,8 @@
 //! # TODO:
 //! - Calculation times.
 //! - How to restore MC68000 Bus and Address errors?
+//! - Better management of exceptions and STOP mode.
+//! - Exception priority.
 
 pub mod addressing_modes;
 pub mod assembler;
@@ -37,10 +39,12 @@ use std::collections::VecDeque;
 /// A M68000 core.
 #[derive(Clone, Debug)]
 pub struct M68000 {
+    /// The data registers.
     pub d: [u32; 8],
     a_: [u32; 7],
     usp: u32,
     ssp: u32,
+    /// The status register.
     pub sr: StatusRegister,
     pc: u32,
 
@@ -49,6 +53,7 @@ pub struct M68000 {
     exceptions: VecDeque<u8>,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
     extra_cycles: usize,
+    /// True to disassemble instructions and call [MemoryAccess::disassembler].
     pub disassemble: bool,
     stack_format: StackFormat,
 }
@@ -77,14 +82,14 @@ impl M68000 {
         cpu
     }
 
-    /// Sets the lower 8-bits to the given register to the given value.
+    /// Sets the lower 8-bits of the given register to the given value.
     /// The higher 24-bits remains untouched.
     pub fn d_byte(&mut self, reg: u8, value: u8) {
         self.d[reg as usize] &= 0xFFFF_FF00;
         self.d[reg as usize] |= value as u32;
     }
 
-    /// Sets the lower 16-bits to the given register to the given value.
+    /// Sets the lower 16-bits of the given register to the given value.
     /// The higher 16-bits remains untouched.
     pub fn d_word(&mut self, reg: u8, value: u16) {
         self.d[reg as usize] &= 0xFFFF_0000;

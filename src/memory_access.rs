@@ -46,19 +46,8 @@ pub trait MemoryAccess {
     /// Called when the CPU executes a RESET instruction.
     fn reset(&mut self);
 
-    /// Override this function to modify the exception processing behaviour.
-    ///
-    /// This function is called by the interpreter when an exception has to be processed.
-    /// It has to return `true` if the CPU has to effectively create an exception stack frame.
-    /// If it returns `false`, then the CPU won't create a stack frame and the exception will not be further processed.
-    /// The default implementation simply returns `true` and does nothing else.
-    ///
-    /// The point of this is to allow this library to be used in HLE environments, where traps are caughts by the application
-    /// and appears transparent to the process. In this case `false` has to be returned.
-    fn exception(&mut self, _vector: u8) -> bool { true }
-
-    /// If `M68000::disassemble` is true, called by the interpreter with the disassembly of the next instruction that will be executed.
-    fn disassembler(&mut self, _inst_string: String) {}
+    /// If `M68000::disassemble` is true, called by the interpreter with the address and the disassembly of the next instruction that will be executed.
+    fn disassembler(&mut self, _pc: u32, _inst_string: String) {}
 }
 
 /// Iterator over 16-bits values in memory.
