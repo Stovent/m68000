@@ -49,6 +49,7 @@ pub struct M68000 {
     exceptions: VecDeque<u8>,
     /// Stores the number of extra cycles executed during the last call to execute_cycles.
     extra_cycles: usize,
+    pub disassemble: bool,
     stack_format: StackFormat,
 }
 
@@ -67,6 +68,7 @@ impl M68000 {
             stop: false,
             exceptions: VecDeque::new(),
             extra_cycles: 0,
+            disassemble: false,
             stack_format,
         };
 

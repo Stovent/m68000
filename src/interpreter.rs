@@ -3,7 +3,6 @@ use crate::{M68000, MemoryAccess};
 use crate::exception::Vector;
 use crate::instruction::{Direction, Instruction, Size};
 use crate::isa::{Execute, Isa};
-#[cfg(debug_assertions)]
 use crate::isa::IsaEntry;
 use crate::utils::{BigInt, bits};
 
@@ -60,8 +59,9 @@ impl M68000 {
         let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
         self.pc += len as u32;
 
-        #[cfg(debug_assertions)]
-        println!("{:#X} {}", pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
+        if self.disassemble {
+            println!("{:#X} {}", pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
+        }
 
         match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => cycle_count += cycles,
@@ -2266,7 +2266,7 @@ impl M68000 {
 
     pub(super) fn trap(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let vector = inst.operands.vector();
-        Err(vector)
+        Err(Vector::Trap0Instruction as u8 + vector)
     }
 
     pub(super) fn trapv(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {

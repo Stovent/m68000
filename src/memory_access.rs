@@ -56,6 +56,9 @@ pub trait MemoryAccess {
     /// The point of this is to allow this library to be used in HLE environments, where traps are caughts by the application
     /// and appears transparent to the process. In this case `false` has to be returned.
     fn exception(&mut self, _vector: u8) -> bool { true }
+
+    /// If `M68000::disassemble` is true, called by the interpreter with the disassembly of the next instruction that will be executed.
+    fn disassembler(&mut self, _inst_string: String) {}
 }
 
 /// Iterator over 16-bits values in memory.
