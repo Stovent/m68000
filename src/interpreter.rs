@@ -1966,8 +1966,7 @@ impl M68000 {
             if !self.stack_format.is_68000() {
                 let format = self.pop_word(memory)?;
 
-                if self.stack_format.is_68010() && format & 0xF000 == 0x8000 ||
-                   self.stack_format.is_68070() && format & 0xF000 == 0xF000 {
+                if format & 0xF000 == 0xF000 {
                     *self.sp_mut() += 26;
                 } else if format & 0xF000 != 0 {
                     return Err(Vector::FormatError as u8);

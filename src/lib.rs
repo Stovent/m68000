@@ -1,7 +1,7 @@
-//! Motorola 68000 emulator.
+//! Motorola 68000 assembler, disassembler and interpreter.
 //!
 //! Applications creates their memory management system, implementing the
-//! [MemoryAccess](memory_access::MemoryAccess) trait, and passes it to the core.
+//! [MemoryAccess trait](memory_access::MemoryAccess), and passes it to the core.
 //!
 //! # How to use
 //!
@@ -39,14 +39,17 @@ use std::collections::VecDeque;
 /// A M68000 core.
 #[derive(Clone, Debug)]
 pub struct M68000 {
-    /// The data registers.
+    /// Data registers.
     pub d: [u32; 8],
     a_: [u32; 7],
-    usp: u32,
-    ssp: u32,
-    /// The status register.
+    /// User Stack Pointer.
+    pub usp: u32,
+    /// System Stack Pointer.
+    pub ssp: u32,
+    /// Status Register.
     pub sr: StatusRegister,
-    pc: u32,
+    /// Program Counter.
+    pub pc: u32,
 
     current_opcode: u16,
     stop: bool,
@@ -60,6 +63,9 @@ pub struct M68000 {
 
 impl M68000 {
     /// Creates a new M68000 core.
+    ///
+    /// The created core has a [exception::Vector::ResetSspPc] pushed, so that the first call to an interpreter method
+    /// will first fetch the reset vectors, then will execute the first execute.
     pub fn new(stack_format: StackFormat) -> Self {
         let mut cpu = Self {
             d: [0; 8],
@@ -82,14 +88,33 @@ impl M68000 {
         cpu
     }
 
-    /// Sets the lower 8-bits of the given register to the given value.
+    /// [Self::new] but without the initial reset vectors, so you can initialize the core as you want.
+    pub fn new_no_reset(stack_format: StackFormat) -> Self {
+        Self {
+            d: [0; 8],
+            a_: [0; 7],
+            usp: 0,
+            ssp: 0,
+            sr: StatusRegister::default(),
+            pc: 0,
+
+            current_opcode: 0xFFFF,
+            stop: false,
+            exceptions: VecDeque::new(),
+            extra_cycles: 0,
+            disassemble: false,
+            stack_format,
+        }
+    }
+
+    /// Sets the lower 8-bits of the given data register to the given value.
     /// The higher 24-bits remains untouched.
     pub fn d_byte(&mut self, reg: u8, value: u8) {
         self.d[reg as usize] &= 0xFFFF_FF00;
         self.d[reg as usize] |= value as u32;
     }
 
-    /// Sets the lower 16-bits of the given register to the given value.
+    /// Sets the lower 16-bits of the given data register to the given value.
     /// The higher 16-bits remains untouched.
     pub fn d_word(&mut self, reg: u8, value: u16) {
         self.d[reg as usize] &= 0xFFFF_0000;
@@ -114,7 +139,8 @@ impl M68000 {
         }
     }
 
-    const fn sp(&self) -> u32 {
+    /// Returns the stack pointer, SSP if in supervisor mode, USP if in user mode.
+    pub const fn sp(&self) -> u32 {
         if self.sr.s {
             self.ssp
         } else {
@@ -122,7 +148,8 @@ impl M68000 {
         }
     }
 
-    fn sp_mut(&mut self) -> &mut u32 {
+    /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
+    pub fn sp_mut(&mut self) -> &mut u32 {
         if self.sr.s {
             &mut self.ssp
         } else {
@@ -135,7 +162,6 @@ impl M68000 {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum StackFormat {
     Stack68000,
-    Stack68010,
     Stack68070,
 }
 
@@ -143,11 +169,6 @@ impl StackFormat {
     /// Returns true if self is a M68000 stack.
     pub fn is_68000(self) -> bool {
         self == StackFormat::Stack68000
-    }
-
-    /// Returns true if self is a M68010 stack.
-    pub fn is_68010(self) -> bool {
-        self == StackFormat::Stack68010
     }
 
     /// Returns true if self is a M68070 stack.

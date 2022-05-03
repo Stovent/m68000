@@ -77,7 +77,7 @@ impl M68000 {
                 self.push_long(memory, 0)?; // Access address
                 self.push_word(memory, 0)?; // function code
             }
-        } else { // if self.stack_format.is_68010() || self.stack_format.is_68070() {
+        } else { // if self.stack_format.is_68070() {
             if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(memory, 0)?;
                 self.push_word(memory, 0)?;
@@ -89,11 +89,7 @@ impl M68000 {
                 self.push_word(memory, 0)?;
                 self.push_word(memory, 0)?;
                 self.push_word(memory, 0)?;
-                if self.stack_format.is_68010() {
-                    self.push_word(memory, 0x8000 | vector as u16 * 4)?;
-                } else { // if self.stack_format.is_68070() {
-                    self.push_word(memory, 0xF000 | vector as u16 * 4)?;
-                }
+                self.push_word(memory, 0xF000 | vector as u16 * 4)?;
             } else { // Short format
                 self.push_word(memory, vector as u16 * 4)?;
             }
