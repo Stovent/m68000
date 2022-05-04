@@ -4,4 +4,4 @@ m68000 is a Motorola 68000 assembler, disassembler and interpreter written in Ru
 
 # License
 
-m68000 is distributed under the terms of the GPLv2 license. Refer to the [LICENSE](https://github.com/Stovent/m68000/blob/master/LICENSE) file.
+m68000 is distributed under the terms of the LGPL-3.0 or any later version. Refer to the LICENSE and LICENSE.LESSER files for more information.
