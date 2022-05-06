@@ -1,3 +1,5 @@
+//! Utility traits and functions.
+
 use crate::instruction::Size;
 
 /// Returns bits [beg, end] inclusive, starting at 0.

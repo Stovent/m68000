@@ -68,7 +68,7 @@ impl M68000 {
             self.stop = false;
         }
 
-        if self.stack_format.is_68000() {
+        if self.cpu_type.is_68000() {
             self.push_long(memory, self.pc)?;
             self.push_word(memory, sr)?;
 
@@ -77,7 +77,7 @@ impl M68000 {
                 self.push_long(memory, 0)?; // Access address
                 self.push_word(memory, 0)?; // function code
             }
-        } else { // if self.stack_format.is_68070() {
+        } else { // if self.cpu_type.is_68070() {
             if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(memory, 0)?;
                 self.push_word(memory, 0)?;

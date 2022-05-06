@@ -1963,7 +1963,7 @@ impl M68000 {
             let sr = self.pop_word(memory)?;
             self.pc = self.pop_long(memory)?;
 
-            if !self.stack_format.is_68000() {
+            if !self.cpu_type.is_68000() {
                 let format = self.pop_word(memory)?;
 
                 if format & 0xF000 == 0xF000 {

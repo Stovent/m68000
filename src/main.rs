@@ -1,6 +1,6 @@
 //! This program is a test function that runs a M68000 test ROM.
 
-use m68000::{M68000, StackFormat};
+use m68000::{M68000, CpuType};
 use m68000::exception::Vector;
 use m68000::memory_access::{GetResult, MemoryAccess, SetResult};
 
@@ -95,7 +95,7 @@ fn main()
     }
 
     let mut scc68070 = Scc68070 {
-        cpu: M68000::new(StackFormat::Stack68070),
+        cpu: M68000::new(CpuType::M68070),
         memory: ram,
     };
 

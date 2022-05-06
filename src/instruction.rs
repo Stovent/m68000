@@ -1,6 +1,6 @@
 //! Instruction-related structs, enums and functions.
 //!
-//! The functions returns the operands and the number of extention words used by the instruction.
+//! The functions returns the operands and the size in bytes of the extention words.
 //! They take as parameters the opcode of the instruction and an iterator over the extention words.
 
 use crate::addressing_modes::AddressingMode;

@@ -1,3 +1,5 @@
+//! ISA definition and helper structs to decode, disassemble and interpret (internal only) the instructions.
+
 use crate::{M68000, MemoryAccess};
 use crate::decoder::DECODER;
 use crate::disassembler::*;
@@ -6,6 +8,9 @@ use crate::interpreter::InterpreterResult;
 use crate::memory_access::MemoryIter;
 use crate::instruction::*;
 
+/// ISA of the M68000.
+///
+/// Converts a raw opcode to this enum using the [from](Self::from) method.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Isa {
     Unknown,
@@ -97,22 +102,40 @@ pub enum Isa {
 }
 
 impl From<u16> for Isa {
+    /// Returns the instruction represented by the given opcode.
     fn from(opcode: u16) -> Self {
         DECODER[opcode as usize]
     }
 }
 
+/// Struct used to store the decode and disassemble functions of an instruction.
+///
+/// # Usage:
+///
+/// ```ignore
+/// let opcode = 0; // Read raw opcode here.
+/// let isa = Isa::from(opcode);
+///
+/// // Decode
+/// let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
+/// let (operands, len) = decode(opcode, memory); // Give here the memory structure.
+///
+/// // Disassemble
+/// let inst = (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction);
+/// println("{}", inst);
+/// ```
 #[derive(Clone, Copy)]
 pub struct IsaEntry {
     // /// The ISA value.
     // pub isa: Isa,
-    /// Function used to decode the instruction.
+    /// Function used to decode the instruction. See the [instruction](crate::instruction) module.
     pub decode: fn(u16, &mut MemoryIter) -> (Operands, usize),
     /// Function used to diassemble the instruction.
     pub disassemble: fn(&Instruction) -> String,
 }
 
 impl IsaEntry {
+    /// The array that maps instructions to their [IsaEntry] entry. Index it using the [Isa] enum.
     pub const ISA_ENTRY: [IsaEntry; Isa::_Size as usize] = [
         IsaEntry { /* isa: Isa::Unknown,*/ decode: no_operands,                                   disassemble: disassemble_unknown_instruction, },
         IsaEntry { /* isa: Isa::Abcd,*/    decode: register_size_mode_register,                   disassemble: disassemble_abcd, },

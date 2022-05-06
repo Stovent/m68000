@@ -1,17 +1,39 @@
 //! Motorola 68000 assembler, disassembler and interpreter.
 //!
-//! Applications creates their memory management system, implementing the
-//! [MemoryAccess trait](memory_access::MemoryAccess), and passes it to the core.
-//!
 //! # How to use
 //!
-//! m68000 is intended to be used as a general Motorola 68000 interpreter, surrounded by a more complex environment.
+//! When creating a new core, the [CpuType] is used to configure the instruction's execution times and exception handling.
 //!
-//! # Example
+//! Since the memory map is application-dependant, you have to implement the [MemoryAccess] trait on your memory management
+//! structure, and pass it to the core when executing instructions.
 //!
-//! The standard use case is when having to emulate a M68k-based microcontroller (such as the SCC68070), that includes a 68000 CPU
-//! along with other peripherals.
-//! In this context, see the [main.rs](https://github.com/Stovent/m68000/blob/master/src/main.rs) file in the repo.
+//! ## Basic usage:
+//!
+//! ```
+//! const MEM_SIZE: u32 = 65536;
+//! struct Memory([u8; MEM_SIZE as usize]); // Define your memory management system.
+//!
+//! impl MemoryAccess for Memory { // Implement the MemoryAccess trait.
+//!     fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
+//!         if addr < MEM_SIZE {
+//!             Ok(self.0[addr as usize])
+//!         } else {
+//!             Err(Vector::AccessError as u8)
+//!         }
+//!     }
+//!
+//!     // And so on...
+//! }
+//!
+//! fn main() {
+//!     let mut memory = Memory([0; MEM_SIZE as usize]);
+//!     // Load the program in memory here.
+//!     let mut cpu = M68000::new(CpuType::M68000);
+//!
+//!     // Execute instructions
+//!     cpu.interpreter(&mut memory);
+//! }
+//! ```
 //!
 //! # TODO:
 //! - Calculation times.
@@ -58,15 +80,15 @@ pub struct M68000 {
     extra_cycles: usize,
     /// True to disassemble instructions and call [MemoryAccess::disassembler].
     pub disassemble: bool,
-    stack_format: StackFormat,
+    cpu_type: CpuType,
 }
 
 impl M68000 {
     /// Creates a new M68000 core.
     ///
     /// The created core has a [exception::Vector::ResetSspPc] pushed, so that the first call to an interpreter method
-    /// will first fetch the reset vectors, then will execute the first execute.
-    pub fn new(stack_format: StackFormat) -> Self {
+    /// will first fetch the reset vectors, then will execute the first instruction.
+    pub fn new(cpu_type: CpuType) -> Self {
         let mut cpu = Self {
             d: [0; 8],
             a_: [0; 7],
@@ -80,7 +102,7 @@ impl M68000 {
             exceptions: VecDeque::new(),
             extra_cycles: 0,
             disassemble: false,
-            stack_format,
+            cpu_type,
         };
 
         cpu.exception(exception::Vector::ResetSspPc as u8);
@@ -89,7 +111,7 @@ impl M68000 {
     }
 
     /// [Self::new] but without the initial reset vectors, so you can initialize the core as you want.
-    pub fn new_no_reset(stack_format: StackFormat) -> Self {
+    pub fn new_no_reset(cpu_type: CpuType) -> Self {
         Self {
             d: [0; 8],
             a_: [0; 7],
@@ -103,7 +125,7 @@ impl M68000 {
             exceptions: VecDeque::new(),
             extra_cycles: 0,
             disassemble: false,
-            stack_format,
+            cpu_type,
         }
     }
 
@@ -158,21 +180,24 @@ impl M68000 {
     }
 }
 
-/// The stack frame format to use, which will decide the behaviour of exception handling.
+/// The CPU type, which defines the behaviour of the CPU.
+///
+/// The behaviors include exception handling and instruction execution time.
+#[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum StackFormat {
-    Stack68000,
-    Stack68070,
+pub enum CpuType {
+    M68000,
+    M68070,
 }
 
-impl StackFormat {
-    /// Returns true if self is a M68000 stack.
+impl CpuType {
+    /// Returns true if self is a M68000 kind.
     pub fn is_68000(self) -> bool {
-        self == StackFormat::Stack68000
+        self == Self::M68000
     }
 
-    /// Returns true if self is a M68070 stack.
+    /// Returns true if self is a M68070 kind.
     pub fn is_68070(self) -> bool {
-        self == StackFormat::Stack68070
+        self == Self::M68070
     }
 }
