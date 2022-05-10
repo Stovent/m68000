@@ -2,8 +2,10 @@
 
 !.gitignore
 !Cargo.toml
+!cbindgen.toml
 !LICENSE
 !LICENSE.LESSER
 !README.md
+
 !src/
 !tests/

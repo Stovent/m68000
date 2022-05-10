@@ -19,6 +19,9 @@ overflow-checks = false
 [profile.release]
 lto = true
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [[bin]]
 name = "decoder"
 path = "src/bin/decoder.rs"

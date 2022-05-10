@@ -62,6 +62,7 @@ compile_error!("You must specify one and only one CPU type feature.");
 
 pub mod addressing_modes;
 pub mod assembler;
+mod cinterface;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
@@ -103,8 +104,8 @@ pub struct M68000 {
     current_opcode: u16,
     stop: bool,
     exceptions: VecDeque<u8>,
-    /// Stores the number of extra cycles executed during the last call to execute_cycles.
-    extra_cycles: usize,
+    /// Number of cycles executed by the called interpreter method.
+    cycles: usize,
     /// True to disassemble instructions and call [MemoryAccess::disassembler].
     pub disassemble: bool,
 }
@@ -135,7 +136,7 @@ impl M68000 {
             current_opcode: 0xFFFF,
             stop: false,
             exceptions: VecDeque::new(),
-            extra_cycles: 0,
+            cycles: 0,
             disassemble: false,
         }
     }

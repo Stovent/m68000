@@ -1,0 +1,25 @@
+language = "C"
+include_guard = "M68000_H"
+
+include_version = false
+sys_includes = ["stdbool.h", "stdint.h"]
+includes = []
+no_includes = true
+cpp_compat = true
+
+braces = "NextLine"
+line_length = 120
+tab_width = 4
+documentation = true
+documentation_style = "auto"
+line_endings = "CRLF" # also "CR", "CRLF", "Native"
+style = "both"
+
+usize_is_size_t = true
+
+[fn]
+args = "horizontal"
+sort_by = "None"
+
+[const]
+allow_constexpr = true

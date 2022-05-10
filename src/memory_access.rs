@@ -46,7 +46,7 @@ pub trait MemoryAccess {
     fn iter_u16(&mut self, addr: u32) -> MemoryIter where Self: Sized { MemoryIter { memory: self, next_addr: addr } }
 
     /// Called when the CPU executes a RESET instruction.
-    fn reset(&mut self);
+    fn reset_instruction(&mut self);
 
     /// If `M68000::disassemble` is true, called by the interpreter with the address and the disassembly of the next instruction that will be executed.
     fn disassembler(&mut self, _pc: u32, _inst_string: String);

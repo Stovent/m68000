@@ -24,17 +24,16 @@ impl M68000 {
     ///
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn execute_cycles(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
-        let mut total_cycles = 0;
+    pub fn cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
+        let initial = self.cycles;
 
-        while self.extra_cycles < cycles {
-            let c = self.interpreter(memory);
-            self.extra_cycles += c;
-            total_cycles += c;
+        while self.cycles < cycles {
+            self.cycles += self.interpreter(memory);
         }
 
-        self.extra_cycles -= cycles;
-        total_cycles
+        let total = self.cycles - initial;
+        self.cycles -= cycles;
+        total
     }
 
     /// Runs the CPU until either an exception occurs or `cycle` cycles have been executed.
@@ -44,21 +43,23 @@ impl M68000 {
     ///
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn execute_cycles_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
-        let mut total_cycles = 0;
+    pub fn cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
+        let initial = self.cycles;
+        let mut vector = None;
 
-        while self.extra_cycles < cycles {
-            let (c, vector) = self.interpreter_exception(memory);
-            self.extra_cycles += c;
-            total_cycles += c;
+        while self.cycles < cycles {
+            let (c, v) = self.interpreter_exception(memory);
+            self.cycles += c;
 
-            if vector.is_some() {
-                return (total_cycles, vector);
+            if v.is_some() {
+                vector = v;
+                break;
             }
         }
 
-        self.extra_cycles -= cycles;
-        (total_cycles, None)
+        let total = self.cycles - initial;
+        self.cycles -= cycles;
+        (total, vector)
     }
 
     /// Runs indefinitely until an exception or STOP instruction occurs.
@@ -66,10 +67,13 @@ impl M68000 {
     /// Returns the number of cycles executed and the exception that occured.
     /// If exception is None, this means the CPU has executed a STOP instruction.
     pub fn loop_until_exception_stop(&mut self, memory: &mut impl MemoryAccess) -> (usize, Option<u8>) {
-        let mut total_cycles = 0;
+        let mut total_cycles = self.cycles;
+        self.cycles = 0;
+
         loop {
             let (cycles, vector) = self.interpreter_exception(memory);
             total_cycles += cycles;
+
             if vector.is_some() || self.stop {
                 return (total_cycles, vector);
             }
@@ -406,87 +410,91 @@ impl M68000 {
     pub(super) fn addx(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rx, size, mode, ry) = inst.operands.register_size_mode_register();
 
-        if size.is_byte() {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(ry, size);
-                let dst_addr = self.ariwpr(rx, size);
-                (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
-            } else {
-                (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
-            };
+        match size {
+            Size::Byte => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(ry, size);
+                    let dst_addr = self.ariwpr(rx, size);
+                    (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
+                } else {
+                    (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
+                };
 
-            let (res, v) = (src as i8).extended_add(dst as i8, self.sr.x);
-            let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i8).extended_add(dst as i8, self.sr.x);
+                let (_, c) = src.extended_add(dst, self.sr.x);
 
-            self.sr.x = c;
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_byte(self.a(rx), res as u8)?;
-                Ok(EXEC::ADDX_MEM_BW)
-            } else {
-                self.d_byte(rx, res as u8);
-                Ok(EXEC::ADDX_REG_BW)
-            }
-        } else if size.is_word() {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(ry, size);
-                let dst_addr = self.ariwpr(rx, size);
-                (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
-            } else {
-                (self.d[ry as usize] as u16, self.d[rx as usize] as u16)
-            };
+                if mode == Direction::MemoryToMemory {
+                    memory.set_byte(self.a(rx), res as u8)?;
+                    Ok(EXEC::ADDX_MEM_BW)
+                } else {
+                    self.d_byte(rx, res as u8);
+                    Ok(EXEC::ADDX_REG_BW)
+                }
+            },
+            Size::Word => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(ry, size);
+                    let dst_addr = self.ariwpr(rx, size);
+                    (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
+                } else {
+                    (self.d[ry as usize] as u16, self.d[rx as usize] as u16)
+                };
 
-            let (res, v) = (src as i16).extended_add(dst as i16, self.sr.x);
-            let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i16).extended_add(dst as i16, self.sr.x);
+                let (_, c) = src.extended_add(dst, self.sr.x);
 
-            self.sr.x = c;
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_word(self.a(rx), res as u16)?;
-                Ok(EXEC::ADDX_MEM_BW)
-            } else {
-                self.d_word(rx, res as u16);
-                Ok(EXEC::ADDX_REG_BW)
-            }
-        } else {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(ry, size);
-                let dst_addr = self.ariwpr(rx, size);
-                (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
-            } else {
-                (self.d[ry as usize], self.d[rx as usize])
-            };
+                if mode == Direction::MemoryToMemory {
+                    memory.set_word(self.a(rx), res as u16)?;
+                    Ok(EXEC::ADDX_MEM_BW)
+                } else {
+                    self.d_word(rx, res as u16);
+                    Ok(EXEC::ADDX_REG_BW)
+                }
+            },
+            Size::Long => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(ry, size);
+                    let dst_addr = self.ariwpr(rx, size);
+                    (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
+                } else {
+                    (self.d[ry as usize], self.d[rx as usize])
+                };
 
-            let (res, v) = (src as i32).extended_add(dst as i32, self.sr.x);
-            let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i32).extended_add(dst as i32, self.sr.x);
+                let (_, c) = src.extended_add(dst, self.sr.x);
 
-            self.sr.x = c;
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
+                self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_long(self.a(rx), res as u32)?;
-                Ok(EXEC::ADDX_MEM_L)
-            } else {
-                self.d[rx as usize] = res as u32;
-                Ok(EXEC::ADDX_REG_L)
-            }
+                if mode == Direction::MemoryToMemory {
+                    memory.set_long(self.a(rx), res as u32)?;
+                    Ok(EXEC::ADDX_MEM_L)
+                } else {
+                    self.d[rx as usize] = res as u32;
+                    Ok(EXEC::ADDX_REG_L)
+                }
+            },
         }
     }
 
@@ -664,12 +672,10 @@ impl M68000 {
             if rot == 0 { 8 } else { rot }
         };
 
-        let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
-        } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
-        } else {
-            (self.d[reg as usize], SIGN_BIT_32)
+        let (mut data, mask) = match size {
+            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
@@ -695,18 +701,22 @@ impl M68000 {
 
         self.sr.n = data & mask != 0;
 
-        Ok(if size == Size::Byte {
-            self.d_byte(reg, data as u8);
-            self.sr.z = data & 0x0000_00FF == 0;
-            EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
-        } else if size == Size::Word {
-            self.d_word(reg, data as u16);
-            self.sr.z = data & 0x0000_FFFF == 0;
-            EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
-        } else {
-            self.d[reg as usize] = data;
-            self.sr.z = data == 0;
-            EXEC::ASR_L + EXEC::ASR_COUNT * shift_count as usize
+        Ok(match size {
+            Size::Byte => {
+                self.d_byte(reg, data as u8);
+                self.sr.z = data & 0x0000_00FF == 0;
+                EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
+            },
+            Size::Word => {
+                self.d_word(reg, data as u16);
+                self.sr.z = data & 0x0000_FFFF == 0;
+                EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
+            },
+            Size::Long => {
+                self.d[reg as usize] = data;
+                self.sr.z = data == 0;
+                EXEC::ASR_L + EXEC::ASR_COUNT * shift_count as usize
+            }
         })
     }
 
@@ -1396,12 +1406,10 @@ impl M68000 {
             if rot == 0 { 8 } else { rot }
         };
 
-        let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
-        } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
-        } else {
-            (self.d[reg as usize], SIGN_BIT_32)
+        let (mut data, mask) = match size {
+            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
@@ -1422,18 +1430,22 @@ impl M68000 {
 
         self.sr.n = data & mask != 0;
 
-        Ok(if size == Size::Byte {
-            self.d_byte(reg, data as u8);
-            self.sr.z = data & 0x0000_00FF == 0;
-            EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
-        } else if size == Size::Word {
-            self.d_word(reg, data as u16);
-            self.sr.z = data & 0x0000_FFFF == 0;
-            EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
-        } else {
-            self.d[reg as usize] = data;
-            self.sr.z = data == 0;
-            EXEC::LSR_L + EXEC::LSR_COUNT * shift_count as usize
+        Ok(match size {
+            Size::Byte => {
+                self.d_byte(reg, data as u8);
+                self.sr.z = data & 0x0000_00FF == 0;
+                EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
+            },
+            Size::Word => {
+                self.d_word(reg, data as u16);
+                self.sr.z = data & 0x0000_FFFF == 0;
+                EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
+            },
+            Size::Long => {
+                self.d[reg as usize] = data;
+                self.sr.z = data == 0;
+                EXEC::LSR_L + EXEC::LSR_COUNT * shift_count as usize
+            },
         })
     }
 
@@ -2040,7 +2052,7 @@ impl M68000 {
 
     pub(super) fn reset(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
         if self.sr.s {
-            memory.reset();
+            memory.reset_instruction();
             Ok(EXEC::RESET)
         } else {
             Err(Vector::PrivilegeViolation as u8)
@@ -2090,12 +2102,10 @@ impl M68000 {
             if rot == 0 { 8 } else { rot }
         };
 
-        let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
-        } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
-        } else {
-            (self.d[reg as usize], SIGN_BIT_32)
+        let (mut data, mask) = match size {
+            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
@@ -2120,18 +2130,22 @@ impl M68000 {
 
         self.sr.n = data & mask != 0;
 
-        Ok(if size == Size::Byte {
-            self.d_byte(reg, data as u8);
-            self.sr.z = data & 0x0000_00FF == 0;
-            EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
-        } else if size == Size::Word {
-            self.d_word(reg, data as u16);
-            self.sr.z = data & 0x0000_FFFF == 0;
-            EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
-        } else {
-            self.d[reg as usize] = data;
-            self.sr.z = data == 0;
-            EXEC::ROR_L + EXEC::ROR_COUNT * shift_count as usize
+        Ok(match size {
+            Size::Byte => {
+                self.d_byte(reg, data as u8);
+                self.sr.z = data & 0x0000_00FF == 0;
+                EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
+            },
+            Size::Word => {
+                self.d_word(reg, data as u16);
+                self.sr.z = data & 0x0000_FFFF == 0;
+                EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
+            },
+            Size::Long => {
+                self.d[reg as usize] = data;
+                self.sr.z = data == 0;
+                EXEC::ROR_L + EXEC::ROR_COUNT * shift_count as usize
+            },
         })
     }
 
@@ -2180,12 +2194,10 @@ impl M68000 {
             if rot == 0 { 8 } else { rot }
         };
 
-        let (mut data, mask) = if size == Size::Byte {
-            (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32)
-        } else if size == Size::Word {
-            (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32)
-        } else {
-            (self.d[reg as usize], SIGN_BIT_32)
+        let (mut data, mask) = match size {
+            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
@@ -2210,18 +2222,22 @@ impl M68000 {
 
         self.sr.n = data & mask != 0;
 
-        Ok(if size == Size::Byte {
-            self.d_byte(reg, data as u8);
-            self.sr.z = data & 0x0000_00FF == 0;
-            EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
-        } else if size == Size::Word {
-            self.d_word(reg, data as u16);
-            self.sr.z = data & 0x0000_FFFF == 0;
-            EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
-        } else {
-            self.d[reg as usize] = data;
-            self.sr.z = data == 0;
-            EXEC::ROXR_L + EXEC::ROXR_COUNT * shift_count as usize
+        Ok(match size {
+            Size::Byte => {
+                self.d_byte(reg, data as u8);
+                self.sr.z = data & 0x0000_00FF == 0;
+                EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
+            },
+            Size::Word => {
+                self.d_word(reg, data as u16);
+                self.sr.z = data & 0x0000_FFFF == 0;
+                EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
+            },
+            Size::Long => {
+                self.d[reg as usize] = data;
+                self.sr.z = data == 0;
+                EXEC::ROXR_L + EXEC::ROXR_COUNT * shift_count as usize
+            },
         })
     }
 
@@ -2547,87 +2563,91 @@ impl M68000 {
     pub(super) fn subx(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (ry, size, mode, rx) = inst.operands.register_size_mode_register();
 
-        if size.is_byte() {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(rx, size);
-                let dst_addr = self.ariwpr(ry, size);
-                (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
-            } else {
-                (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
-            };
+        match size {
+            Size::Byte => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(rx, size);
+                    let dst_addr = self.ariwpr(ry, size);
+                    (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
+                } else {
+                    (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
+                };
 
-            let (res, v) = (dst as i8).extended_sub(src as i8, self.sr.x);
-            let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i8).extended_sub(src as i8, self.sr.x);
+                let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
-            self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
+                self.sr.x = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_byte(self.a(ry), res as u8)?;
-                Ok(EXEC::SUBX_MEM_BW)
-            } else {
-                self.d_byte(ry, res as u8);
-                Ok(EXEC::SUBX_REG_BW)
-            }
-        } else if size.is_word() {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(rx, size);
-                let dst_addr = self.ariwpr(ry, size);
-                (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
-            } else {
-                (self.d[rx as usize] as u16, self.d[ry as usize] as u16)
-            };
+                if mode == Direction::MemoryToMemory {
+                    memory.set_byte(self.a(ry), res as u8)?;
+                    Ok(EXEC::SUBX_MEM_BW)
+                } else {
+                    self.d_byte(ry, res as u8);
+                    Ok(EXEC::SUBX_REG_BW)
+                }
+            },
+            Size::Word => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(rx, size);
+                    let dst_addr = self.ariwpr(ry, size);
+                    (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
+                } else {
+                    (self.d[rx as usize] as u16, self.d[ry as usize] as u16)
+                };
 
-            let (res, v) = (dst as i16).extended_sub(src as i16, self.sr.x);
-            let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i16).extended_sub(src as i16, self.sr.x);
+                let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
-            self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
+                self.sr.x = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_word(self.a(ry), res as u16)?;
-                Ok(EXEC::SUBX_MEM_BW)
-            } else {
-                self.d_word(ry, res as u16);
-                Ok(EXEC::SUBX_REG_BW)
-            }
-        } else {
-            let (src, dst) = if mode == Direction::MemoryToMemory {
-                let src_addr = self.ariwpr(rx, size);
-                let dst_addr = self.ariwpr(ry, size);
-                (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
-            } else {
-                (self.d[rx as usize], self.d[ry as usize])
-            };
+                if mode == Direction::MemoryToMemory {
+                    memory.set_word(self.a(ry), res as u16)?;
+                    Ok(EXEC::SUBX_MEM_BW)
+                } else {
+                    self.d_word(ry, res as u16);
+                    Ok(EXEC::SUBX_REG_BW)
+                }
+            },
+            Size::Long => {
+                let (src, dst) = if mode == Direction::MemoryToMemory {
+                    let src_addr = self.ariwpr(rx, size);
+                    let dst_addr = self.ariwpr(ry, size);
+                    (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
+                } else {
+                    (self.d[rx as usize], self.d[ry as usize])
+                };
 
-            let (res, v) = (dst as i32).extended_sub(src as i32, self.sr.x);
-            let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i32).extended_sub(src as i32, self.sr.x);
+                let (_, c) = dst.extended_sub(src, self.sr.x);
 
-            self.sr.n = res < 0;
-            if res != 0 {
-                self.sr.z = false;
-            }
-            self.sr.v = v;
-            self.sr.c = c;
-            self.sr.x = c;
+                self.sr.n = res < 0;
+                if res != 0 {
+                    self.sr.z = false;
+                }
+                self.sr.v = v;
+                self.sr.c = c;
+                self.sr.x = c;
 
-            if mode == Direction::MemoryToMemory {
-                memory.set_long(self.a(ry), res as u32)?;
-                Ok(EXEC::SUBX_MEM_L)
-            } else {
-                self.d[ry as usize] = res as u32;
-                Ok(EXEC::SUBX_REG_L)
-            }
+                if mode == Direction::MemoryToMemory {
+                    memory.set_long(self.a(ry), res as u32)?;
+                    Ok(EXEC::SUBX_MEM_L)
+                } else {
+                    self.d[ry as usize] = res as u32;
+                    Ok(EXEC::SUBX_REG_L)
+                }
+            },
         }
     }
 

@@ -1,6 +1,6 @@
 //! This program is a test function that runs a M68000 test ROM.
 
-use m68000::{M68000, CpuType};
+use m68000::M68000;
 use m68000::exception::Vector;
 use m68000::memory_access::{GetResult, MemoryAccess, SetResult};
 
@@ -77,7 +77,7 @@ impl MemoryAccess for Memory68070 {
         self.set_word(addr + 2, value as u16)
     }
 
-    fn reset(&mut self) {}
+    fn reset_instruction(&mut self) {}
 
     fn disassembler(&mut self, _pc: u32, _inst_string: String) {}
 }
