@@ -1,7 +1,10 @@
 //! Exception processing.
 
 use crate::{M68000, MemoryAccess};
+use crate::execution_times::vector_execution_time;
 use crate::interpreter::InterpreterResult;
+
+use crate::execution_times as EXEC;
 
 /// Exception vectors of the 68000.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
@@ -52,6 +55,12 @@ impl M68000 {
     }
 
     /// Effectively processes an exception.
+    ///
+    /// The execution time added is the one when the exception occured (CHK and TRAPV).
+    /// If exception didn't occured, the interpreter function returns the other number of cycles.
+    ///
+    /// CHK and Zero divide have an effective address field. If the exception occurs, the interpreter returns the effective
+    /// address calculation time, and this method returns the exception processing time.
     pub(super) fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
         let sr = self.sr.into();
         self.sr.s = true;
@@ -60,7 +69,7 @@ impl M68000 {
             self.ssp = memory.get_long(0)?;
             self.pc  = memory.get_long(4)?;
             self.stop = false;
-            return Ok(1);
+            return Ok(EXEC::VECTOR_RESET);
         }
 
         if vector == Vector::Trace as u8 ||
@@ -68,16 +77,20 @@ impl M68000 {
             self.stop = false;
         }
 
-        if self.cpu_type.is_68000() {
+        #[cfg(feature = "cpu-mc68000")] {
             self.push_long(memory, self.pc)?;
             self.push_word(memory, sr)?;
 
-            if vector == 2 || vector == 3 { // Long format
+            if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(memory, self.current_opcode)?;
                 self.push_long(memory, 0)?; // Access address
                 self.push_word(memory, 0)?; // function code
+                // MC68000UM 6.3.9.1: It is the responsibility of the error handler routine
+                // to clean up the stack and determine where to continue execution.
             }
-        } else { // if self.cpu_type.is_68070() {
+        }
+
+        #[cfg(feature = "cpu-scc68070")] {
             if vector == 2 || vector == 3 { // TODO: Long format
                 self.push_word(memory, 0)?;
                 self.push_word(memory, 0)?;
@@ -100,6 +113,6 @@ impl M68000 {
 
         self.pc = memory.get_long(vector as u32 * 4)?;
 
-        Ok(1)
+        Ok(vector_execution_time(vector))
     }
 }

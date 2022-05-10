@@ -9,13 +9,17 @@ repository = "https://github.com/Stovent/m68000"
 keywords = ["motorola", "68000", "m68k", "interpreter"]
 categories = ["compilers", "emulators"]
 
-[[bin]]
-name = "decoder"
-path = "src/bin/decoder.rs"
-edition = "2021"
+[features]
+cpu-mc68000 = []
+cpu-scc68070 = []
 
 [profile.dev]
 overflow-checks = false
 
 [profile.release]
 lto = true
+
+[[bin]]
+name = "decoder"
+path = "src/bin/decoder.rs"
+edition = "2021"

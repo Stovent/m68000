@@ -5,6 +5,8 @@ use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
 use crate::utils::bits;
 
+use crate::execution_times as EXEC;
+
 /// Addressing modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum AddressingMode {
@@ -103,6 +105,16 @@ impl AddressingMode {
         }
     }
 
+    /// Returns true if `self` is `Drd` or `Ard`, false otherwise.
+    #[inline(always)]
+    pub const fn is_dard(self) -> bool {
+        match self {
+            Self::Drd(_) => true,
+            Self::Ard(_) => true,
+            _ => false,
+        }
+    }
+
     /// Returns true if `self` is `Ariwpo`, false otherwise.
     #[inline(always)]
     pub const fn is_ariwpo(self) -> bool {
@@ -117,6 +129,15 @@ impl AddressingMode {
     pub const fn is_ariwpr(self) -> bool {
         match self {
             Self::Ariwpr(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Returns true if `self` is `Immediate`, false otherwise.
+    #[inline(always)]
+    pub const fn is_immediate(self) -> bool {
+        match self {
+            Self::Immediate(_) => true,
             _ => false,
         }
     }
@@ -266,10 +287,10 @@ impl std::fmt::Display for BriefExtensionWord {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub struct EffectiveAddress {
+pub(crate) struct EffectiveAddress {
     /// The addressing mode.
     pub mode: AddressingMode,
-    /// Where this effective address points to. `None` if the value is not in memory.
+    /// Where this effective address points to. `None` if the address has not been calculated yet.
     pub address: Option<u32>,
     /// The size of the data.
     pub size: Option<Size>,
@@ -289,24 +310,51 @@ impl M68000 {
     /// Calculates the value of the given effective address.
     ///
     /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
-    /// Otherwise the address is computed and assigned to `ea.address` and returned, or None if the addressing mode is not in memory.
-    pub(super) fn get_effective_address(&mut self, ea: &mut EffectiveAddress) -> Option<u32> {
+    /// Otherwise the address is computed and assigned to `ea.address` and returned, or panic if the addressing mode is not in memory.
+    pub(super) fn get_effective_address(&mut self, ea: &mut EffectiveAddress, exec_time: &mut usize) -> u32 {
         if ea.address.is_none() {
             ea.address = match ea.mode {
-                AddressingMode::Ari(reg) => Some(self.a(reg)),
-                AddressingMode::Ariwpo(reg) => Some(self.ariwpo(reg, ea.size.expect("ariwpo must have a size"))),
-                AddressingMode::Ariwpr(reg) => Some(self.ariwpr(reg, ea.size.expect("ariwpr must have a size"))),
-                AddressingMode::Ariwd(reg, disp)  => Some(self.a(reg) + disp as u32),
-                AddressingMode::Ariwi8(reg, bew) => Some(self.a(reg) + bew.disp() as u32 + self.get_index_register(bew)),
-                AddressingMode::AbsShort(addr) => Some(addr as i16 as u32),
-                AddressingMode::AbsLong(addr) => Some(addr),
-                AddressingMode::Pciwd(pc, disp) => Some(pc + disp as u32),
-                AddressingMode::Pciwi8(pc, bew) => Some(pc + bew.disp() as u32 + self.get_index_register(bew)),
+                AddressingMode::Ari(reg) => {
+                    *exec_time += EXEC::EA_ARI;
+                    Some(self.a(reg))
+                },
+                AddressingMode::Ariwpo(reg) => {
+                    *exec_time += EXEC::EA_ARIWPO;
+                    Some(self.ariwpo(reg, ea.size.expect("ariwpo must have a size")))
+                },
+                AddressingMode::Ariwpr(reg) => {
+                    *exec_time += EXEC::EA_ARIWPR;
+                    Some(self.ariwpr(reg, ea.size.expect("ariwpr must have a size")))
+                },
+                AddressingMode::Ariwd(reg, disp)  => {
+                    *exec_time += EXEC::EA_ARIWD;
+                    Some(self.a(reg) + disp as u32)
+                },
+                AddressingMode::Ariwi8(reg, bew) => {
+                    *exec_time += EXEC::EA_ARIWI8;
+                    Some(self.a(reg) + bew.disp() as u32 + self.get_index_register(bew))
+                },
+                AddressingMode::AbsShort(addr) => {
+                    *exec_time += EXEC::EA_ABSSHORT;
+                    Some(addr as i16 as u32)
+                },
+                AddressingMode::AbsLong(addr) => {
+                    *exec_time += EXEC::EA_ABSLONG;
+                    Some(addr)
+                },
+                AddressingMode::Pciwd(pc, disp) => {
+                    *exec_time += EXEC::EA_PCIWD;
+                    Some(pc + disp as u32)
+                },
+                AddressingMode::Pciwi8(pc, bew) => {
+                    *exec_time += EXEC::EA_PCIWI8;
+                    Some(pc + bew.disp() as u32 + self.get_index_register(bew))
+                },
                 _ => None,
             };
         }
 
-        ea.address
+        ea.address.expect("[get_effective_address] Trying to read effective address of a value not in memory.")
     }
 
     const fn get_index_register(&self, bew: BriefExtensionWord) -> u32 {

@@ -4,9 +4,11 @@ use crate::M68000;
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::instruction::Size;
 
+use crate::execution_times as EXEC;
+
 /// Returns the value asked on success, an exception vector on error. Alias for `Result<T, u8>`.
 pub type GetResult<T> = Result<T, u8>;
-/// Returns the value asked on success, an exception vector on error. Alias for `Result<(), u8>`.
+/// Returns nothing on success, an exception vector on error. Alias for `Result<(), u8>`.
 pub type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.
@@ -47,7 +49,7 @@ pub trait MemoryAccess {
     fn reset(&mut self);
 
     /// If `M68000::disassemble` is true, called by the interpreter with the address and the disassembly of the next instruction that will be executed.
-    fn disassembler(&mut self, _pc: u32, _inst_string: String) {}
+    fn disassembler(&mut self, _pc: u32, _inst_string: String);
 }
 
 /// Iterator over 16-bits values in memory.
@@ -70,64 +72,81 @@ impl Iterator for MemoryIter<'_> {
 
 impl M68000 {
     #[must_use]
-    pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u8> {
+    pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u8> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u8),
-            AddressingMode::Immediate(imm) => Ok(imm as u8),
-            _ => memory.get_byte(self.get_effective_address(ea).unwrap()),
+            AddressingMode::Immediate(imm) => {
+                *exec_time += EXEC::EA_IMMEDIATE;
+                Ok(imm as u8)
+            },
+            _ => memory.get_byte(self.get_effective_address(ea, exec_time)),
         }
     }
 
     #[must_use]
-    pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u16> {
+    pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u16> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u16),
             AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
-            AddressingMode::Immediate(imm) => Ok(imm as u16),
-            _ => memory.get_word(self.get_effective_address(ea).unwrap()),
+            AddressingMode::Immediate(imm) => {
+                *exec_time += EXEC::EA_IMMEDIATE;
+                Ok(imm as u16)
+            },
+            _ => memory.get_word(self.get_effective_address(ea, exec_time)),
         }
     }
 
     #[must_use]
-    pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress) -> GetResult<u32> {
+    pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u32> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize]),
             AddressingMode::Ard(reg) => Ok(self.a(reg)),
-            AddressingMode::Immediate(imm) => Ok(imm),
-            _ => memory.get_long(self.get_effective_address(ea).unwrap()),
+            AddressingMode::Immediate(imm) => {
+                *exec_time += EXEC::EA_IMMEDIATE + 4;
+                Ok(imm)
+            },
+            _ => {
+                let r = memory.get_long(self.get_effective_address(ea, exec_time));
+                *exec_time += 4;
+                r
+            },
         }
     }
 
     #[must_use]
-    pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u8) -> SetResult {
+    pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u8) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d_byte(reg, value)),
-            _ => memory.set_byte(self.get_effective_address(ea).unwrap(), value),
+            _ => memory.set_byte(self.get_effective_address(ea, exec_time), value),
         }
     }
 
     #[must_use]
-    pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u16) -> SetResult {
+    pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u16) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d_word(reg, value)),
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
-            _ => memory.set_word(self.get_effective_address(ea).unwrap(), value),
+            _ => memory.set_word(self.get_effective_address(ea, exec_time), value),
         }
     }
 
     #[must_use]
-    pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, value: u32) -> SetResult {
+    pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u32) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] = value),
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
-            _ => memory.set_long(self.get_effective_address(ea).unwrap(), value),
+            _ => {
+                let r = memory.set_long(self.get_effective_address(ea, exec_time), value);
+                *exec_time += 4;
+                r
+            },
         }
     }
 
     /// Returns the word at `self.pc` then advances `self.pc` by 2.
     ///
     /// Please note that this function advances the program counter so be careful when using it.
-    /// This function is public because it can be useful in some contexts such as OS9 environments
+    /// This function is public because it can be useful in some contexts such as OS-9 environments
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
@@ -138,7 +157,7 @@ impl M68000 {
 
     /// Returns the word at `self.pc`.
     ///
-    /// This function is public because it can be useful in some contexts such as OS9 environments
+    /// This function is public because it can be useful in some contexts such as OS-9 environments
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {

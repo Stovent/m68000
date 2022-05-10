@@ -78,6 +78,8 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn reset(&mut self) {}
+
+    fn disassembler(&mut self, _pc: u32, _inst_string: String) {}
 }
 
 fn main()
@@ -95,7 +97,7 @@ fn main()
     }
 
     let mut scc68070 = Scc68070 {
-        cpu: M68000::new(CpuType::M68070),
+        cpu: M68000::new(),
         memory: ram,
     };
 

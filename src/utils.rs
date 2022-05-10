@@ -11,11 +11,11 @@ pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
 
 /// Trait that convert the first bytes of slices to their big-endian integer value.
 pub trait SliceAs {
-    /// Interprets the first elements of the silce as an big-endian 32 bits integer.
+    /// Interprets the first elements of the silce as a big-endian 32 bits integer.
     fn u32_be(self) -> u32;
-    /// Returns `self[0] as i8` for Byte size, `self[0] as i16` for Word size or `self.u32_be() as i32` for Long size.
+    /// Casts the first elements as a signed i8, i16 or i32 depending on the size, then casts it to i32 and returns it.
     fn i32_be_sized(self, size: Size) -> i32;
-    /// Interprets the first elements of the silce as an big-endian 16 bits integer then advances self by two bytes (one word) in the slice.
+    /// Interprets the first elements of the silce as a big-endian 16 bits integer then advances self by two bytes in the slice.
     fn get_next_word(&mut self) -> u16;
 }
 
@@ -24,6 +24,7 @@ impl SliceAs for &[u16] {
         (self[0] as u32) << 16 | self[1] as u32
     }
 
+    /// Returns `self[0] as i8 as i32` for Byte size, `self[0] as i16 as i32` for Word size or `self.u32_be() as i32` for Long size.
     fn i32_be_sized(self, size: Size) -> i32 {
         match size {
             Size::Byte => self[0] as i8 as i32,
@@ -39,7 +40,7 @@ impl SliceAs for &[u16] {
     }
 }
 
-/// Converts integers to their big-endian array.
+/// Converts integers to their array-representation in big-endian.
 pub trait AsArray<const N: usize> {
     fn as_array_be(self) -> [u8; N];
 }

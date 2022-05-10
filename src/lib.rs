@@ -1,15 +1,28 @@
 //! Motorola 68000 assembler, disassembler and interpreter.
 //!
+//! This library emulates the common user and supervisor instructions of the M68k ISA.
+//! It is configurable at compile-time to behave like the given CPU type (see below), changing the instruction's
+//! execution times and exception handling.
+//!
+//! # Supported CPUs
+//!
+//! The CPU type is specified at compile-time as a feature. There must be one and only one feature specified.
+//!
+//! There are no default features. If you don't specify any feature or specify more than one, a compile-time error is raised.
+//!
+//! * MC68000 (feature "cpu-mc68000")
+//! * SCC68070 (feature "cpu-scc68070")
+//!
 //! # How to use
 //!
-//! When creating a new core, the [CpuType] is used to configure the instruction's execution times and exception handling.
+//! Include this library in your project and configure the CPU type by specifying the correct feature.
 //!
 //! Since the memory map is application-dependant, you have to implement the [MemoryAccess] trait on your memory management
 //! structure, and pass it to the core when executing instructions.
 //!
 //! ## Basic usage:
 //!
-//! ```
+//! ```ignore
 //! const MEM_SIZE: u32 = 65536;
 //! struct Memory([u8; MEM_SIZE as usize]); // Define your memory management system.
 //!
@@ -28,7 +41,7 @@
 //! fn main() {
 //!     let mut memory = Memory([0; MEM_SIZE as usize]);
 //!     // Load the program in memory here.
-//!     let mut cpu = M68000::new(CpuType::M68000);
+//!     let mut cpu = M68000::new();
 //!
 //!     // Execute instructions
 //!     cpu.interpreter(&mut memory);
@@ -36,10 +49,16 @@
 //! ```
 //!
 //! # TODO:
-//! - Calculation times.
-//! - How to restore MC68000 Bus and Address errors?
+//! - Let memory access return extra read or write cycles for accuracy.
+//! - Allow execution of other exception vectors (like SCC68070 on-chip interrupts)
 //! - Better management of exceptions and STOP mode.
 //! - Exception priority.
+
+#[cfg(any(
+    all(feature = "cpu-mc68000", feature = "cpu-scc68070"),
+    not(any(feature = "cpu-mc68000", feature = "cpu-scc68070")),
+))]
+compile_error!("You must specify one and only one CPU type feature.");
 
 pub mod addressing_modes;
 pub mod assembler;
@@ -52,6 +71,13 @@ pub mod isa;
 pub mod memory_access;
 pub mod status_register;
 pub mod utils;
+
+#[cfg(feature = "cpu-mc68000")]
+#[path = "cpu/mc68000.rs"]
+pub(crate) mod execution_times;
+#[cfg(feature = "cpu-scc68070")]
+#[path = "cpu/scc68070.rs"]
+pub(crate) mod execution_times;
 
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
@@ -73,6 +99,7 @@ pub struct M68000 {
     /// Program Counter.
     pub pc: u32,
 
+    #[allow(dead_code)]
     current_opcode: u16,
     stop: bool,
     exceptions: VecDeque<u8>,
@@ -80,7 +107,6 @@ pub struct M68000 {
     extra_cycles: usize,
     /// True to disassemble instructions and call [MemoryAccess::disassembler].
     pub disassemble: bool,
-    cpu_type: CpuType,
 }
 
 impl M68000 {
@@ -88,22 +114,8 @@ impl M68000 {
     ///
     /// The created core has a [exception::Vector::ResetSspPc] pushed, so that the first call to an interpreter method
     /// will first fetch the reset vectors, then will execute the first instruction.
-    pub fn new(cpu_type: CpuType) -> Self {
-        let mut cpu = Self {
-            d: [0; 8],
-            a_: [0; 7],
-            usp: 0,
-            ssp: 0,
-            sr: StatusRegister::default(),
-            pc: 0,
-
-            current_opcode: 0xFFFF,
-            stop: false,
-            exceptions: VecDeque::new(),
-            extra_cycles: 0,
-            disassemble: false,
-            cpu_type,
-        };
+    pub fn new() -> Self {
+        let mut cpu = Self::new_no_reset();
 
         cpu.exception(exception::Vector::ResetSspPc as u8);
 
@@ -111,7 +123,7 @@ impl M68000 {
     }
 
     /// [Self::new] but without the initial reset vectors, so you can initialize the core as you want.
-    pub fn new_no_reset(cpu_type: CpuType) -> Self {
+    pub fn new_no_reset() -> Self {
         Self {
             d: [0; 8],
             a_: [0; 7],
@@ -125,7 +137,6 @@ impl M68000 {
             exceptions: VecDeque::new(),
             extra_cycles: 0,
             disassemble: false,
-            cpu_type,
         }
     }
 
@@ -177,27 +188,5 @@ impl M68000 {
         } else {
             &mut self.usp
         }
-    }
-}
-
-/// The CPU type, which defines the behaviour of the CPU.
-///
-/// The behaviors include exception handling and instruction execution time.
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum CpuType {
-    M68000,
-    M68070,
-}
-
-impl CpuType {
-    /// Returns true if self is a M68000 kind.
-    pub fn is_68000(self) -> bool {
-        self == Self::M68000
-    }
-
-    /// Returns true if self is a M68070 kind.
-    pub fn is_68070(self) -> bool {
-        self == Self::M68070
     }
 }
