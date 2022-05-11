@@ -84,11 +84,8 @@ impl M68000 {
     pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
         let mut cycle_count = 0;
 
-        if let Some(vector) = self.exceptions.pop_front() {
-            cycle_count += match self.process_exception(memory, vector) {
-                Ok(cycles) => cycles,
-                Err(e) => panic!("An exception occured during exception processing: {} (at {:#X})", e, self.pc),
-            };
+        if !self.exceptions.is_empty() {
+            cycle_count += self.process_pending_exceptions(memory);
         }
 
         if self.stop {
@@ -128,11 +125,8 @@ impl M68000 {
     pub fn interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
         let mut cycle_count = 0;
 
-        if let Some(vector) = self.exceptions.pop_front() {
-            cycle_count += match self.process_exception(memory, vector) {
-                Ok(cycles) => cycles,
-                Err(e) => panic!("An exception occured during exception processing: {} (at {:#X})", e, self.pc),
-            };
+        if !self.exceptions.is_empty() {
+            cycle_count += self.process_pending_exceptions(memory);
         }
 
         if self.stop {

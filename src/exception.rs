@@ -6,6 +6,9 @@ use crate::interpreter::InterpreterResult;
 
 use crate::execution_times as EXEC;
 
+use std::cmp::Ordering;
+use std::collections::BinaryHeap;
+
 /// Exception vectors of the 68000.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Vector {
@@ -22,6 +25,7 @@ pub enum Vector {
     Line1111Emulator,
     FormatError = 14,
     UninitializedInterrupt,
+    /// The spurious interrupt vector is taken when there is a bus error indication during interrupt processing.
     SpuriousInterrupt = 24,
     Level1InterruptAutovector,
     Level2InterruptAutovector,
@@ -48,10 +52,138 @@ pub enum Vector {
     Trap15Instruction,
 }
 
+// TODO: group of the remaining vectors (Line A/F emulation, Format error, uninitialized interrupt vector).
+pub(crate) fn get_vector_group(vector: u8) -> u8 {
+    match vector {
+        0..=3 => 0,
+        4 => 1,
+        5..=7 => 2,
+        8..=9 => 1,
+        24..=31 => 1,
+        32..=47 => 2,
+        64..=255 => 1,
+        _ => panic!("[get_vector_group] Unkown vector {}.", vector),
+    }
+}
+
+// TODO: priority of the remaining vectors (Line A/F emulation, Format error, uninitialized interrupt vector).
+pub(crate) fn get_vector_priority(vector: u8, group: u8) -> u8 {
+    match group {
+        0 => match vector {
+            0 => 0,
+            3 => 1,
+            2 => 2,
+            _ => panic!("[get_vector_priority] Unkown vector {} for group 0.", vector),
+        },
+        1 => match vector {
+            9 => 0,
+            24..=31 => 1,
+            64..=255 => 1,
+            4 => 2,
+            8 => 3,
+            _ => panic!("[get_vector_priority] Unkown vector {} for group 1.", vector),
+        },
+        2 => 0, // Only one instruction can be executed at a time, so no priority necessary.
+        _ => panic!("[get_vector_priority] Unkown group {}.", group),
+    }
+}
+
+/// Lowest number = higher priority.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) struct Exception {
+    pub vector: u8,
+    group: u8,
+    /// Priority inside the group.
+    priority: u8,
+}
+
+impl Exception {
+    pub(crate) fn new(vector: u8) -> Self {
+        let group = get_vector_group(vector);
+        let priority = get_vector_priority(vector, group);
+        Self { vector, group, priority }
+    }
+}
+
+impl PartialOrd for Exception {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+impl Ord for Exception {
+    /// Max-heap regarding the group and priority number.
+    fn cmp(&self, other: &Self) -> Ordering {
+        if self.group < other.group {
+            Ordering::Less
+        } else if self.group > other.group {
+            Ordering::Greater
+        } else {
+            if self.priority < other.priority {
+                Ordering::Less
+            } else if self.priority > other.priority {
+                Ordering::Greater
+            } else {
+                Ordering::Equal
+            }
+        }
+    }
+}
+
 impl M68000 {
     /// Requests the CPU to process the given exception.
     pub fn exception(&mut self, vector: u8) {
-        self.exceptions.push_back(vector);
+        let exception = Exception::new(vector);
+        self.exceptions.push(exception);
+    }
+
+    /// Attempts to process all the pending exceptions
+    pub(crate) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
+        // The reset vector clears all the pending interrupts.
+        let mut flush = false;
+        for ex in self.exceptions.iter() {
+            if *ex == Exception::new(Vector::ResetSspPc as u8) {
+                flush = true;
+            }
+        }
+        if flush {
+            self.exceptions.clear();
+            self.exception(Vector::ResetSspPc as u8);
+        }
+
+        let mut total = 0;
+
+        // Save the unprocessed interrupts.
+        let mut masked_interrupts = BinaryHeap::new();
+
+        // Pops from the lowest priority to highest, so that when all exceptions has been processed,
+        // the one with the highest priority will be the one treated first.
+        while let Some(exception) = self.exceptions.pop() {
+            if exception.vector >= Vector::Level1InterruptAutovector as u8 && exception.vector <= Vector::Level7InterruptAutovector as u8 {
+                // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
+                let level = exception.vector - (Vector::Level1InterruptAutovector as u8 - 1);
+                if level <= self.sr.interrupt_mask {
+                    masked_interrupts.push(exception);
+                    continue;
+                }
+            }
+
+            total += match self.process_exception(memory, exception.vector) {
+                Ok(cycles) => cycles,
+                Err(e) => {
+                    if exception.vector == e && e == Vector::AccessError as u8 {
+                        panic!("An exception occured during exception processing: {} (at {:#X})", e, self.pc);
+                    } else {
+                        self.exception(e);
+                        0
+                    }
+                },
+            };
+        }
+
+        self.exceptions.append(&mut masked_interrupts);
+
+        total
     }
 
     /// Effectively processes an exception.
@@ -69,6 +201,7 @@ impl M68000 {
             self.ssp = memory.get_long(0)?;
             self.pc  = memory.get_long(4)?;
             self.stop = false;
+            self.exceptions.clear();
             return Ok(EXEC::VECTOR_RESET);
         }
 

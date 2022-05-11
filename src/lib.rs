@@ -51,8 +51,8 @@
 //! # TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
 //! - Allow execution of other exception vectors (like SCC68070 on-chip interrupts)
-//! - Better management of exceptions and STOP mode.
-//! - Exception priority.
+//! - Better STOP mode.
+//! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 
 #[cfg(any(
     all(feature = "cpu-mc68000", feature = "cpu-scc68070"),
@@ -83,7 +83,7 @@ pub(crate) mod execution_times;
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
-use std::collections::VecDeque;
+use std::collections::BinaryHeap;
 
 /// A M68000 core.
 #[derive(Clone, Debug)]
@@ -103,7 +103,8 @@ pub struct M68000 {
     #[allow(dead_code)]
     current_opcode: u16,
     stop: bool,
-    exceptions: VecDeque<u8>,
+    /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
+    exceptions: BinaryHeap<exception::Exception>,
     /// Number of cycles executed by the called interpreter method.
     cycles: usize,
     /// True to disassemble instructions and call [MemoryAccess::disassembler].
@@ -135,7 +136,7 @@ impl M68000 {
 
             current_opcode: 0xFFFF,
             stop: false,
-            exceptions: VecDeque::new(),
+            exceptions: BinaryHeap::new(),
             cycles: 0,
             disassemble: false,
         }
