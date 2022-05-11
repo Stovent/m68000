@@ -21,8 +21,3 @@ lto = true
 
 [lib]
 crate-type = ["lib", "staticlib"]
-
-[[bin]]
-name = "decoder"
-path = "src/bin/decoder.rs"
-edition = "2021"
