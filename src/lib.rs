@@ -50,8 +50,7 @@
 //!
 //! # TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
-//! - Allow execution of other exception vectors (like SCC68070 on-chip interrupts)
-//! - Better STOP mode.
+//! - Allow execution of other exception vectors (like SCC68070 on-chip interrupts).
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 
 #[cfg(any(
@@ -102,7 +101,8 @@ pub struct M68000 {
 
     #[allow(dead_code)]
     current_opcode: u16,
-    stop: bool,
+    /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
+    pub stop: bool,
     /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
     exceptions: BinaryHeap<exception::Exception>,
     /// Number of cycles executed by the called interpreter method.

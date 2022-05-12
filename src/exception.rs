@@ -2,9 +2,8 @@
 
 use crate::{M68000, MemoryAccess};
 use crate::execution_times::vector_execution_time;
-use crate::interpreter::InterpreterResult;
-
 use crate::execution_times as EXEC;
+use crate::interpreter::InterpreterResult;
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
@@ -13,6 +12,7 @@ use std::collections::BinaryHeap;
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Vector {
     ResetSspPc = 0,
+    /// Bus error.
     AccessError = 2,
     AddressError,
     IllegalInstruction,
@@ -140,15 +140,16 @@ impl M68000 {
     /// Attempts to process all the pending exceptions
     pub(crate) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
         // The reset vector clears all the pending interrupts.
-        let mut flush = false;
+        let mut has_reset = false;
         for ex in self.exceptions.iter() {
             if *ex == Exception::new(Vector::ResetSspPc as u8) {
-                flush = true;
+                has_reset = true;
             }
         }
-        if flush {
+        if has_reset {
             self.exceptions.clear();
-            self.exception(Vector::ResetSspPc as u8);
+            return self.process_exception(memory, Vector::ResetSspPc as u8)
+                .unwrap_or_else(|_| panic!("An Access Error occured during reset vector."));
         }
 
         let mut total = 0;

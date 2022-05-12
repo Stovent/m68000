@@ -2,24 +2,23 @@
 
 use crate::M68000;
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
-use crate::instruction::Size;
-
+use crate::exception::Vector;
 use crate::execution_times as EXEC;
+use crate::instruction::Size;
+use crate::utils::IsEven;
 
-/// Returns the value asked on success, an exception vector on error. Alias for `Result<T, u8>`.
+/// Returns the value asked on success, `Err(Vector::AccessError as u8)` if an access (bus) error occured. Alias for `Result<T, u8>`.
 pub type GetResult<T> = Result<T, u8>;
-/// Returns nothing on success, an exception vector on error. Alias for `Result<(), u8>`.
+/// Returns `Ok(())` on success, `Err(Vector::AccessError as u8)` if an access (bus) error occured. Alias for `Result<(), u8>`.
 pub type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 ///
-/// The return values are used to indicate whether an [Access Error (Bus Error)](crate::exception::Vector::AccessError)
-/// or an [Address Error](crate::exception::Vector::AddressError) occured.
+/// Return `Err(Vector::AccessError as u8)` if an [Access Error (Bus Error)](crate::exception::Vector::AccessError) occured.
+/// It is mandatory to return only this value in an Err.
 ///
-/// It is the implementor's responsibility to send those errors.
+/// It is the implementor's responsibility to send this error.
 /// Access errors are sent when the accessed address is not in the memory range of the system.
-/// Address errors are sent when the address of word and long data are not aligned on a word (2-bytes) boundary.
-/// Byte data never generates address errors.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]
@@ -92,7 +91,14 @@ impl M68000 {
                 *exec_time += EXEC::EA_IMMEDIATE;
                 Ok(imm as u16)
             },
-            _ => memory.get_word(self.get_effective_address(ea, exec_time)),
+            _ => {
+                let addr = self.get_effective_address(ea, exec_time);
+                if addr.is_even() {
+                    memory.get_word(addr)
+                } else {
+                    Err(Vector::AddressError as u8)
+                }
+            },
         }
     }
 
@@ -106,9 +112,14 @@ impl M68000 {
                 Ok(imm)
             },
             _ => {
-                let r = memory.get_long(self.get_effective_address(ea, exec_time));
-                *exec_time += 4;
-                r
+                let addr = self.get_effective_address(ea, exec_time);
+                if addr.is_even() {
+                    let r = memory.get_long(addr);
+                    *exec_time += 4;
+                    r
+                } else {
+                    Err(Vector::AddressError as u8)
+                }
             },
         }
     }
@@ -126,7 +137,14 @@ impl M68000 {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d_word(reg, value)),
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
-            _ => memory.set_word(self.get_effective_address(ea, exec_time), value),
+            _ => {
+                let addr = self.get_effective_address(ea, exec_time);
+                if addr.is_even() {
+                    memory.set_word(addr, value)
+                } else {
+                    Err(Vector::AddressError as u8)
+                }
+            },
         }
     }
 
@@ -136,9 +154,14 @@ impl M68000 {
             AddressingMode::Drd(reg) => Ok(self.d[reg as usize] = value),
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
             _ => {
-                let r = memory.set_long(self.get_effective_address(ea, exec_time), value);
-                *exec_time += 4;
-                r
+                let addr = self.get_effective_address(ea, exec_time);
+                if addr.is_even() {
+                    let r = memory.set_long(addr, value);
+                    *exec_time += 4;
+                    r
+                } else {
+                    Err(Vector::AddressError as u8)
+                }
             },
         }
     }

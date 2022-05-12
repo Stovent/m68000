@@ -1,11 +1,10 @@
 use crate::{M68000, MemoryAccess};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::Vector;
+use crate::execution_times as EXEC;
 use crate::instruction::{Direction, Instruction, Size};
 use crate::isa::{Execute, Isa, IsaEntry};
 use crate::utils::{BigInt, bits};
-
-use crate::execution_times as EXEC;
 
 const SR_UPPER_MASK: u16 = 0xA700;
 const CCR_MASK: u16 = 0x001F;
@@ -29,6 +28,9 @@ impl M68000 {
 
         while self.cycles < cycles {
             self.cycles += self.interpreter(memory);
+            if self.stop {
+                self.cycles = cycles;
+            }
         }
 
         let total = self.cycles - initial;
@@ -54,6 +56,9 @@ impl M68000 {
             if v.is_some() {
                 vector = v;
                 break;
+            }
+            if self.stop {
+                self.cycles = cycles;
             }
         }
 
@@ -89,7 +94,7 @@ impl M68000 {
         }
 
         if self.stop {
-            return if cycle_count != 0 { cycle_count } else { 1 };
+            return 0;
         }
 
         let pc = self.pc;
@@ -112,7 +117,7 @@ impl M68000 {
 
         match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => cycle_count += cycles,
-            Err(e) => self.exception(e), // TODO: return 0 cycles ?
+            Err(e) => self.exception(e),
         }
 
         cycle_count
@@ -130,7 +135,7 @@ impl M68000 {
         }
 
         if self.stop {
-            return (if cycle_count != 0 { cycle_count } else { 1 }, None);
+            return (0, None);
         }
 
         let pc = self.pc;
@@ -2328,7 +2333,6 @@ impl M68000 {
             // TODO: trace.
             self.sr = imm.into();
             self.stop = true;
-            // TODO: how to regain control?
             Ok(EXEC::STOP)
         } else {
             Err(Vector::PrivilegeViolation as u8)

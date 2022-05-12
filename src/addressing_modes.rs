@@ -1,11 +1,10 @@
 //! Addressing mode-related structs, enums and functions.
 
 use crate::M68000;
+use crate::execution_times as EXEC;
 use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
 use crate::utils::bits;
-
-use crate::execution_times as EXEC;
 
 /// Addressing modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

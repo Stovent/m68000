@@ -9,6 +9,18 @@ pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
     d >> beg & mask
 }
 
+/// Trait to see if an integer is even or not.
+pub trait IsEven {
+    fn is_even(self) -> bool;
+}
+
+impl IsEven for u32 {
+    #[inline(always)]
+    fn is_even(self) -> bool {
+        self & 1 == 0
+    }
+}
+
 /// Trait that convert the first bytes of slices to their big-endian integer value.
 pub trait SliceAs {
     /// Interprets the first elements of the silce as a big-endian 32 bits integer.
