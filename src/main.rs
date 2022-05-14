@@ -35,9 +35,7 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn get_word(&mut self, addr: u32) -> GetResult<u16> {
-        if addr & 1 != 0 {
-            Err(Vector::AddressError as u8)
-        } else if self.memory_swap < 4 {
+        if self.memory_swap < 4 {
             self.memory_swap += 1;
             Ok((self.get_byte(addr + 0x40_0000)? as u16) << 8 | self.get_byte(addr + 0x40_0001)? as u16)
         } else {
@@ -64,12 +62,8 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn set_word(&mut self, addr: u32, value: u16) -> SetResult {
-        if addr & 1 != 0 {
-            Err(Vector::AddressError as u8)
-        } else {
-            self.set_byte(addr, (value >> 8) as u8)?;
-            self.set_byte(addr + 1, value as u8)
-        }
+        self.set_byte(addr, (value >> 8) as u8)?;
+        self.set_byte(addr + 1, value as u8)
     }
 
     fn set_long(&mut self, addr: u32, value: u32) -> SetResult {

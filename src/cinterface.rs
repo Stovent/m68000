@@ -4,6 +4,15 @@ use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 use std::ffi::CString;
 use std::os::raw::c_char;
 
+/// Return value of the `cycle_until_exception`, `loop_until_exception_stop` and `interpreter_exception` methods.
+#[repr(C)]
+pub struct ExceptionResult {
+    /// The number of cycles executed.
+    pub cycles: usize,
+    /// 0 if no exception occured, the vector number that occured otherwise.
+    pub exception: u8,
+}
+
 #[repr(C)]
 pub struct GetSetResult {
     /// Set to the value to be returned. Only the low order bytes are read depending on the size. Unused with SetResult.
@@ -111,9 +120,33 @@ pub extern "C" fn m68000_cycle(m68000: *mut M68000, memory: *mut M68000Callbacks
 }
 
 #[no_mangle]
+pub extern "C" fn m68000_cycle_until_exception(m68000: *mut M68000, memory: *mut M68000Callbacks, cycles: usize) -> ExceptionResult {
+    unsafe {
+        let (cycles, vector) = (*m68000).cycle_until_exception(&mut *memory, cycles);
+        ExceptionResult { cycles, exception: vector.unwrap_or(0) }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn m68000_loop_until_exception_stop(m68000: *mut M68000, memory: *mut M68000Callbacks) -> ExceptionResult {
+    unsafe {
+        let (cycles, vector) = (*m68000).loop_until_exception_stop(&mut *memory);
+        ExceptionResult { cycles, exception: vector.unwrap_or(0) }
+    }
+}
+
+#[no_mangle]
 pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Callbacks) -> usize {
     unsafe {
         (*m68000).interpreter(&mut *memory)
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn m68000_interpreter_exception(m68000: *mut M68000, memory: *mut M68000Callbacks) -> ExceptionResult {
+    unsafe {
+        let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
+        ExceptionResult { cycles, exception: vector.unwrap_or(0) }
     }
 }
 

@@ -1,7 +1,7 @@
 //! Instruction-related structs, enums and functions.
 //!
-//! The functions returns the operands and the size in bytes of the extention words.
-//! They take as parameters the opcode of the instruction and an iterator over the extention words.
+//! The functions returns the operands and the size in bytes of the extension words.
+//! They take as parameters the opcode of the instruction and an iterator over the extension words.
 
 use crate::addressing_modes::AddressingMode;
 use crate::decoder::DECODER;
@@ -22,6 +22,8 @@ pub struct Instruction {
 
 impl Instruction {
     /// Decodes the given opcode.
+    ///
+    /// Returns the decoded instruction and the number of bytes of the extension words.
     pub fn from_opcode(opcode: u16, pc: u32, memory: &mut MemoryIter) -> (Self, usize) {
         let isa: Isa = opcode.into();
         let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
@@ -36,11 +38,14 @@ impl Instruction {
 
     /// Decodes the opcode at the given memory location.
     ///
-    /// Returns Err when there was an error when reading memory (Access or Address error).
+    /// Returns the decoded instruction and the number of bytes of the instruction (opcode + extension words).
+    /// Returns Err when there was an error when reading memory (Access error).
     pub fn from_memory(memory: &mut MemoryIter) -> Result<(Self, usize), u8> {
         let pc = memory.next_addr;
         let opcode = memory.next().unwrap()?;
-        Ok(Self::from_opcode(opcode, pc, memory))
+        let mut res = Self::from_opcode(opcode, pc, memory);
+        res.1 += 2; // Add opcode length.
+        Ok(res)
     }
 }
 
@@ -297,7 +302,7 @@ pub enum Operands {
 }
 
 /// In the returned values, the first operand is the left-most operand in the instruction word (high-order bits).
-/// The last operand is the right-most operand in the instruction word (low-order bits) or the extention words (if any).
+/// The last operand is the right-most operand in the instruction word (low-order bits) or the extension words (if any).
 impl Operands {
     /// ANDI/EORI/ORI CCR/SR, STOP
     pub const fn immediate(self) -> u16 {
