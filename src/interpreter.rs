@@ -24,6 +24,11 @@ impl M68000 {
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
     pub fn cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
+        if self.cycles >= cycles {
+            self.cycles -= cycles;
+            return 0;
+        }
+
         let initial = self.cycles;
 
         while self.cycles < cycles {
@@ -46,6 +51,11 @@ impl M68000 {
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
     pub fn cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
+        if self.cycles >= cycles {
+            self.cycles -= cycles;
+            return (0, None);
+        }
+
         let initial = self.cycles;
         let mut vector = None;
 
@@ -63,7 +73,11 @@ impl M68000 {
         }
 
         let total = self.cycles - initial;
-        self.cycles -= cycles;
+        if self.cycles >= cycles {
+            self.cycles -= cycles;
+        } else {
+            self.cycles = 0;
+        }
         (total, vector)
     }
 
