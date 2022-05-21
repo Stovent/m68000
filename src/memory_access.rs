@@ -73,7 +73,7 @@ impl M68000 {
     #[must_use]
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u8> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u8),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u8),
             AddressingMode::Immediate(imm) => {
                 *exec_time += EXEC::EA_IMMEDIATE;
                 Ok(imm as u8)
@@ -85,7 +85,7 @@ impl M68000 {
     #[must_use]
     pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u16> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] as u16),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u16),
             AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
             AddressingMode::Immediate(imm) => {
                 *exec_time += EXEC::EA_IMMEDIATE;
@@ -105,7 +105,7 @@ impl M68000 {
     #[must_use]
     pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u32> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d[reg as usize]),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize]),
             AddressingMode::Ard(reg) => Ok(self.a(reg)),
             AddressingMode::Immediate(imm) => {
                 *exec_time += EXEC::EA_IMMEDIATE + 4;
@@ -151,7 +151,7 @@ impl M68000 {
     #[must_use]
     pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u32) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d[reg as usize] = value),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] = value),
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
@@ -173,8 +173,8 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        let data = memory.get_word(self.pc);
-        self.pc += 2;
+        let data = memory.get_word(self.regs.pc);
+        self.regs.pc += 2;
         data
     }
 
@@ -184,7 +184,7 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        memory.get_word(self.pc)
+        memory.get_word(self.regs.pc)
     }
 
     /// Pops the 16-bits value from the stack.

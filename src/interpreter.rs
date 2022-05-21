@@ -15,6 +15,9 @@ const SIGN_BIT_32: u32 = 0x8000_0000;
 /// Returns the execution time on success, an exception vector on error. Alias for `Result<usize, u8>`.
 pub(super) type InterpreterResult = Result<usize, u8>;
 
+// TODO: return a tuple with the current execution time and the exception that occured (CHK, DIVS, DIVU).
+// All this for only 3 instructions ?
+
 impl M68000 {
     /// Runs the CPU for `cycles` number of cycles.
     ///
@@ -111,7 +114,7 @@ impl M68000 {
             return 0;
         }
 
-        let pc = self.pc;
+        let pc = self.regs.pc;
         let opcode = match self.get_next_word(memory) {
             Ok(op) => op,
             Err(e) => {
@@ -121,9 +124,9 @@ impl M68000 {
         };
         let isa: Isa = opcode.into();
 
-        let mut iter = memory.iter_u16(self.pc);
+        let mut iter = memory.iter_u16(self.regs.pc);
         let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
-        self.pc += len as u32;
+        self.regs.pc += len as u32;
 
         if self.disassemble {
             memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
@@ -152,16 +155,16 @@ impl M68000 {
             return (0, None);
         }
 
-        let pc = self.pc;
+        let pc = self.regs.pc;
         let opcode = match self.get_next_word(memory) {
             Ok(value) => value,
             Err(e) => return (cycle_count, Some(e)),
         };
         let isa: Isa = opcode.into();
 
-        let mut iter = memory.iter_u16(self.pc);
+        let mut iter = memory.iter_u16(self.regs.pc);
         let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
-        self.pc += len as u32;
+        self.regs.pc += len as u32;
 
         if self.disassemble {
             memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
@@ -187,16 +190,16 @@ impl M68000 {
             let dst_addr = self.ariwpr(rx, Size::Byte);
             (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
         } else {
-            (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
+            (self.regs.d[ry as usize] as u8, self.regs.d[rx as usize] as u8)
         };
 
-        let low = (src & 0x0F) + (dst & 0x0F) + self.sr.x as u8;
+        let low = (src & 0x0F) + (dst & 0x0F) + self.regs.sr.x as u8;
         let high = (src >> 4 & 0x0F) + (dst >> 4 & 0x0F) + (low > 10) as u8;
         let res = (high << 4) | low;
 
-        if res != 0 { self.sr.z = false; }
-        self.sr.c = high > 10;
-        self.sr.x = self.sr.c;
+        if res != 0 { self.regs.sr.z = false; }
+        self.regs.sr.c = high > 10;
+        self.regs.sr.x = self.regs.sr.c;
 
         if mode == Direction::MemoryToMemory {
             memory.set_byte(self.a(rx), res)?;
@@ -217,20 +220,20 @@ impl M68000 {
             Size::Byte => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::ADD_MEM_BW;
-                    (self.d[reg as usize] as u8, self.get_byte(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u8, self.get_byte(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = EXEC::ADD_REG_BW;
-                    (self.get_byte(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u8)
+                    (self.get_byte(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u8)
                 };
 
                 let (res, v) = (src as i8).overflowing_add(dst as i8);
                 let (_, c) = src.overflowing_add(dst);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
@@ -241,20 +244,20 @@ impl M68000 {
             Size::Word => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::ADD_MEM_BW;
-                    (self.d[reg as usize] as u16, self.get_word(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u16, self.get_word(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = EXEC::ADD_REG_BW;
-                    (self.get_word(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u16)
+                    (self.get_word(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u16)
                 };
 
                 let (res, v) = (src as i16).overflowing_add(dst as i16);
                 let (_, c) = src.overflowing_add(dst);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
@@ -265,25 +268,25 @@ impl M68000 {
             Size::Long => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::ADD_MEM_L;
-                    (self.d[reg as usize] as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { EXEC::ADD_REG_L_RDIMM } else { EXEC::ADD_REG_L };
-                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u32)
+                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u32)
                 };
 
                 let (res, v) = (src as i32).overflowing_add(dst as i32);
                 let (_, c) = src.overflowing_add(dst);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
                 } else {
-                    self.d[reg as usize] = res as u32;
+                    self.regs.d[reg as usize] = res as u32;
                 }
             },
         }
@@ -328,11 +331,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_add(imm as u8);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::ADDI_REG_BW } else { EXEC::ADDI_MEM_BW };
@@ -341,11 +344,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_add(imm as u16);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::ADDI_REG_L } else { EXEC::ADDI_MEM_L };
@@ -354,11 +357,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_add(imm);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 
@@ -379,11 +382,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_add(imm);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = if am.is_dard() { EXEC::ADDQ_REG_BW } else { EXEC::ADDQ_MEM_BW };
@@ -393,11 +396,11 @@ impl M68000 {
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
                 if !ea.mode.is_ard() {
-                    self.sr.x = c;
-                    self.sr.n = res < 0;
-                    self.sr.z = res == 0;
-                    self.sr.v = v;
-                    self.sr.c = c;
+                    self.regs.sr.x = c;
+                    self.regs.sr.n = res < 0;
+                    self.regs.sr.z = res == 0;
+                    self.regs.sr.v = v;
+                    self.regs.sr.c = c;
                 }
             },
             Size::Long => {
@@ -408,11 +411,11 @@ impl M68000 {
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
                 if !ea.mode.is_ard() {
-                    self.sr.x = c;
-                    self.sr.n = res < 0;
-                    self.sr.z = res == 0;
-                    self.sr.v = v;
-                    self.sr.c = c;
+                    self.regs.sr.x = c;
+                    self.regs.sr.n = res < 0;
+                    self.regs.sr.z = res == 0;
+                    self.regs.sr.v = v;
+                    self.regs.sr.c = c;
                 }
             },
         }
@@ -430,19 +433,19 @@ impl M68000 {
                     let dst_addr = self.ariwpr(rx, size);
                     (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
                 } else {
-                    (self.d[ry as usize] as u8, self.d[rx as usize] as u8)
+                    (self.regs.d[ry as usize] as u8, self.regs.d[rx as usize] as u8)
                 };
 
-                let (res, v) = (src as i8).extended_add(dst as i8, self.sr.x);
-                let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i8).extended_add(dst as i8, self.regs.sr.x);
+                let (_, c) = src.extended_add(dst, self.regs.sr.x);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_byte(self.a(rx), res as u8)?;
@@ -458,19 +461,19 @@ impl M68000 {
                     let dst_addr = self.ariwpr(rx, size);
                     (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
                 } else {
-                    (self.d[ry as usize] as u16, self.d[rx as usize] as u16)
+                    (self.regs.d[ry as usize] as u16, self.regs.d[rx as usize] as u16)
                 };
 
-                let (res, v) = (src as i16).extended_add(dst as i16, self.sr.x);
-                let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i16).extended_add(dst as i16, self.regs.sr.x);
+                let (_, c) = src.extended_add(dst, self.regs.sr.x);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_word(self.a(rx), res as u16)?;
@@ -486,25 +489,25 @@ impl M68000 {
                     let dst_addr = self.ariwpr(rx, size);
                     (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
                 } else {
-                    (self.d[ry as usize], self.d[rx as usize])
+                    (self.regs.d[ry as usize], self.regs.d[rx as usize])
                 };
 
-                let (res, v) = (src as i32).extended_add(dst as i32, self.sr.x);
-                let (_, c) = src.extended_add(dst, self.sr.x);
+                let (res, v) = (src as i32).extended_add(dst as i32, self.regs.sr.x);
+                let (_, c) = src.extended_add(dst, self.regs.sr.x);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_long(self.a(rx), res as u32)?;
                     Ok(EXEC::ADDX_MEM_L)
                 } else {
-                    self.d[rx as usize] = res as u32;
+                    self.regs.d[rx as usize] = res as u32;
                     Ok(EXEC::ADDX_REG_L)
                 }
             },
@@ -524,13 +527,13 @@ impl M68000 {
                 } else {
                     exec_time = EXEC::AND_REG_BW;
                 }
-                let src = self.d[reg as usize] as u8;
+                let src = self.regs.d[reg as usize] as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
                 let res = src & dst;
 
-                self.sr.n = res & SIGN_BIT_8 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_8 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res)?;
@@ -544,13 +547,13 @@ impl M68000 {
                 } else {
                     exec_time = EXEC::AND_REG_BW;
                 }
-                let src = self.d[reg as usize] as u16;
+                let src = self.regs.d[reg as usize] as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
                 let res = src & dst;
 
-                self.sr.n = res & SIGN_BIT_16 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_16 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res)?;
@@ -564,24 +567,24 @@ impl M68000 {
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { EXEC::AND_REG_L_RDIMM } else { EXEC::AND_REG_L };
                 }
-                let src = self.d[reg as usize];
+                let src = self.regs.d[reg as usize];
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
                 let res = src & dst;
 
-                self.sr.n = res & SIGN_BIT_32 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_32 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.d[reg as usize] = res;
+                    self.regs.d[reg as usize] = res;
                 }
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -598,29 +601,29 @@ impl M68000 {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)? & imm as u8;
                 self.set_byte(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_8 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_8 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::ANDI_REG_BW } else { EXEC::ANDI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)? & imm as u16;
                 self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_16 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_16 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::ANDI_REG_L } else { EXEC::ANDI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)? & imm;
                 self.set_long(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_32 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_32 != 0;
+                self.regs.sr.z = data == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -628,15 +631,15 @@ impl M68000 {
     pub(super) fn andiccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
 
-        self.sr &= SR_UPPER_MASK | imm;
+        self.regs.sr &= SR_UPPER_MASK | imm;
 
         Ok(EXEC::ANDICCR)
     }
 
     pub(super) fn andisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let imm = inst.operands.immediate();
-            self.sr &= imm;
+            self.regs.sr &= imm;
             Ok(EXEC::ANDISR)
         } else {
             Err(Vector::PrivilegeViolation as u8)
@@ -654,19 +657,19 @@ impl M68000 {
 
         if dir == Direction::Left {
             data <<= 1;
-            self.sr.x = sign != 0;
-            self.sr.v = sign ^ data & SIGN_BIT_16 as i16 != 0;
-            self.sr.c = sign != 0;
+            self.regs.sr.x = sign != 0;
+            self.regs.sr.v = sign ^ data & SIGN_BIT_16 as i16 != 0;
+            self.regs.sr.c = sign != 0;
         } else {
             let bit = data & 1;
             data >>= 1;
-            self.sr.x = bit != 0;
-            self.sr.v = false;
-            self.sr.c = bit != 0;
+            self.regs.sr.x = bit != 0;
+            self.regs.sr.v = false;
+            self.regs.sr.c = bit != 0;
         }
 
-        self.sr.n = data < 0;
-        self.sr.z = data == 0;
+        self.regs.sr.n = data < 0;
+        self.regs.sr.z = data == 0;
 
         self.set_word(memory, &mut ea, &mut exec_time, data as u16)?;
 
@@ -676,29 +679,29 @@ impl M68000 {
     pub(super) fn asr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         let shift_count = if mode == 1 {
-            (self.d[rot as usize] % 64) as u8
+            (self.regs.d[rot as usize] % 64) as u8
         } else {
             if rot == 0 { 8 } else { rot }
         };
 
         let (mut data, mask) = match size {
-            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
-            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
-            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
+            Size::Byte => (self.regs.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.regs.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.regs.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
             for _ in 0..shift_count {
                 let sign = data & mask;
                 data <<= 1;
-                self.sr.x = sign != 0;
-                self.sr.c = sign != 0;
+                self.regs.sr.x = sign != 0;
+                self.regs.sr.c = sign != 0;
                 if sign ^ data & mask != 0 {
-                    self.sr.v = true;
+                    self.regs.sr.v = true;
                 }
             }
         } else {
@@ -707,27 +710,27 @@ impl M68000 {
                 let bit = data & 1;
                 data >>= 1;
                 data |= sign;
-                self.sr.x = bit != 0;
-                self.sr.c = bit != 0;
+                self.regs.sr.x = bit != 0;
+                self.regs.sr.c = bit != 0;
             }
         }
 
-        self.sr.n = data & mask != 0;
+        self.regs.sr.n = data & mask != 0;
 
         Ok(match size {
             Size::Byte => {
                 self.d_byte(reg, data as u8);
-                self.sr.z = data & 0x0000_00FF == 0;
+                self.regs.sr.z = data & 0x0000_00FF == 0;
                 EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
             },
             Size::Word => {
                 self.d_word(reg, data as u16);
-                self.sr.z = data & 0x0000_FFFF == 0;
+                self.regs.sr.z = data & 0x0000_FFFF == 0;
                 EXEC::ASR_BW + EXEC::ASR_COUNT * shift_count as usize
             },
             Size::Long => {
-                self.d[reg as usize] = data;
-                self.sr.z = data == 0;
+                self.regs.d[reg as usize] = data;
+                self.regs.sr.z = data == 0;
                 EXEC::ASR_L + EXEC::ASR_COUNT * shift_count as usize
             }
         })
@@ -736,8 +739,8 @@ impl M68000 {
     pub(super) fn bcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (condition, displacement) = inst.operands.condition_displacement();
 
-        if self.sr.condition(condition) {
-            self.pc = inst.pc + 2 + displacement as u32;
+        if self.regs.sr.condition(condition) {
+            self.regs.pc = inst.pc + 2 + displacement as u32;
             Ok(EXEC::BCC_BRANCH)
         } else {
             Ok(if inst.opcode as u8 == 0 {
@@ -752,7 +755,7 @@ impl M68000 {
         let (am, mut count) = inst.operands.effective_address_count();
 
         let mut exec_time = if bits(inst.opcode, 8, 8) != 0 {
-            count = self.d[count as usize] as u8;
+            count = self.regs.d[count as usize] as u8;
             if am.is_drd() { EXEC::BCHG_DYN_REG } else { EXEC::BCHG_DYN_MEM }
         } else {
             if am.is_drd() { EXEC::BCHG_STA_REG } else { EXEC::BCHG_STA_MEM }
@@ -761,13 +764,13 @@ impl M68000 {
         if am.is_drd() {
             count %= 32;
             let reg = am.register().unwrap() as usize;
-            self.sr.z = self.d[reg] & 1 << count == 0;
-            self.d[reg] ^= 1 << count;
+            self.regs.sr.z = self.regs.d[reg] & 1 << count == 0;
+            self.regs.d[reg] ^= 1 << count;
         } else {
             let mut ea = EffectiveAddress::new(am, Some(Size::Byte)); // Memory is byte only.
             count %= 8;
             let mut data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-            self.sr.z = data & 1 << count == 0;
+            self.regs.sr.z = data & 1 << count == 0;
             data ^= 1 << count;
             self.set_byte(memory, &mut ea, &mut exec_time, data)?;
         }
@@ -779,7 +782,7 @@ impl M68000 {
         let (am, mut count) = inst.operands.effective_address_count();
 
         let mut exec_time = if bits(inst.opcode, 8, 8) != 0 {
-            count = self.d[count as usize] as u8;
+            count = self.regs.d[count as usize] as u8;
             if am.is_drd() { EXEC::BCLR_DYN_REG } else { EXEC::BCLR_DYN_MEM }
         } else {
             if am.is_drd() { EXEC::BCLR_STA_REG } else { EXEC::BCLR_STA_MEM }
@@ -788,13 +791,13 @@ impl M68000 {
         if am.is_drd() {
             count %= 32;
             let reg = am.register().unwrap() as usize;
-            self.sr.z = self.d[reg] & 1 << count == 0;
-            self.d[reg] &= !(1 << count);
+            self.regs.sr.z = self.regs.d[reg] & 1 << count == 0;
+            self.regs.d[reg] &= !(1 << count);
         } else {
             let mut ea = EffectiveAddress::new(am, Some(Size::Byte)); // Memory is byte only.
             count %= 8;
             let mut data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-            self.sr.z = data & 1 << count == 0;
+            self.regs.sr.z = data & 1 << count == 0;
             data &= !(1 << count);
             self.set_byte(memory, &mut ea, &mut exec_time, data)?;
         }
@@ -805,7 +808,7 @@ impl M68000 {
     pub(super) fn bra(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
 
-        self.pc = inst.pc + 2 + disp as u32;
+        self.regs.pc = inst.pc + 2 + disp as u32;
 
         Ok(if inst.opcode as u8 == 0 {
             EXEC::BRA_WORD
@@ -818,7 +821,7 @@ impl M68000 {
         let (am, mut count) = inst.operands.effective_address_count();
 
         let mut exec_time = if bits(inst.opcode, 8, 8) != 0 {
-            count = self.d[count as usize] as u8;
+            count = self.regs.d[count as usize] as u8;
             if am.is_drd() { EXEC::BSET_DYN_REG } else { EXEC::BSET_DYN_MEM }
         } else {
             if am.is_drd() { EXEC::BSET_STA_REG } else { EXEC::BSET_STA_MEM }
@@ -827,13 +830,13 @@ impl M68000 {
         if am.is_drd() {
             count %= 32;
             let reg = am.register().unwrap() as usize;
-            self.sr.z = self.d[reg] & 1 << count == 0;
-            self.d[reg] |= 1 << count;
+            self.regs.sr.z = self.regs.d[reg] & 1 << count == 0;
+            self.regs.d[reg] |= 1 << count;
         } else {
             let mut ea = EffectiveAddress::new(am, Some(Size::Byte)); // Memory is byte only.
             count %= 8;
             let mut data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-            self.sr.z = data & 1 << count == 0;
+            self.regs.sr.z = data & 1 << count == 0;
             data |= 1 << count;
             self.set_byte(memory, &mut ea, &mut exec_time, data)?;
         }
@@ -844,8 +847,8 @@ impl M68000 {
     pub(super) fn bsr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
 
-        self.push_long(memory, self.pc)?;
-        self.pc = inst.pc + 2 + disp as u32;
+        self.push_long(memory, self.regs.pc)?;
+        self.regs.pc = inst.pc + 2 + disp as u32;
 
         Ok(if inst.opcode as u8 == 0 {
             EXEC::BSR_WORD
@@ -858,7 +861,7 @@ impl M68000 {
         let (am, mut count) = inst.operands.effective_address_count();
 
         let mut exec_time = if bits(inst.opcode, 8, 8) != 0 {
-            count = self.d[count as usize] as u8;
+            count = self.regs.d[count as usize] as u8;
             if am.is_drd() { EXEC::BTST_DYN_REG } else { EXEC::BTST_DYN_MEM }
         } else {
             if am.is_drd() { EXEC::BTST_STA_REG } else { EXEC::BTST_STA_MEM }
@@ -867,12 +870,12 @@ impl M68000 {
         if am.is_drd() {
             count %= 32;
             let reg = am.register().unwrap() as usize;
-            self.sr.z = self.d[reg] & 1 << count == 0;
+            self.regs.sr.z = self.regs.d[reg] & 1 << count == 0;
         } else {
             let mut ea = EffectiveAddress::new(am, Some(Size::Byte)); // Memory is byte only.
             count %= 8;
             let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-            self.sr.z = data & 1 << count == 0;
+            self.regs.sr.z = data & 1 << count == 0;
         }
 
         Ok(exec_time)
@@ -887,7 +890,7 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16;
-        let data = self.d[reg as usize] as i16;
+        let data = self.regs.d[reg as usize] as i16;
 
         if data < 0 || data > src {
             Err(Vector::ChkInstruction as u8)
@@ -908,10 +911,10 @@ impl M68000 {
             Size::Long => self.set_long(memory, &mut ea, &mut exec_time, 0)?,
         }
 
-        self.sr.n = false;
-        self.sr.z = true;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = false;
+        self.regs.sr.z = true;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -926,41 +929,41 @@ impl M68000 {
             Size::Byte => {
                 exec_time = EXEC::CMP_BW;
                 let src = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let dst = self.d[reg as usize] as u8;
+                let dst = self.regs.d[reg as usize] as u8;
 
                 let (res, v) = (dst as i8).overflowing_sub(src as i8);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = EXEC::CMP_BW;
                 let src = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let dst = self.d[reg as usize] as u16;
+                let dst = self.regs.d[reg as usize] as u16;
 
                 let (res, v) = (dst as i16).overflowing_sub(src as i16);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
                 exec_time = EXEC::CMP_L;
                 let src = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let dst = self.d[reg as usize];
+                let dst = self.regs.d[reg as usize];
 
                 let (res, v) = (dst as i32).overflowing_sub(src as i32);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 
@@ -982,10 +985,10 @@ impl M68000 {
         let (res, v) = (self.a(reg) as i32).overflowing_sub(src as i32);
         let (_, c) = self.a(reg).overflowing_sub(src);
 
-        self.sr.n = res < 0;
-        self.sr.z = res == 0;
-        self.sr.v = v;
-        self.sr.c = c;
+        self.regs.sr.n = res < 0;
+        self.regs.sr.z = res == 0;
+        self.regs.sr.v = v;
+        self.regs.sr.c = c;
 
         Ok(exec_time)
     }
@@ -1003,10 +1006,10 @@ impl M68000 {
                 let (res, v) = (data as i8).overflowing_sub(imm as i8);
                 let (_, c) = data.overflowing_sub(imm as u8);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::CMPI_REG_BW } else { EXEC::CMPI_MEM_BW };
@@ -1014,10 +1017,10 @@ impl M68000 {
                 let (res, v) = (data as i16).overflowing_sub(imm as i16);
                 let (_, c) = data.overflowing_sub(imm as u16);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::CMPI_REG_L } else { EXEC::CMPI_MEM_L };
@@ -1025,10 +1028,10 @@ impl M68000 {
                 let (res, v) = (data as i32).overflowing_sub(imm as i32);
                 let (_, c) = data.overflowing_sub(imm);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 
@@ -1048,10 +1051,10 @@ impl M68000 {
                 let (res, v) = (dst as i8).overflowing_sub(src as i8);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 Ok(EXEC::CMPM_BW)
             },
@@ -1062,10 +1065,10 @@ impl M68000 {
                 let (res, v) = (dst as i16).overflowing_sub(src as i16);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 Ok(EXEC::CMPM_BW)
             },
@@ -1076,10 +1079,10 @@ impl M68000 {
                 let (res, v) = (dst as i32).overflowing_sub(src as i32);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 Ok(EXEC::CMPM_L)
             },
@@ -1089,12 +1092,12 @@ impl M68000 {
     pub(super) fn dbcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (cc, reg, disp) = inst.operands.condition_register_displacement();
 
-        if !self.sr.condition(cc) {
-            let counter = self.d[reg as usize] as i16 - 1;
+        if !self.regs.sr.condition(cc) {
+            let counter = self.regs.d[reg as usize] as i16 - 1;
             self.d_word(reg, counter as u16);
 
             if counter != -1 {
-                self.pc = inst.pc + 2 + disp as u32;
+                self.regs.pc = inst.pc + 2 + disp as u32;
                 Ok(EXEC::DBCC_FALSE_BRANCH)
             } else {
                 Ok(EXEC::DBCC_FALSE_NO_BRANCH)
@@ -1113,19 +1116,19 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16 as i32;
-        let dst = self.d[reg as usize] as i32;
+        let dst = self.regs.d[reg as usize] as i32;
 
         if src == 0 {
             Err(Vector::ZeroDivide as u8)
         } else {
             let quot = dst / src;
             let rem = dst % src;
-            self.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
+            self.regs.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
 
-            self.sr.n = quot < 0;
-            self.sr.z = quot == 0;
-            self.sr.v = quot < i16::MIN as i32 || quot > i16::MAX as i32;
-            self.sr.c = false;
+            self.regs.sr.n = quot < 0;
+            self.regs.sr.z = quot == 0;
+            self.regs.sr.v = quot < i16::MIN as i32 || quot > i16::MAX as i32;
+            self.regs.sr.c = false;
 
             Ok(exec_time)
         }
@@ -1140,19 +1143,19 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as u32;
-        let dst = self.d[reg as usize];
+        let dst = self.regs.d[reg as usize];
 
         if src == 0 {
             Err(Vector::ZeroDivide as u8)
         } else {
             let quot = dst / src;
             let rem = dst % src;
-            self.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
+            self.regs.d[reg as usize] = (rem as u16 as u32) << 16 | (quot as u16 as u32);
 
-            self.sr.n = quot & 0x0000_8000 != 0;
-            self.sr.z = quot == 0;
-            self.sr.v = (quot as i32) < i16::MIN as i32 || quot > i16::MAX as u32;
-            self.sr.c = false;
+            self.regs.sr.n = quot & 0x0000_8000 != 0;
+            self.regs.sr.z = quot == 0;
+            self.regs.sr.v = (quot as i32) < i16::MIN as i32 || quot > i16::MAX as u32;
+            self.regs.sr.c = false;
 
             Ok(exec_time)
         }
@@ -1167,44 +1170,44 @@ impl M68000 {
         match size {
             Size::Byte => {
                 exec_time = if am.is_drd() { EXEC::EOR_REG_BW } else { EXEC::EOR_MEM_BW };
-                let src = self.d[reg as usize] as u8;
+                let src = self.regs.d[reg as usize] as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
                 let res = src ^ dst;
 
-                self.sr.n = res & SIGN_BIT_8 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_8 != 0;
+                self.regs.sr.z = res == 0;
 
                 self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::EOR_REG_BW } else { EXEC::EOR_MEM_BW };
-                let src = self.d[reg as usize] as u16;
+                let src = self.regs.d[reg as usize] as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
                 let res = src ^ dst;
 
-                self.sr.n = res & SIGN_BIT_16 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_16 != 0;
+                self.regs.sr.z = res == 0;
 
                 self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::EOR_REG_L } else { EXEC::EOR_MEM_L };
-                let src = self.d[reg as usize];
+                let src = self.regs.d[reg as usize];
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
                 let res = src ^ dst;
 
-                self.sr.n = res & SIGN_BIT_32 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_32 != 0;
+                self.regs.sr.z = res == 0;
 
                 self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1221,29 +1224,29 @@ impl M68000 {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)? ^ imm as u8;
                 self.set_byte(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_8 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_8 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::EORI_REG_BW } else { EXEC::EORI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)? ^ imm as u16;
                 self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_16 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_16 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::EORI_REG_L } else { EXEC::EORI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)? ^ imm;
                 self.set_long(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_32 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_32 != 0;
+                self.regs.sr.z = data == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1251,15 +1254,15 @@ impl M68000 {
     pub(super) fn eoriccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
 
-        self.sr ^= imm;
+        self.regs.sr ^= imm;
 
         Ok(EXEC::EORICCR)
     }
 
     pub(super) fn eorisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let imm = inst.operands.immediate();
-            self.sr ^= imm;
+            self.regs.sr ^= imm;
             Ok(EXEC::EORISR)
         } else {
             Err(Vector::PrivilegeViolation as u8)
@@ -1270,7 +1273,7 @@ impl M68000 {
         let (rx, mode, ry) = inst.operands.register_opmode_register();
 
         if mode == Direction::ExchangeData {
-            self.d.swap(rx as usize, ry as usize);
+            self.regs.d.swap(rx as usize, ry as usize);
         } else if mode == Direction::ExchangeAddress {
             // TODO: change to std::mem::swap when new borrow checker is available
             let y = self.a(ry);
@@ -1278,8 +1281,8 @@ impl M68000 {
             *self.a_mut(rx) = y;
         } else {
             let y = self.a(ry);
-            *self.a_mut(ry) = self.d[rx as usize];
-            self.d[rx as usize] = y;
+            *self.a_mut(ry) = self.regs.d[rx as usize];
+            self.regs.d[rx as usize] = y;
         }
 
         Ok(EXEC::EXG)
@@ -1289,16 +1292,16 @@ impl M68000 {
         let (mode, reg) = inst.operands.opmode_register();
 
         if mode == 0b010 {
-            let d = self.d[reg as usize] as i8 as u16;
+            let d = self.regs.d[reg as usize] as i8 as u16;
             self.d_word(reg, d);
         } else {
-            self.d[reg as usize] = self.d[reg as usize] as i16 as u32;
+            self.regs.d[reg as usize] = self.regs.d[reg as usize] as i16 as u32;
         }
 
-        self.sr.n = self.d[reg as usize] & SIGN_BIT_32 != 0;
-        self.sr.z = self.d[reg as usize] == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = self.regs.d[reg as usize] & SIGN_BIT_32 != 0;
+        self.regs.sr.z = self.regs.d[reg as usize] == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(EXEC::EXT)
     }
@@ -1313,7 +1316,7 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, None);
 
         let mut exec_time = 0;
-        self.pc = self.get_effective_address(&mut ea, &mut exec_time);
+        self.regs.pc = self.get_effective_address(&mut ea, &mut exec_time);
 
         Ok(match am {
             AddressingMode::Ari(_) => EXEC::JMP_ARI,
@@ -1333,8 +1336,8 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, None);
 
         let mut exec_time = 0;
-        self.push_long(memory, self.pc)?;
-        self.pc = self.get_effective_address(&mut ea, &mut exec_time);
+        self.push_long(memory, self.regs.pc)?;
+        self.regs.pc = self.get_effective_address(&mut ea, &mut exec_time);
 
         Ok(match am {
             AddressingMode::Ari(_) => EXEC::JSR_ARI,
@@ -1389,18 +1392,18 @@ impl M68000 {
         if dir == Direction::Left {
             let sign = data & SIGN_BIT_16;
             data <<= 1;
-            self.sr.x = sign != 0;
-            self.sr.c = sign != 0;
+            self.regs.sr.x = sign != 0;
+            self.regs.sr.c = sign != 0;
         } else {
             let bit = data & 1;
             data >>= 1;
-            self.sr.x = bit != 0;
-            self.sr.c = bit != 0;
+            self.regs.sr.x = bit != 0;
+            self.regs.sr.c = bit != 0;
         }
 
-        self.sr.n = data & SIGN_BIT_16 != 0;
-        self.sr.z = data == 0;
-        self.sr.v = false;
+        self.regs.sr.n = data & SIGN_BIT_16 != 0;
+        self.regs.sr.z = data == 0;
+        self.regs.sr.v = false;
 
         self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
@@ -1410,53 +1413,53 @@ impl M68000 {
     pub(super) fn lsr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         let shift_count = if mode == 1 {
-            (self.d[rot as usize] % 64) as u8
+            (self.regs.d[rot as usize] % 64) as u8
         } else {
             if rot == 0 { 8 } else { rot }
         };
 
         let (mut data, mask) = match size {
-            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
-            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
-            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
+            Size::Byte => (self.regs.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.regs.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.regs.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
             for _ in 0..shift_count {
                 let sign = data & mask;
                 data <<= 1;
-                self.sr.x = sign != 0;
-                self.sr.c = sign != 0;
+                self.regs.sr.x = sign != 0;
+                self.regs.sr.c = sign != 0;
             }
         } else {
             for _ in 0..shift_count {
                 let bit = data & 1;
                 data >>= 1;
-                self.sr.x = bit != 0;
-                self.sr.c = bit != 0;
+                self.regs.sr.x = bit != 0;
+                self.regs.sr.c = bit != 0;
             }
         }
 
-        self.sr.n = data & mask != 0;
+        self.regs.sr.n = data & mask != 0;
 
         Ok(match size {
             Size::Byte => {
                 self.d_byte(reg, data as u8);
-                self.sr.z = data & 0x0000_00FF == 0;
+                self.regs.sr.z = data & 0x0000_00FF == 0;
                 EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
             },
             Size::Word => {
                 self.d_word(reg, data as u16);
-                self.sr.z = data & 0x0000_FFFF == 0;
+                self.regs.sr.z = data & 0x0000_FFFF == 0;
                 EXEC::LSR_BW + EXEC::LSR_COUNT * shift_count as usize
             },
             Size::Long => {
-                self.d[reg as usize] = data;
-                self.sr.z = data == 0;
+                self.regs.d[reg as usize] = data;
+                self.regs.sr.z = data == 0;
                 EXEC::LSR_L + EXEC::LSR_COUNT * shift_count as usize
             },
         })
@@ -1473,25 +1476,25 @@ impl M68000 {
             Size::Byte => {
                 let d = self.get_byte(memory, &mut src, &mut exec_time)?;
                 self.set_byte(memory, &mut dst, &mut exec_time, d)?;
-                self.sr.n = d & SIGN_BIT_8 != 0;
-                self.sr.z = d == 0;
+                self.regs.sr.n = d & SIGN_BIT_8 != 0;
+                self.regs.sr.z = d == 0;
             },
             Size::Word => {
                 let d = self.get_word(memory, &mut src, &mut exec_time)?;
                 self.set_word(memory, &mut dst, &mut exec_time, d)?;
-                self.sr.n = d & SIGN_BIT_16 != 0;
-                self.sr.z = d == 0;
+                self.regs.sr.n = d & SIGN_BIT_16 != 0;
+                self.regs.sr.z = d == 0;
             },
             Size::Long => {
                 let d = self.get_long(memory, &mut src, &mut exec_time)?;
                 self.set_long(memory, &mut dst, &mut exec_time, d)?;
-                self.sr.n = d & SIGN_BIT_32 != 0;
-                self.sr.z = d == 0;
+                self.regs.sr.n = d & SIGN_BIT_32 != 0;
+                self.regs.sr.z = d == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1518,7 +1521,7 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let ccr = self.get_word(memory, &mut ea, &mut exec_time)?;
-        self.sr.set_ccr(ccr);
+        self.regs.sr.set_ccr(ccr);
 
         Ok(exec_time)
     }
@@ -1529,19 +1532,19 @@ impl M68000 {
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
-        self.set_word(memory, &mut ea, &mut exec_time, self.sr.into())?;
+        self.set_word(memory, &mut ea, &mut exec_time, self.regs.sr.into())?;
 
         Ok(exec_time)
     }
 
     pub(super) fn movesr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let am = inst.operands.effective_address();
             let mut ea = EffectiveAddress::new(am, Some(Size::Word));
             let mut exec_time = EXEC::MOVESR;
 
             let sr = self.get_word(memory, &mut ea, &mut exec_time)?;
-            self.sr = sr.into();
+            self.regs.sr = sr.into();
             Ok(exec_time)
         } else {
             Err(Vector::PrivilegeViolation as u8)
@@ -1549,12 +1552,12 @@ impl M68000 {
     }
 
     pub(super) fn moveusp(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let (d, reg) = inst.operands.direction_register();
             if d == Direction::UspToRegister {
-                *self.a_mut(reg) = self.usp;
+                *self.a_mut(reg) = self.regs.usp;
             } else {
-                self.usp = self.a(reg);
+                self.regs.usp = self.a(reg);
             }
             Ok(EXEC::MOVEUSP)
         } else {
@@ -1588,8 +1591,8 @@ impl M68000 {
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr -= gap;
-                    if size.is_word() { memory.set_word(addr, self.d[reg] as u16)?; }
-                    else { memory.set_long(addr, self.d[reg])?; }
+                    if size.is_word() { memory.set_word(addr, self.regs.d[reg] as u16)?; }
+                    else { memory.set_long(addr, self.regs.d[reg])?; }
                 }
 
                 list >>= 1;
@@ -1608,10 +1611,10 @@ impl M68000 {
                     if dir == Direction::MemoryToRegister {
                         let value = if size.is_word() { memory.get_word(addr)? as i16 as u32 }
                             else { memory.get_long(addr)? };
-                        self.d[reg] = value;
+                        self.regs.d[reg] = value;
                     } else {
-                        if size.is_word() { memory.set_word(addr, self.d[reg] as u16)?; }
-                        else { memory.set_long(addr, self.d[reg])?; }
+                        if size.is_word() { memory.set_word(addr, self.regs.d[reg] as u16)?; }
+                        else { memory.set_long(addr, self.regs.d[reg])?; }
                     }
 
                     addr += gap;
@@ -1668,7 +1671,7 @@ impl M68000 {
 
         if dir == Direction::RegisterToMemory {
             while shift >= 0 {
-                let d = (self.d[data as usize] >> shift) as u8;
+                let d = (self.regs.d[data as usize] >> shift) as u8;
                 memory.set_byte(addr, d)?;
                 shift -= 8;
                 addr += 2;
@@ -1680,11 +1683,11 @@ impl M68000 {
                 EXEC::MOVEP_RTM_WORD
             })
         } else {
-            if size.is_word() { self.d[data as usize] &= 0xFFFF_0000 } else { self.d[data as usize] = 0 }
+            if size.is_word() { self.regs.d[data as usize] &= 0xFFFF_0000 } else { self.regs.d[data as usize] = 0 }
 
             while shift >= 0 {
                 let d = memory.get_byte(addr)? as u32;
-                self.d[data as usize] |= d << shift;
+                self.regs.d[data as usize] |= d << shift;
                 shift -= 8;
                 addr += 2;
             }
@@ -1700,12 +1703,12 @@ impl M68000 {
     pub(super) fn moveq(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (reg, data) = inst.operands.register_data();
 
-        self.d[reg as usize] = data as u32;
+        self.regs.d[reg as usize] = data as u32;
 
-        self.sr.n = data <  0;
-        self.sr.z = data == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = data <  0;
+        self.regs.sr.z = data == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(EXEC::MOVEQ)
     }
@@ -1717,15 +1720,15 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16 as i32;
-        let dst = self.d[reg as usize] as i16 as i32;
+        let dst = self.regs.d[reg as usize] as i16 as i32;
 
         let res = src * dst;
-        self.d[reg as usize] = res as u32;
+        self.regs.d[reg as usize] = res as u32;
 
-        self.sr.n = res < 0;
-        self.sr.z = res == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = res < 0;
+        self.regs.sr.z = res == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1737,15 +1740,15 @@ impl M68000 {
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as u32;
-        let dst = self.d[reg as usize] as u16 as u32;
+        let dst = self.regs.d[reg as usize] as u16 as u32;
 
         let res = src * dst;
-        self.d[reg as usize] = res;
+        self.regs.d[reg as usize] = res;
 
-        self.sr.n = res & SIGN_BIT_32 != 0;
-        self.sr.z = res == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = res & SIGN_BIT_32 != 0;
+        self.regs.sr.z = res == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1758,16 +1761,16 @@ impl M68000 {
 
         let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-        let low = 0 - (data as i8 & 0x0F) - self.sr.x as i8;
+        let low = 0 - (data as i8 & 0x0F) - self.regs.sr.x as i8;
         let high = 0 - (data as i8 >> 4 & 0x0F) - (low < 0) as i8;
         let res = (if high < 0 { 10 + high } else { high } as u8) << 4 |
                       if low < 0 { 10 + low } else { low } as u8;
 
         self.set_byte(memory, &mut ea, &mut exec_time, res)?;
 
-        if res != 0 { self.sr.z = false; }
-        self.sr.c = res != 0;
-        self.sr.x = self.sr.c;
+        if res != 0 { self.regs.sr.z = false; }
+        self.regs.sr.c = res != 0;
+        self.regs.sr.x = self.regs.sr.c;
 
         Ok(exec_time)
     }
@@ -1783,31 +1786,31 @@ impl M68000 {
                 let data = -(self.get_byte(memory, &mut ea, &mut exec_time)? as i8);
                 self.set_byte(memory, &mut ea, &mut exec_time, data as u8)?;
 
-                self.sr.n = data < 0;
-                self.sr.z = data == 0;
-                self.sr.v = data == i8::MIN;
-                self.sr.c = data != 0;
-                self.sr.x = self.sr.c;
+                self.regs.sr.n = data < 0;
+                self.regs.sr.z = data == 0;
+                self.regs.sr.v = data == i8::MIN;
+                self.regs.sr.c = data != 0;
+                self.regs.sr.x = self.regs.sr.c;
             },
             Size::Word => {
                 let data = -(self.get_word(memory, &mut ea, &mut exec_time)? as i16);
                 self.set_word(memory, &mut ea, &mut exec_time, data as u16)?;
 
-                self.sr.n = data < 0;
-                self.sr.z = data == 0;
-                self.sr.v = data == i16::MIN;
-                self.sr.c = data != 0;
-                self.sr.x = self.sr.c;
+                self.regs.sr.n = data < 0;
+                self.regs.sr.z = data == 0;
+                self.regs.sr.v = data == i16::MIN;
+                self.regs.sr.c = data != 0;
+                self.regs.sr.x = self.regs.sr.c;
             },
             Size::Long => {
                 let data = -(self.get_long(memory, &mut ea, &mut exec_time)? as i32);
                 self.set_long(memory, &mut ea, &mut exec_time, data as u32)?;
 
-                self.sr.n = data < 0;
-                self.sr.z = data == 0;
-                self.sr.v = data == i32::MIN;
-                self.sr.c = data != 0;
-                self.sr.x = self.sr.c;
+                self.regs.sr.n = data < 0;
+                self.regs.sr.z = data == 0;
+                self.regs.sr.v = data == i32::MIN;
+                self.regs.sr.c = data != 0;
+                self.regs.sr.x = self.regs.sr.c;
             },
         }
 
@@ -1828,42 +1831,42 @@ impl M68000 {
         match size {
             Size::Byte => {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)? as i8;
-                let res = 0 - data - self.sr.x as i8;
-                let vres = 0 - data as i16 - self.sr.x as i16;
-                let (_, c) = 0u8.extended_sub(data as u8, self.sr.x);
+                let res = 0 - data - self.regs.sr.x as i8;
+                let vres = 0 - data as i16 - self.regs.sr.x as i16;
+                let (_, c) = 0u8.extended_sub(data as u8, self.regs.sr.x);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                if res != 0 { self.sr.z = false };
-                self.sr.v = vres < i8::MIN as i16 || vres > i8::MAX as i16;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                if res != 0 { self.regs.sr.z = false };
+                self.regs.sr.v = vres < i8::MIN as i16 || vres > i8::MAX as i16;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 let data = self.get_word(memory, &mut ea, &mut exec_time)? as i16;
-                let res = 0 - data - self.sr.x as i16;
-                let vres = 0 - data as i32 - self.sr.x as i32;
-                let (_, c) = 0u16.extended_sub(data as u16, self.sr.x);
+                let res = 0 - data - self.regs.sr.x as i16;
+                let vres = 0 - data as i32 - self.regs.sr.x as i32;
+                let (_, c) = 0u16.extended_sub(data as u16, self.regs.sr.x);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                if res != 0 { self.sr.z = false };
-                self.sr.v = vres < i16::MIN as i32 || vres > i16::MAX as i32;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                if res != 0 { self.regs.sr.z = false };
+                self.regs.sr.v = vres < i16::MIN as i32 || vres > i16::MAX as i32;
+                self.regs.sr.c = c;
             },
             Size::Long => {
                 let data = self.get_long(memory, &mut ea, &mut exec_time)? as i32;
-                let res = 0 - data - self.sr.x as i32;
-                let vres = 0 - data as i64 - self.sr.x as i64;
-                let (_, c) = 0u32.extended_sub(data as u32, self.sr.x);
+                let res = 0 - data - self.regs.sr.x as i32;
+                let vres = 0 - data as i64 - self.regs.sr.x as i64;
+                let (_, c) = 0u32.extended_sub(data as u32, self.regs.sr.x);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                if res != 0 { self.sr.z = false };
-                self.sr.v = vres < i32::MIN as i64 || vres > i32::MAX as i64;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                if res != 0 { self.regs.sr.z = false };
+                self.regs.sr.v = vres < i32::MIN as i64 || vres > i32::MAX as i64;
+                self.regs.sr.c = c;
             },
         }
 
@@ -1885,27 +1888,27 @@ impl M68000 {
                 let data = !self.get_byte(memory, &mut ea, &mut exec_time)?;
                 self.set_byte(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_8 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_8 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Word => {
                 let data = !self.get_word(memory, &mut ea, &mut exec_time)?;
                 self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_16 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_16 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Long => {
                 let data = !self.get_long(memory, &mut ea, &mut exec_time)?;
                 self.set_long(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_32 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_32 != 0;
+                self.regs.sr.z = data == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1923,13 +1926,13 @@ impl M68000 {
                 } else {
                     exec_time = EXEC::OR_REG_BW;
                 }
-                let src = self.d[reg as usize] as u8;
+                let src = self.regs.d[reg as usize] as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
                 let res = src | dst;
 
-                self.sr.n = res & SIGN_BIT_8 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_8 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res)?;
@@ -1943,13 +1946,13 @@ impl M68000 {
                 } else {
                     exec_time = EXEC::OR_REG_BW;
                 }
-                let src = self.d[reg as usize] as u16;
+                let src = self.regs.d[reg as usize] as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
                 let res = src | dst;
 
-                self.sr.n = res & SIGN_BIT_16 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_16 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res)?;
@@ -1963,24 +1966,24 @@ impl M68000 {
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { EXEC::OR_REG_L_RDIMM } else { EXEC::OR_REG_L };
                 }
-                let src = self.d[reg as usize];
+                let src = self.regs.d[reg as usize];
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
                 let res = src | dst;
 
-                self.sr.n = res & SIGN_BIT_32 != 0;
-                self.sr.z = res == 0;
+                self.regs.sr.n = res & SIGN_BIT_32 != 0;
+                self.regs.sr.z = res == 0;
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.d[reg as usize] = res;
+                    self.regs.d[reg as usize] = res;
                 }
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1997,29 +2000,29 @@ impl M68000 {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)? | imm as u8;
                 self.set_byte(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_8 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_8 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::ORI_REG_BW } else { EXEC::ORI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)? | imm as u16;
                 self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_16 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_16 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::ORI_REG_L } else { EXEC::ORI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)? | imm;
                 self.set_long(memory, &mut ea, &mut exec_time, data)?;
 
-                self.sr.n = data & SIGN_BIT_32 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_32 != 0;
+                self.regs.sr.z = data == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -2027,15 +2030,15 @@ impl M68000 {
     pub(super) fn oriccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
 
-        self.sr |= imm;
+        self.regs.sr |= imm;
 
         Ok(EXEC::ORICCR)
     }
 
     pub(super) fn orisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let imm = inst.operands.immediate();
-            self.sr |= imm;
+            self.regs.sr |= imm;
             Ok(EXEC::ORISR)
         } else {
             Err(Vector::PrivilegeViolation as u8)
@@ -2064,7 +2067,7 @@ impl M68000 {
     }
 
     pub(super) fn reset(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             memory.reset_instruction();
             Ok(EXEC::RESET)
         } else {
@@ -2084,19 +2087,19 @@ impl M68000 {
         if dir == Direction::Left {
             data <<= 1;
             data |= (sign != 0) as u16;
-            self.sr.c = sign != 0;
+            self.regs.sr.c = sign != 0;
         } else {
             let bit = data & 1;
             data >>= 1;
             if bit != 0 {
                 data |= SIGN_BIT_16;
             }
-            self.sr.c = bit != 0;
+            self.regs.sr.c = bit != 0;
         }
 
-        self.sr.n = data & SIGN_BIT_16 != 0;
-        self.sr.z = data == 0;
-        self.sr.v = false;
+        self.regs.sr.n = data & SIGN_BIT_16 != 0;
+        self.regs.sr.z = data == 0;
+        self.regs.sr.v = false;
 
         self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
@@ -2106,19 +2109,19 @@ impl M68000 {
     pub(super) fn ror(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         let shift_count = if mode == 1 {
-            (self.d[rot as usize] % 64) as u8
+            (self.regs.d[rot as usize] % 64) as u8
         } else {
             if rot == 0 { 8 } else { rot }
         };
 
         let (mut data, mask) = match size {
-            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
-            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
-            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
+            Size::Byte => (self.regs.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.regs.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.regs.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
@@ -2128,7 +2131,7 @@ impl M68000 {
                 if sign != 0 {
                     data |= 1;
                 }
-                self.sr.c = sign != 0;
+                self.regs.sr.c = sign != 0;
             }
         } else {
             for _ in 0..shift_count {
@@ -2137,26 +2140,26 @@ impl M68000 {
                 if bit != 0 {
                     data |= mask;
                 }
-                self.sr.c = bit != 0;
+                self.regs.sr.c = bit != 0;
             }
         }
 
-        self.sr.n = data & mask != 0;
+        self.regs.sr.n = data & mask != 0;
 
         Ok(match size {
             Size::Byte => {
                 self.d_byte(reg, data as u8);
-                self.sr.z = data & 0x0000_00FF == 0;
+                self.regs.sr.z = data & 0x0000_00FF == 0;
                 EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
             },
             Size::Word => {
                 self.d_word(reg, data as u16);
-                self.sr.z = data & 0x0000_FFFF == 0;
+                self.regs.sr.z = data & 0x0000_FFFF == 0;
                 EXEC::ROR_BW + EXEC::ROR_COUNT * shift_count as usize
             },
             Size::Long => {
-                self.d[reg as usize] = data;
-                self.sr.z = data == 0;
+                self.regs.d[reg as usize] = data;
+                self.regs.sr.z = data == 0;
                 EXEC::ROR_L + EXEC::ROR_COUNT * shift_count as usize
             },
         })
@@ -2173,22 +2176,22 @@ impl M68000 {
 
         if dir == Direction::Left {
             data <<= 1;
-            data |= self.sr.x as u16;
-            self.sr.x = sign != 0;
-            self.sr.c = sign != 0;
+            data |= self.regs.sr.x as u16;
+            self.regs.sr.x = sign != 0;
+            self.regs.sr.c = sign != 0;
         } else {
             let bit = data & 1;
             data >>= 1;
-            if self.sr.x {
+            if self.regs.sr.x {
                 data |= SIGN_BIT_16;
             }
-            self.sr.x = bit != 0;
-            self.sr.c = bit != 0;
+            self.regs.sr.x = bit != 0;
+            self.regs.sr.c = bit != 0;
         }
 
-        self.sr.n = data & SIGN_BIT_16 != 0;
-        self.sr.z = data == 0;
-        self.sr.v = false;
+        self.regs.sr.n = data & SIGN_BIT_16 != 0;
+        self.regs.sr.z = data == 0;
+        self.regs.sr.v = false;
 
         self.set_word(memory, &mut ea, &mut exec_time, data)?;
 
@@ -2198,66 +2201,67 @@ impl M68000 {
     pub(super) fn roxr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
 
-        self.sr.v = false;
-        self.sr.c = self.sr.x;
+        self.regs.sr.v = false;
+        self.regs.sr.c = self.regs.sr.x;
 
         let shift_count = if mode == 1 {
-            (self.d[rot as usize] % 64) as u8
+            (self.regs.d[rot as usize] % 64) as u8
         } else {
             if rot == 0 { 8 } else { rot }
         };
 
         let (mut data, mask) = match size {
-            Size::Byte => (self.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
-            Size::Word => (self.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
-            Size::Long => (self.d[reg as usize], SIGN_BIT_32),
+            Size::Byte => (self.regs.d[reg as usize] & 0x0000_00FF, SIGN_BIT_8 as u32),
+            Size::Word => (self.regs.d[reg as usize] & 0x0000_FFFF, SIGN_BIT_16 as u32),
+            Size::Long => (self.regs.d[reg as usize], SIGN_BIT_32),
         };
 
         if dir == Direction::Left {
             for _ in 0..shift_count {
                 let sign = data & mask;
                 data <<= 1;
-                data |= self.sr.x as u32;
-                self.sr.x = sign != 0;
-                self.sr.c = sign != 0;
+                data |= self.regs.sr.x as u32;
+                self.regs.sr.x = sign != 0;
+                self.regs.sr.c = sign != 0;
             }
         } else {
             for _ in 0..shift_count {
                 let bit = data & 1;
                 data >>= 1;
-                if self.sr.x {
+                if self.regs.sr.x {
                     data |= mask;
                 }
-                self.sr.x = bit != 0;
-                self.sr.c = bit != 0;
+                self.regs.sr.x = bit != 0;
+                self.regs.sr.c = bit != 0;
             }
         }
 
-        self.sr.n = data & mask != 0;
+        self.regs.sr.n = data & mask != 0;
 
         Ok(match size {
             Size::Byte => {
                 self.d_byte(reg, data as u8);
-                self.sr.z = data & 0x0000_00FF == 0;
+                self.regs.sr.z = data & 0x0000_00FF == 0;
                 EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
             },
             Size::Word => {
                 self.d_word(reg, data as u16);
-                self.sr.z = data & 0x0000_FFFF == 0;
+                self.regs.sr.z = data & 0x0000_FFFF == 0;
                 EXEC::ROXR_BW + EXEC::ROXR_COUNT * shift_count as usize
             },
             Size::Long => {
-                self.d[reg as usize] = data;
-                self.sr.z = data == 0;
+                self.regs.d[reg as usize] = data;
+                self.regs.sr.z = data == 0;
                 EXEC::ROXR_L + EXEC::ROXR_COUNT * shift_count as usize
             },
         })
     }
 
     pub(super) fn rte(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
-        if self.sr.s {
+        if self.regs.sr.s {
             let sr = self.pop_word(memory)?;
-            self.pc = self.pop_long(memory)?;
+            self.regs.pc = self.pop_long(memory)?;
+            #[allow(unused_mut)]
             let mut exec_time = EXEC::RTE;
 
             #[cfg(feature = "cpu-scc68070")] {
@@ -2272,7 +2276,7 @@ impl M68000 {
                 }
             }
 
-            self.sr = sr.into();
+            self.regs.sr = sr.into();
 
             Ok(exec_time)
         } else {
@@ -2282,15 +2286,15 @@ impl M68000 {
 
     pub(super) fn rtr(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
         let ccr = self.pop_word(memory)?;
-        self.sr &= SR_UPPER_MASK;
-        self.sr |= ccr & CCR_MASK;
-        self.pc = self.pop_long(memory)?;
+        self.regs.sr &= SR_UPPER_MASK;
+        self.regs.sr |= ccr & CCR_MASK;
+        self.regs.pc = self.pop_long(memory)?;
 
         Ok(EXEC::RTR)
     }
 
     pub(super) fn rts(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
-        self.pc = self.pop_long(memory)?;
+        self.regs.pc = self.pop_long(memory)?;
 
         Ok(EXEC::RTS)
     }
@@ -2303,17 +2307,17 @@ impl M68000 {
             let dst_addr = self.ariwpr(ry, Size::Byte);
             (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
         } else {
-            (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
+            (self.regs.d[rx as usize] as u8, self.regs.d[ry as usize] as u8)
         };
 
-        let low = (dst as i8 & 0x0F) - (src as i8 & 0x0F) - self.sr.x as i8;
+        let low = (dst as i8 & 0x0F) - (src as i8 & 0x0F) - self.regs.sr.x as i8;
         let high = (dst as i8 >> 4 & 0x0F) - (src as i8 >> 4 & 0x0F) - (low < 0) as i8;
         let res = (if high < 0 { 10 + high } else { high } as u8) << 4 |
                       if low < 0 { 10 + low } else { low } as u8;
 
-        if res != 0 { self.sr.z = false; }
-        self.sr.c = high < 0;
-        self.sr.x = self.sr.c;
+        if res != 0 { self.regs.sr.z = false; }
+        self.regs.sr.c = high < 0;
+        self.regs.sr.x = self.regs.sr.c;
 
         if mode == Direction::MemoryToMemory {
             memory.set_byte(self.a(ry), res)?;
@@ -2326,7 +2330,7 @@ impl M68000 {
 
     pub(super) fn scc(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (cc, am) = inst.operands.condition_effective_address();
-        let condition = self.sr.condition(cc);
+        let condition = self.regs.sr.condition(cc);
         let mut exec_time = single_operands_time(condition, am.is_drd(), EXEC::SCC_REG_FALSE, EXEC::SCC_REG_TRUE, EXEC::SCC_MEM_FALSE, EXEC::SCC_MEM_TRUE);
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Byte));
@@ -2343,9 +2347,9 @@ impl M68000 {
     pub(super) fn stop(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
 
-        if self.sr.s {
+        if self.regs.sr.s {
             // TODO: trace.
-            self.sr = imm.into();
+            self.regs.sr = imm.into();
             self.stop = true;
             Ok(EXEC::STOP)
         } else {
@@ -2363,20 +2367,20 @@ impl M68000 {
             Size::Byte => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::SUB_MEM_BW;
-                    (self.d[reg as usize] as u8, self.get_byte(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u8, self.get_byte(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = EXEC::SUB_REG_BW;
-                    (self.get_byte(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u8)
+                    (self.get_byte(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u8)
                 };
 
                 let (res, v) = (dst as i8).overflowing_sub(src as i8);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
@@ -2387,20 +2391,20 @@ impl M68000 {
             Size::Word => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::SUB_MEM_BW;
-                    (self.d[reg as usize] as u16, self.get_word(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u16, self.get_word(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = EXEC::SUB_REG_BW;
-                    (self.get_word(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u16)
+                    (self.get_word(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u16)
                 };
 
                 let (res, v) = (dst as i16).overflowing_sub(src as i16);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
@@ -2411,25 +2415,25 @@ impl M68000 {
             Size::Long => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = EXEC::SUB_MEM_L;
-                    (self.d[reg as usize] as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize] as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { EXEC::SUB_REG_L_RDIMM } else { EXEC::SUB_REG_L };
-                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.d[reg as usize] as u32)
+                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize] as u32)
                 };
 
                 let (res, v) = (dst as i32).overflowing_sub(src as i32);
                 let (_, c) = dst.overflowing_sub(src);
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
                 } else {
-                    self.d[reg as usize] = res as u32;
+                    self.regs.d[reg as usize] = res as u32;
                 }
             },
         }
@@ -2474,11 +2478,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_sub(imm as u8);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { EXEC::SUBI_REG_BW } else { EXEC::SUBI_MEM_BW };
@@ -2487,11 +2491,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_sub(imm as u16);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { EXEC::SUBI_REG_L } else { EXEC::SUBI_MEM_L };
@@ -2500,11 +2504,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_sub(imm);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 
@@ -2525,11 +2529,11 @@ impl M68000 {
                 let (_, c) = data.overflowing_sub(imm);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.sr.x = c;
-                self.sr.n = res < 0;
-                self.sr.z = res == 0;
-                self.sr.v = v;
-                self.sr.c = c;
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Word => {
                 exec_time = if am.is_drd() {
@@ -2545,11 +2549,11 @@ impl M68000 {
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
                 if !ea.mode.is_ard() {
-                    self.sr.x = c;
-                    self.sr.n = res < 0;
-                    self.sr.z = res == 0;
-                    self.sr.v = v;
-                    self.sr.c = c;
+                    self.regs.sr.x = c;
+                    self.regs.sr.n = res < 0;
+                    self.regs.sr.z = res == 0;
+                    self.regs.sr.v = v;
+                    self.regs.sr.c = c;
                 }
             },
             Size::Long => {
@@ -2560,11 +2564,11 @@ impl M68000 {
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
                 if !ea.mode.is_ard() {
-                    self.sr.x = c;
-                    self.sr.n = res < 0;
-                    self.sr.z = res == 0;
-                    self.sr.v = v;
-                    self.sr.c = c;
+                    self.regs.sr.x = c;
+                    self.regs.sr.n = res < 0;
+                    self.regs.sr.z = res == 0;
+                    self.regs.sr.v = v;
+                    self.regs.sr.c = c;
                 }
             },
         }
@@ -2582,19 +2586,19 @@ impl M68000 {
                     let dst_addr = self.ariwpr(ry, size);
                     (memory.get_byte(src_addr)?, memory.get_byte(dst_addr)?)
                 } else {
-                    (self.d[rx as usize] as u8, self.d[ry as usize] as u8)
+                    (self.regs.d[rx as usize] as u8, self.regs.d[ry as usize] as u8)
                 };
 
-                let (res, v) = (dst as i8).extended_sub(src as i8, self.sr.x);
-                let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i8).extended_sub(src as i8, self.regs.sr.x);
+                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
 
-                self.sr.n = res < 0;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
-                self.sr.x = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
+                self.regs.sr.x = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_byte(self.a(ry), res as u8)?;
@@ -2610,19 +2614,19 @@ impl M68000 {
                     let dst_addr = self.ariwpr(ry, size);
                     (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
                 } else {
-                    (self.d[rx as usize] as u16, self.d[ry as usize] as u16)
+                    (self.regs.d[rx as usize] as u16, self.regs.d[ry as usize] as u16)
                 };
 
-                let (res, v) = (dst as i16).extended_sub(src as i16, self.sr.x);
-                let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i16).extended_sub(src as i16, self.regs.sr.x);
+                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
 
-                self.sr.n = res < 0;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
-                self.sr.x = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
+                self.regs.sr.x = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_word(self.a(ry), res as u16)?;
@@ -2638,25 +2642,25 @@ impl M68000 {
                     let dst_addr = self.ariwpr(ry, size);
                     (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
                 } else {
-                    (self.d[rx as usize], self.d[ry as usize])
+                    (self.regs.d[rx as usize], self.regs.d[ry as usize])
                 };
 
-                let (res, v) = (dst as i32).extended_sub(src as i32, self.sr.x);
-                let (_, c) = dst.extended_sub(src, self.sr.x);
+                let (res, v) = (dst as i32).extended_sub(src as i32, self.regs.sr.x);
+                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
 
-                self.sr.n = res < 0;
+                self.regs.sr.n = res < 0;
                 if res != 0 {
-                    self.sr.z = false;
+                    self.regs.sr.z = false;
                 }
-                self.sr.v = v;
-                self.sr.c = c;
-                self.sr.x = c;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
+                self.regs.sr.x = c;
 
                 if mode == Direction::MemoryToMemory {
                     memory.set_long(self.a(ry), res as u32)?;
                     Ok(EXEC::SUBX_MEM_L)
                 } else {
-                    self.d[ry as usize] = res as u32;
+                    self.regs.d[ry as usize] = res as u32;
                     Ok(EXEC::SUBX_REG_L)
                 }
             },
@@ -2666,14 +2670,14 @@ impl M68000 {
     pub(super) fn swap(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let reg = inst.operands.register();
 
-        let high = self.d[reg as usize] >> 16;
-        self.d[reg as usize] <<= 16;
-        self.d[reg as usize] |= high;
+        let high = self.regs.d[reg as usize] >> 16;
+        self.regs.d[reg as usize] <<= 16;
+        self.regs.d[reg as usize] |= high;
 
-        self.sr.n = self.d[reg as usize] & SIGN_BIT_32 != 0;
-        self.sr.z = self.d[reg as usize] == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = self.regs.d[reg as usize] & SIGN_BIT_32 != 0;
+        self.regs.sr.z = self.regs.d[reg as usize] == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(EXEC::SWAP)
     }
@@ -2686,10 +2690,10 @@ impl M68000 {
 
         let mut data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-        self.sr.n = data & SIGN_BIT_8 != 0;
-        self.sr.z = data == 0;
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.n = data & SIGN_BIT_8 != 0;
+        self.regs.sr.z = data == 0;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         data |= SIGN_BIT_8;
         self.set_byte(memory, &mut ea, &mut exec_time, data)?;
@@ -2703,7 +2707,7 @@ impl M68000 {
     }
 
     pub(super) fn trapv(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
-        if self.sr.v {
+        if self.regs.sr.v {
             Err(Vector::TrapVInstruction as u8)
         } else {
             Ok(EXEC::TRAPV_NO_TRAP)
@@ -2719,23 +2723,23 @@ impl M68000 {
         match size {
             Size::Byte => {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                self.sr.n = data & SIGN_BIT_8 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_8 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Word => {
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                self.sr.n = data & SIGN_BIT_16 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_16 != 0;
+                self.regs.sr.z = data == 0;
             },
             Size::Long => {
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                self.sr.n = data & SIGN_BIT_32 != 0;
-                self.sr.z = data == 0;
+                self.regs.sr.n = data & SIGN_BIT_32 != 0;
+                self.regs.sr.z = data == 0;
             },
         }
 
-        self.sr.v = false;
-        self.sr.c = false;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
 
         Ok(exec_time)
     }

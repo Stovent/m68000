@@ -4,6 +4,7 @@ use crate::utils::bits;
 
 /// M68000 status register.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(C)]
 pub struct StatusRegister {
     /// Trace
     pub t: bool,

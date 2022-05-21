@@ -84,12 +84,14 @@ use status_register::StatusRegister;
 
 use std::collections::BinaryHeap;
 
-/// A M68000 core.
-#[derive(Clone, Debug)]
-pub struct M68000 {
+/// M68000 registers.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[repr(C)]
+pub struct Registers {
     /// Data registers.
     pub d: [u32; 8],
-    a_: [u32; 7],
+    /// Address registers.
+    pub a: [u32; 7],
     /// User Stack Pointer.
     pub usp: u32,
     /// System Stack Pointer.
@@ -98,6 +100,12 @@ pub struct M68000 {
     pub sr: StatusRegister,
     /// Program Counter.
     pub pc: u32,
+}
+
+/// A M68000 core.
+#[derive(Clone, Debug)]
+pub struct M68000 {
+    pub regs: Registers,
 
     #[allow(dead_code)]
     current_opcode: u16,
@@ -127,12 +135,14 @@ impl M68000 {
     /// [Self::new] but without the initial reset vectors, so you can initialize the core as you want.
     pub fn new_no_reset() -> Self {
         Self {
-            d: [0; 8],
-            a_: [0; 7],
-            usp: 0,
-            ssp: 0,
-            sr: StatusRegister::default(),
-            pc: 0,
+            regs: Registers {
+                d: [0; 8],
+                a: [0; 7],
+                usp: 0,
+                ssp: 0,
+                sr: StatusRegister::default(),
+                pc: 0,
+            },
 
             current_opcode: 0xFFFF,
             stop: false,
@@ -145,21 +155,21 @@ impl M68000 {
     /// Sets the lower 8-bits of the given data register to the given value.
     /// The higher 24-bits remains untouched.
     pub fn d_byte(&mut self, reg: u8, value: u8) {
-        self.d[reg as usize] &= 0xFFFF_FF00;
-        self.d[reg as usize] |= value as u32;
+        self.regs.d[reg as usize] &= 0xFFFF_FF00;
+        self.regs.d[reg as usize] |= value as u32;
     }
 
     /// Sets the lower 16-bits of the given data register to the given value.
     /// The higher 16-bits remains untouched.
     pub fn d_word(&mut self, reg: u8, value: u16) {
-        self.d[reg as usize] &= 0xFFFF_0000;
-        self.d[reg as usize] |= value as u32;
+        self.regs.d[reg as usize] &= 0xFFFF_0000;
+        self.regs.d[reg as usize] |= value as u32;
     }
 
     /// Returns an address register.
     pub const fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
-            self.a_[reg as usize]
+            self.regs.a[reg as usize]
         } else {
             self.sp()
         }
@@ -168,7 +178,7 @@ impl M68000 {
     /// Returns a mutable reference to an address register.
     pub fn a_mut(&mut self, reg: u8) -> &mut u32 {
         if reg < 7 {
-            &mut self.a_[reg as usize]
+            &mut self.regs.a[reg as usize]
         } else {
             self.sp_mut()
         }
@@ -176,19 +186,19 @@ impl M68000 {
 
     /// Returns the stack pointer, SSP if in supervisor mode, USP if in user mode.
     pub const fn sp(&self) -> u32 {
-        if self.sr.s {
-            self.ssp
+        if self.regs.sr.s {
+            self.regs.ssp
         } else {
-            self.usp
+            self.regs.usp
         }
     }
 
     /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
     pub fn sp_mut(&mut self) -> &mut u32 {
-        if self.sr.s {
-            &mut self.ssp
+        if self.regs.sr.s {
+            &mut self.regs.ssp
         } else {
-            &mut self.usp
+            &mut self.regs.usp
         }
     }
 }

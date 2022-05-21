@@ -1,4 +1,4 @@
-use crate::M68000;
+use crate::{M68000, Registers};
 use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 
 use std::ffi::CString;
@@ -170,6 +170,20 @@ pub extern "C" fn m68000_peek_next_word(m68000: *mut M68000, memory: *mut M68000
                 exception: vec,
             },
         }
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn m68000_get_registers(m68000: *const M68000) -> Registers {
+    unsafe {
+        (*m68000).regs
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn m68000_set_registers(m68000: *mut M68000, regs: Registers) {
+    unsafe {
+        (*m68000).regs = regs;
     }
 }
 

@@ -367,9 +367,9 @@ impl M68000 {
             }
         } else { // Data register
             if bew.0 & 0x0800 != 0 { // Long
-                self.d[reg as usize]
+                self.regs.d[reg as usize]
             } else { // Word
-                self.d[reg as usize] as i16 as u32
+                self.regs.d[reg as usize] as i16 as u32
             }
         }
     }

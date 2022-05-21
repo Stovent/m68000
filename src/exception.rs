@@ -163,7 +163,7 @@ impl M68000 {
             if exception.vector >= Vector::Level1InterruptAutovector as u8 && exception.vector <= Vector::Level7InterruptAutovector as u8 {
                 // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
                 let level = exception.vector - (Vector::Level1InterruptAutovector as u8 - 1);
-                if level <= self.sr.interrupt_mask {
+                if level <= self.regs.sr.interrupt_mask {
                     masked_interrupts.push(exception);
                     continue;
                 }
@@ -173,7 +173,7 @@ impl M68000 {
                 Ok(cycles) => cycles,
                 Err(e) => {
                     if exception.vector == e && e == Vector::AccessError as u8 {
-                        panic!("An exception occured during exception processing: {} (at {:#X})", e, self.pc);
+                        panic!("An exception occured during exception processing: {} (at {:#X})", e, self.regs.pc);
                     } else {
                         self.exception(e);
                         0
@@ -195,12 +195,12 @@ impl M68000 {
     /// CHK and Zero divide have an effective address field. If the exception occurs, the interpreter returns the effective
     /// address calculation time, and this method returns the exception processing time.
     pub(super) fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
-        let sr = self.sr.into();
-        self.sr.s = true;
+        let sr = self.regs.sr.into();
+        self.regs.sr.s = true;
 
         if vector == 0 {
-            self.ssp = memory.get_long(0)?;
-            self.pc  = memory.get_long(4)?;
+            self.regs.ssp = memory.get_long(0)?;
+            self.regs.pc  = memory.get_long(4)?;
             self.stop = false;
             self.exceptions.clear();
             return Ok(EXEC::VECTOR_RESET);
@@ -212,7 +212,7 @@ impl M68000 {
         }
 
         #[cfg(feature = "cpu-mc68000")] {
-            self.push_long(memory, self.pc)?;
+            self.push_long(memory, self.regs.pc)?;
             self.push_word(memory, sr)?;
 
             if vector == 2 || vector == 3 { // TODO: Long format
@@ -241,11 +241,11 @@ impl M68000 {
                 self.push_word(memory, vector as u16 * 4)?;
             }
 
-            self.push_long(memory, self.pc)?;
+            self.push_long(memory, self.regs.pc)?;
             self.push_word(memory, sr)?;
         }
 
-        self.pc = memory.get_long(vector as u32 * 4)?;
+        self.regs.pc = memory.get_long(vector as u32 * 4)?;
 
         Ok(vector_execution_time(vector))
     }
