@@ -85,7 +85,7 @@ use status_register::StatusRegister;
 use std::collections::BinaryHeap;
 
 /// M68000 registers.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct Registers {
     /// Data registers.

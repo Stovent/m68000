@@ -27,13 +27,13 @@ pub enum Vector {
     UninitializedInterrupt,
     /// The spurious interrupt vector is taken when there is a bus error indication during interrupt processing.
     SpuriousInterrupt = 24,
-    Level1InterruptAutovector,
-    Level2InterruptAutovector,
-    Level3InterruptAutovector,
-    Level4InterruptAutovector,
-    Level5InterruptAutovector,
-    Level6InterruptAutovector,
-    Level7InterruptAutovector,
+    Level1Interrupt,
+    Level2Interrupt,
+    Level3Interrupt,
+    Level4Interrupt,
+    Level5Interrupt,
+    Level6Interrupt,
+    Level7Interrupt,
     Trap0Instruction,
     Trap1Instruction,
     Trap2Instruction,
@@ -50,6 +50,15 @@ pub enum Vector {
     Trap13Instruction,
     Trap14Instruction,
     Trap15Instruction,
+    /// SCC68070 only.
+    Level1OnChipInterrupt = 57,
+    Level2OnChipInterrupt,
+    Level3OnChipInterrupt,
+    Level4OnChipInterrupt,
+    Level5OnChipInterrupt,
+    Level6OnChipInterrupt,
+    Level7OnChipInterrupt,
+    UserInterrupt,
 }
 
 // TODO: group of the remaining vectors (Line A/F emulation, Format error, uninitialized interrupt vector).
@@ -160,9 +169,10 @@ impl M68000 {
         // Pops from the lowest priority to highest, so that when all exceptions has been processed,
         // the one with the highest priority will be the one treated first.
         while let Some(exception) = self.exceptions.pop() {
-            if exception.vector >= Vector::Level1InterruptAutovector as u8 && exception.vector <= Vector::Level7InterruptAutovector as u8 {
+            if exception.vector >= Vector::Level1Interrupt as u8 && exception.vector <= Vector::Level7Interrupt as u8 ||
+               exception.vector >= Vector::Level1OnChipInterrupt as u8 && exception.vector <= Vector::Level7OnChipInterrupt as u8 {
                 // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
-                let level = exception.vector - (Vector::Level1InterruptAutovector as u8 - 1);
+                let level = exception.vector & 0x7;
                 if level <= self.regs.sr.interrupt_mask {
                     masked_interrupts.push(exception);
                     continue;
@@ -207,7 +217,8 @@ impl M68000 {
         }
 
         if vector == Vector::Trace as u8 ||
-           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7InterruptAutovector as u8 {
+           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
+           vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8 {
             self.stop = false;
         }
 

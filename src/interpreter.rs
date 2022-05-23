@@ -104,40 +104,11 @@ impl M68000 {
 
     /// Executes a single instruction, returning the cycle count necessary to execute it.
     pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
-        let mut cycle_count = 0;
-
-        if !self.exceptions.is_empty() {
-            cycle_count += self.process_pending_exceptions(memory);
+        let (cycles, exception) = self.interpreter_exception(memory);
+        if let Some(e) = exception {
+            self.exception(e);
         }
-
-        if self.stop {
-            return 0;
-        }
-
-        let pc = self.regs.pc;
-        let opcode = match self.get_next_word(memory) {
-            Ok(op) => op,
-            Err(e) => {
-                self.exception(e);
-                return 0;
-            },
-        };
-        let isa: Isa = opcode.into();
-
-        let mut iter = memory.iter_u16(self.regs.pc);
-        let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
-        self.regs.pc += len as u32;
-
-        if self.disassemble {
-            memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
-        }
-
-        match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
-            Ok(cycles) => cycle_count += cycles,
-            Err(e) => self.exception(e),
-        }
-
-        cycle_count
+        cycles
     }
 
     /// Executes a single instruction, returning the cycle count necessary to execute it,
@@ -157,7 +128,7 @@ impl M68000 {
 
         let pc = self.regs.pc;
         let opcode = match self.get_next_word(memory) {
-            Ok(value) => value,
+            Ok(op) => op,
             Err(e) => return (cycle_count, Some(e)),
         };
         let isa: Isa = opcode.into();
@@ -170,8 +141,12 @@ impl M68000 {
             memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
         }
 
+        let trace = self.regs.sr.t;
         match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
-            Ok(cycles) => cycle_count += cycles,
+            Ok(cycles) => {
+                cycle_count += cycles;
+                if trace { self.exception(Vector::Trace as u8); }
+            },
             Err(e) => return (cycle_count, Some(e)),
         }
 
