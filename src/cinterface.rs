@@ -1,7 +1,7 @@
 use crate::{M68000, Registers};
 use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 
-use std::ffi::CString;
+use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
 
 /// Return value of the `cycle_until_exception`, `loop_until_exception_stop` and `interpreter_exception` methods.
@@ -13,6 +13,7 @@ pub struct ExceptionResult {
     pub exception: u8,
 }
 
+/// Return type of the memory callback functions.
 #[repr(C)]
 pub struct GetSetResult {
     /// Set to the value to be returned. Only the low order bytes are read depending on the size. Unused with SetResult.
@@ -21,23 +22,29 @@ pub struct GetSetResult {
     pub exception: u8,
 }
 
+/// Memory callbacks sent to the interpreter methods.
+///
+/// The void* argument passed on each callback is the `user_data` member, and its usage is let to the user of this library.
+/// For example, this can be used to allow the usage of C++ objects, where `user_data` has the value of the `this` pointer of the object.
 #[repr(C)]
 pub struct M68000Callbacks {
-    pub get_byte: extern "C" fn(u32) -> GetSetResult,
-    pub get_word: extern "C" fn(u32) -> GetSetResult,
-    pub get_long: extern "C" fn(u32) -> GetSetResult,
+    pub get_byte: extern "C" fn(u32, *mut c_void) -> GetSetResult,
+    pub get_word: extern "C" fn(u32, *mut c_void) -> GetSetResult,
+    pub get_long: extern "C" fn(u32, *mut c_void) -> GetSetResult,
 
-    pub set_byte: extern "C" fn(u32, u8) -> GetSetResult,
-    pub set_word: extern "C" fn(u32, u16) -> GetSetResult,
-    pub set_long: extern "C" fn(u32, u32) -> GetSetResult,
+    pub set_byte: extern "C" fn(u32, u8, *mut c_void) -> GetSetResult,
+    pub set_word: extern "C" fn(u32, u16, *mut c_void) -> GetSetResult,
+    pub set_long: extern "C" fn(u32, u32, *mut c_void) -> GetSetResult,
 
-    pub reset_instruction: extern "C" fn(),
-    pub disassembler: extern "C" fn(u32, *const c_char),
+    pub reset_instruction: extern "C" fn(*mut c_void),
+    pub disassembler: extern "C" fn(u32, *const c_char, *mut c_void),
+
+    pub user_data: *mut c_void,
 }
 
 impl MemoryAccess for M68000Callbacks {
     fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
-        let res = (self.get_byte)(addr);
+        let res = (self.get_byte)(addr, self.user_data);
         if res.exception == 0 {
             Ok(res.data as u8)
         } else {
@@ -46,7 +53,7 @@ impl MemoryAccess for M68000Callbacks {
     }
 
     fn get_word(&mut self, addr: u32) -> GetResult<u16> {
-        let res = (self.get_word)(addr);
+        let res = (self.get_word)(addr, self.user_data);
         if res.exception == 0 {
             Ok(res.data as u16)
         } else {
@@ -54,8 +61,9 @@ impl MemoryAccess for M68000Callbacks {
         }
 
     }
+
     fn get_long(&mut self, addr: u32) -> GetResult<u32> {
-        let res = (self.get_long)(addr);
+        let res = (self.get_long)(addr, self.user_data);
         if res.exception == 0 {
             Ok(res.data)
         } else {
@@ -64,7 +72,7 @@ impl MemoryAccess for M68000Callbacks {
     }
 
     fn set_byte(&mut self, addr: u32, value: u8) -> SetResult {
-        let res = (self.set_byte)(addr, value);
+        let res = (self.set_byte)(addr, value, self.user_data);
         if res.exception == 0 {
             Ok(())
         } else {
@@ -73,7 +81,7 @@ impl MemoryAccess for M68000Callbacks {
     }
 
     fn set_word(&mut self, addr: u32, value: u16) -> SetResult {
-        let res = (self.set_word)(addr, value);
+        let res = (self.set_word)(addr, value, self.user_data);
         if res.exception == 0 {
             Ok(())
         } else {
@@ -82,7 +90,7 @@ impl MemoryAccess for M68000Callbacks {
     }
 
     fn set_long(&mut self, addr: u32, value: u32) -> SetResult {
-        let res = (self.set_long)(addr, value);
+        let res = (self.set_long)(addr, value, self.user_data);
         if res.exception == 0 {
             Ok(())
         } else {
@@ -91,20 +99,22 @@ impl MemoryAccess for M68000Callbacks {
     }
 
     fn reset_instruction(&mut self) {
-        (self.reset_instruction)()
+        (self.reset_instruction)(self.user_data)
     }
 
     fn disassembler(&mut self, pc: u32, inst_string: String) {
         let cs = CString::new(inst_string).expect("New CString for disassembler failed");
-        (self.disassembler)(pc, cs.as_ptr());
+        (self.disassembler)(pc, cs.as_ptr(), self.user_data);
     }
 }
 
+/// Allocates a new core and returns the pointer to it. Is is unmanaged by Rust, so you have to delete it after usage.
 #[no_mangle]
 pub extern "C" fn m68000_new() -> *mut M68000 {
     Box::into_raw(Box::new(M68000::new()))
 }
 
+/// Frees the memory of the given core.
 #[no_mangle]
 pub extern "C" fn m68000_delete(m68000: *mut M68000) {
     unsafe {
@@ -112,6 +122,13 @@ pub extern "C" fn m68000_delete(m68000: *mut M68000) {
     }
 }
 
+/// Runs the CPU for `cycles` number of cycles.
+///
+/// This function executes **at least** the given number of cycles.
+/// Returns the number of cycles actually executed.
+///
+/// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
+/// it will be executed and the 2 extra cycles will be subtracted in the next call.
 #[no_mangle]
 pub extern "C" fn m68000_cycle(m68000: *mut M68000, memory: *mut M68000Callbacks, cycles: usize) -> usize {
     unsafe {
@@ -119,6 +136,13 @@ pub extern "C" fn m68000_cycle(m68000: *mut M68000, memory: *mut M68000Callbacks
     }
 }
 
+/// Runs the CPU until either an exception occurs or `cycle` cycles have been executed.
+///
+/// This function executes **at least** the given number of cycles.
+/// Returns the number of cycles actually executed, and the exception that occured if any.
+///
+/// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
+/// it will be executed and the 2 extra cycles will be subtracted in the next call.
 #[no_mangle]
 pub extern "C" fn m68000_cycle_until_exception(m68000: *mut M68000, memory: *mut M68000Callbacks, cycles: usize) -> ExceptionResult {
     unsafe {
@@ -127,6 +151,10 @@ pub extern "C" fn m68000_cycle_until_exception(m68000: *mut M68000, memory: *mut
     }
 }
 
+/// Runs indefinitely until an exception or STOP instruction occurs.
+///
+/// Returns the number of cycles executed and the exception that occured.
+/// If exception is None, this means the CPU has executed a STOP instruction.
 #[no_mangle]
 pub extern "C" fn m68000_loop_until_exception_stop(m68000: *mut M68000, memory: *mut M68000Callbacks) -> ExceptionResult {
     unsafe {
@@ -135,6 +163,7 @@ pub extern "C" fn m68000_loop_until_exception_stop(m68000: *mut M68000, memory: 
     }
 }
 
+/// Executes a single instruction, returning the cycle count necessary to execute it.
 #[no_mangle]
 pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Callbacks) -> usize {
     unsafe {
@@ -142,6 +171,10 @@ pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Cal
     }
 }
 
+/// Executes a single instruction, returning the cycle count necessary to execute it,
+/// and the vector of the exception that occured during the execution if any.
+///
+/// To process the returned exception, call [M68000::exception].
 #[no_mangle]
 pub extern "C" fn m68000_interpreter_exception(m68000: *mut M68000, memory: *mut M68000Callbacks) -> ExceptionResult {
     unsafe {
@@ -150,6 +183,7 @@ pub extern "C" fn m68000_interpreter_exception(m68000: *mut M68000, memory: *mut
     }
 }
 
+/// Requests the CPU to process the given exception vector.
 #[no_mangle]
 pub extern "C" fn m68000_exception(m68000: *mut M68000, vector: u8) {
     unsafe {
@@ -157,6 +191,7 @@ pub extern "C" fn m68000_exception(m68000: *mut M68000, vector: u8) {
     }
 }
 
+/// Returns the 16-bits word at the current PC value of the given core.
 #[no_mangle]
 pub extern "C" fn m68000_peek_next_word(m68000: *mut M68000, memory: *mut M68000Callbacks) -> GetSetResult {
     unsafe {
@@ -173,6 +208,15 @@ pub extern "C" fn m68000_peek_next_word(m68000: *mut M68000, memory: *mut M68000
     }
 }
 
+/// Returns a mutable pointer to the registers of the given core.
+#[no_mangle]
+pub extern "C" fn m68000_registers(m68000: *mut M68000) -> *mut Registers {
+    unsafe {
+        &mut (*m68000).regs
+    }
+}
+
+/// Returns a copy of the registers of the given core.
 #[no_mangle]
 pub extern "C" fn m68000_get_registers(m68000: *const M68000) -> Registers {
     unsafe {
@@ -180,6 +224,7 @@ pub extern "C" fn m68000_get_registers(m68000: *const M68000) -> Registers {
     }
 }
 
+/// Sets the registers of the core to the given value.
 #[no_mangle]
 pub extern "C" fn m68000_set_registers(m68000: *mut M68000, regs: Registers) {
     unsafe {
@@ -187,6 +232,7 @@ pub extern "C" fn m68000_set_registers(m68000: *mut M68000, regs: Registers) {
     }
 }
 
+/// If `enabled` is true, the core will call `M68000Callbacks::disassembler` on each instruction executed.
 #[no_mangle]
 pub extern "C" fn m68000_enable_disassembler(m68000: *mut M68000, enabled: bool) {
     unsafe {

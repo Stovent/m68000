@@ -183,7 +183,7 @@ impl M68000 {
                 Ok(cycles) => cycles,
                 Err(e) => {
                     if exception.vector == e && e == Vector::AccessError as u8 {
-                        panic!("An exception occured during exception processing: {} (at {:#X})", e, self.regs.pc);
+                        panic!("An access error occured during access error processing: {} (at {:#X})", e, self.regs.pc);
                     } else {
                         self.exception(e);
                         0
@@ -207,6 +207,7 @@ impl M68000 {
     pub(super) fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
         let sr = self.regs.sr.into();
         self.regs.sr.s = true;
+        self.regs.sr.t = false;
 
         if vector == 0 {
             self.regs.ssp = memory.get_long(0)?;

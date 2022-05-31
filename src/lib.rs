@@ -50,7 +50,6 @@
 //!
 //! # TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
-//! - Allow execution of other exception vectors (like SCC68070 on-chip interrupts).
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 
 #[cfg(any(
