@@ -65,6 +65,8 @@ pub mod decoder;
 pub mod disassembler;
 pub mod exception;
 pub mod instruction;
+mod fast_operands;
+mod fast_interpreter;
 mod interpreter;
 pub mod isa;
 pub mod memory_access;

@@ -95,11 +95,8 @@ fn main()
         memory: ram,
     };
 
-    // Execute 1 000 000 instructions
-    for _ in 0..1_000_000 {
-        scc68070.cpu.interpreter(&mut scc68070.memory);
+    // Execute 1 000 000 000 instructions
+    for _ in 0..1_000_000_000 {
+        scc68070.cpu.fast_interpreter(&mut scc68070.memory);
     }
-
-    // Check that the CPU loops at the correct end point
-    // assert_eq!(cpu.pc, 0x40042A);
 }
