@@ -64,9 +64,9 @@ mod cinterface;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
-pub mod instruction;
-mod fast_operands;
 mod fast_interpreter;
+mod fast_operands;
+pub mod instruction;
 mod interpreter;
 pub mod isa;
 pub mod memory_access;
@@ -116,8 +116,6 @@ pub struct M68000 {
     exceptions: BinaryHeap<exception::Exception>,
     /// Number of cycles executed by the called interpreter method.
     cycles: usize,
-    /// True to disassemble instructions and call [MemoryAccess::disassembler].
-    pub disassemble: bool,
 }
 
 impl M68000 {
@@ -149,7 +147,6 @@ impl M68000 {
             stop: false,
             exceptions: BinaryHeap::new(),
             cycles: 0,
-            disassemble: false,
         }
     }
 

@@ -3,14 +3,14 @@ use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::Vector;
 use crate::execution_times as EXEC;
 use crate::instruction::{Direction, Instruction, Size};
-use crate::isa::{Execute, Isa, IsaEntry};
+use crate::isa::{Execute, Isa};
 use crate::utils::{BigInt, bits};
 
-const SR_UPPER_MASK: u16 = 0xA700;
-const CCR_MASK: u16 = 0x001F;
-const SIGN_BIT_8: u8 = 0x80;
-const SIGN_BIT_16: u16 = 0x8000;
-const SIGN_BIT_32: u32 = 0x8000_0000;
+pub(super) const SR_UPPER_MASK: u16 = 0xA700;
+pub(super) const CCR_MASK: u16 = 0x001F;
+pub(super) const SIGN_BIT_8: u8 = 0x80;
+pub(super) const SIGN_BIT_16: u16 = 0x8000;
+pub(super) const SIGN_BIT_32: u32 = 0x8000_0000;
 
 /// Returns the execution time on success, an exception vector on error. Alias for `Result<usize, u8>`.
 pub(super) type InterpreterResult = Result<usize, u8>;
@@ -19,103 +19,20 @@ pub(super) type InterpreterResult = Result<usize, u8>;
 // All this for only 3 instructions ?
 
 impl M68000 {
-    /// Runs the CPU for `cycles` number of cycles.
-    ///
-    /// This function executes **at least** the given number of cycles.
-    /// Returns the number of cycles actually executed.
-    ///
-    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
-    /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-            return 0;
-        }
-
-        let initial = self.cycles;
-
-        while self.cycles < cycles {
-            self.cycles += self.interpreter(memory);
-            if self.stop {
-                self.cycles = cycles;
-            }
-        }
-
-        let total = self.cycles - initial;
-        self.cycles -= cycles;
-        total
-    }
-
-    /// Runs the CPU until either an exception occurs or `cycle` cycles have been executed.
-    ///
-    /// This function executes **at least** the given number of cycles.
-    /// Returns the number of cycles actually executed, and the exception that occured if any.
-    ///
-    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
-    /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-            return (0, None);
-        }
-
-        let initial = self.cycles;
-        let mut vector = None;
-
-        while self.cycles < cycles {
-            let (c, v) = self.interpreter_exception(memory);
-            self.cycles += c;
-
-            if v.is_some() {
-                vector = v;
-                break;
-            }
-            if self.stop {
-                self.cycles = cycles;
-            }
-        }
-
-        let total = self.cycles - initial;
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-        } else {
-            self.cycles = 0;
-        }
-        (total, vector)
-    }
-
-    /// Runs indefinitely until an exception or STOP instruction occurs.
-    ///
-    /// Returns the number of cycles executed and the exception that occured.
-    /// If exception is None, this means the CPU has executed a STOP instruction.
-    pub fn loop_until_exception_stop(&mut self, memory: &mut impl MemoryAccess) -> (usize, Option<u8>) {
-        let mut total_cycles = self.cycles;
-        self.cycles = 0;
-
-        loop {
-            let (cycles, vector) = self.interpreter_exception(memory);
-            total_cycles += cycles;
-
-            if vector.is_some() || self.stop {
-                return (total_cycles, vector);
-            }
-        }
-    }
-
-    /// Executes a single instruction, returning the cycle count necessary to execute it.
-    pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
-        let (cycles, exception) = self.interpreter_exception(memory);
+    /// Executes and disassembles the next instruction, returning the disassembler string and the cycle count necessary to execute it.
+    pub fn disassembler_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize) {
+        let (dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
         if let Some(e) = exception {
             self.exception(e);
         }
-        cycles
+        (dis, cycles)
     }
 
-    /// Executes a single instruction, returning the cycle count necessary to execute it,
+    /// Executes and disassembles the next instruction, returning the disassembled string, the cycle count necessary to execute it,
     /// and the vector of the exception that occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
-    pub fn interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
+    pub fn disassembler_interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
         let mut cycle_count = 0;
 
         if !self.exceptions.is_empty() {
@@ -123,34 +40,32 @@ impl M68000 {
         }
 
         if self.stop {
-            return (0, None);
+            return (String::from(""), 0, None);
         }
 
         let pc = self.regs.pc;
         let opcode = match self.get_next_word(memory) {
             Ok(op) => op,
-            Err(e) => return (cycle_count, Some(e)),
+            Err(e) => return (String::from(""), cycle_count, Some(e)),
         };
+        self.current_opcode = opcode;
         let isa: Isa = opcode.into();
 
         let mut iter = memory.iter_u16(self.regs.pc);
         let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
         self.regs.pc += len as u32;
 
-        if self.disassemble {
-            memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
-        }
-
+        let dis = instruction.disassemble();
         let trace = self.regs.sr.t;
         match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => {
                 cycle_count += cycles;
                 if trace { self.exception(Vector::Trace as u8); }
             },
-            Err(e) => return (cycle_count, Some(e)),
+            Err(e) => return (dis, cycle_count, Some(e)),
         }
 
-        (cycle_count, None)
+        (dis, cycle_count, None)
     }
 
     pub(super) fn unknown_instruction(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {

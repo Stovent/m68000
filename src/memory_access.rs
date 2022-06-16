@@ -46,9 +46,6 @@ pub trait MemoryAccess {
 
     /// Called when the CPU executes a RESET instruction.
     fn reset_instruction(&mut self);
-
-    /// If `M68000::disassemble` is true, called by the interpreter with the address and the disassembly of the next instruction that will be executed.
-    fn disassembler(&mut self, _pc: u32, _inst_string: String);
 }
 
 /// Iterator over 16-bits values in memory.

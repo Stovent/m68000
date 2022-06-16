@@ -37,8 +37,6 @@ impl MemoryAccess for Memory {
     }
 
     fn reset_instruction(&mut self) {}
-
-    fn disassembler(&mut self, _pc: u32, _inst_string: String) {}
 }
 
 fn main() {

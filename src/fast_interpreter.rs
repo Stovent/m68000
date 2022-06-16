@@ -3,20 +3,9 @@ use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::Vector;
 use crate::execution_times as EXEC;
 use crate::instruction::{Direction, Size};
+use crate::interpreter::{CCR_MASK, InterpreterResult, SIGN_BIT_8, SIGN_BIT_16, SIGN_BIT_32, SR_UPPER_MASK};
 use crate::isa::{Execute, Isa};
 use crate::utils::{BigInt, bits};
-
-const SR_UPPER_MASK: u16 = 0xA700;
-const CCR_MASK: u16 = 0x001F;
-const SIGN_BIT_8: u8 = 0x80;
-const SIGN_BIT_16: u16 = 0x8000;
-const SIGN_BIT_32: u32 = 0x8000_0000;
-
-/// Returns the execution time on success, an exception vector on error. Alias for `Result<usize, u8>`.
-pub(super) type InterpreterResult = Result<usize, u8>;
-
-// TODO: return a tuple with the current execution time and the exception that occured (CHK, DIVS, DIVU).
-// All this for only 3 instructions ?
 
 impl M68000 {
     /// Runs the CPU for `cycles` number of cycles.
@@ -26,7 +15,7 @@ impl M68000 {
     ///
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn fast_cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
+    pub fn cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
         if self.cycles >= cycles {
             self.cycles -= cycles;
             return 0;
@@ -35,7 +24,7 @@ impl M68000 {
         let initial = self.cycles;
 
         while self.cycles < cycles {
-            self.cycles += self.fast_interpreter(memory);
+            self.cycles += self.interpreter(memory);
             if self.stop {
                 self.cycles = cycles;
             }
@@ -53,7 +42,7 @@ impl M68000 {
     ///
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
     /// it will be executed and the 2 extra cycles will be subtracted in the next call.
-    pub fn fast_cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
+    pub fn cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
         if self.cycles >= cycles {
             self.cycles -= cycles;
             return (0, None);
@@ -63,7 +52,7 @@ impl M68000 {
         let mut vector = None;
 
         while self.cycles < cycles {
-            let (c, v) = self.fast_interpreter_exception(memory);
+            let (c, v) = self.interpreter_exception(memory);
             self.cycles += c;
 
             if v.is_some() {
@@ -88,12 +77,12 @@ impl M68000 {
     ///
     /// Returns the number of cycles executed and the exception that occured.
     /// If exception is None, this means the CPU has executed a STOP instruction.
-    pub fn fast_loop_until_exception_stop(&mut self, memory: &mut impl MemoryAccess) -> (usize, Option<u8>) {
+    pub fn loop_until_exception_stop(&mut self, memory: &mut impl MemoryAccess) -> (usize, Option<u8>) {
         let mut total_cycles = self.cycles;
         self.cycles = 0;
 
         loop {
-            let (cycles, vector) = self.fast_interpreter_exception(memory);
+            let (cycles, vector) = self.interpreter_exception(memory);
             total_cycles += cycles;
 
             if vector.is_some() || self.stop {
@@ -102,20 +91,20 @@ impl M68000 {
         }
     }
 
-    /// Executes a single instruction, returning the cycle count necessary to execute it.
-    pub fn fast_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
-        let (cycles, exception) = self.fast_interpreter_exception(memory);
+    /// Executes the next instruction, returning the cycle count necessary to execute it.
+    pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
+        let (cycles, exception) = self.interpreter_exception(memory);
         if let Some(e) = exception {
             self.exception(e);
         }
         cycles
     }
 
-    /// Executes a single instruction, returning the cycle count necessary to execute it,
+    /// Executes the next instruction, returning the cycle count necessary to execute it,
     /// and the vector of the exception that occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
-    pub fn fast_interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
+    pub fn interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
         let mut cycle_count = 0;
 
         if !self.exceptions.is_empty() {
@@ -132,10 +121,6 @@ impl M68000 {
         };
         self.current_opcode = opcode;
         let isa: Isa = opcode.into();
-
-        // if self.disassemble {
-        //     memory.disassembler(pc, (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction));
-        // }
 
         let trace = self.regs.sr.t;
         match Execute::<M>::FAST_EXECUTE[isa as usize](self, memory) {

@@ -4,7 +4,7 @@ use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
 
-/// Return value of the `cycle_until_exception`, `loop_until_exception_stop` and `interpreter_exception` methods.
+/// Return value of the `cycle_until_exception`, `loop_until_exception_stop` and `interpreter_exception` functions.
 #[repr(C)]
 pub struct ExceptionResult {
     /// The number of cycles executed.
@@ -18,7 +18,7 @@ pub struct ExceptionResult {
 pub struct GetSetResult {
     /// Set to the value to be returned. Only the low order bytes are read depending on the size. Unused with SetResult.
     pub data: u32,
-    /// Set to 0 if read successfully, set to the exception vector otherwise (Access or Address error).
+    /// Set to 0 if read successfully, set to 2 (Access Error) otherwise (Address errors are automatically detected by the library).
     pub exception: u8,
 }
 
@@ -37,7 +37,6 @@ pub struct M68000Callbacks {
     pub set_long: extern "C" fn(u32, u32, *mut c_void) -> GetSetResult,
 
     pub reset_instruction: extern "C" fn(*mut c_void),
-    pub disassembler: extern "C" fn(u32, *const c_char, *mut c_void),
 
     pub user_data: *mut c_void,
 }
@@ -101,11 +100,6 @@ impl MemoryAccess for M68000Callbacks {
     fn reset_instruction(&mut self) {
         (self.reset_instruction)(self.user_data)
     }
-
-    fn disassembler(&mut self, pc: u32, inst_string: String) {
-        let cs = CString::new(inst_string).expect("New CString for disassembler failed");
-        (self.disassembler)(pc, cs.as_ptr(), self.user_data);
-    }
 }
 
 /// Allocates a new core and returns the pointer to it. Is is unmanaged by Rust, so you have to delete it after usage.
@@ -163,7 +157,7 @@ pub extern "C" fn m68000_loop_until_exception_stop(m68000: *mut M68000, memory: 
     }
 }
 
-/// Executes a single instruction, returning the cycle count necessary to execute it.
+/// Executes the next instruction, returning the cycle count necessary to execute it.
 #[no_mangle]
 pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Callbacks) -> usize {
     unsafe {
@@ -171,7 +165,7 @@ pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Cal
     }
 }
 
-/// Executes a single instruction, returning the cycle count necessary to execute it,
+/// Executes the next instruction, returning the cycle count necessary to execute it,
 /// and the vector of the exception that occured during the execution if any.
 ///
 /// To process the returned exception, call [M68000::exception].
@@ -179,6 +173,57 @@ pub extern "C" fn m68000_interpreter(m68000: *mut M68000, memory: *mut M68000Cal
 pub extern "C" fn m68000_interpreter_exception(m68000: *mut M68000, memory: *mut M68000Callbacks) -> ExceptionResult {
     unsafe {
         let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
+        ExceptionResult { cycles, exception: vector.unwrap_or(0) }
+    }
+}
+
+/// Executes and disassembles the next instruction, returning the disassembler string and the cycle count necessary to execute it.
+///
+/// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
+/// `len` is the maximum size of the buffer.
+#[no_mangle]
+pub extern "C" fn m68000_disassembler_interpreter(m68000: *mut M68000, memory: *mut M68000Callbacks, str: *mut c_char, len: usize) -> usize {
+    unsafe {
+        let (dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
+
+        let cstring = CString::new(dis).expect("New CString for disassembler failed")
+            .into_bytes_with_nul();
+        let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
+
+        if cstring.len() <= len {
+            str.copy_from_nonoverlapping(raw_cstring, cstring.len());
+        } else {
+            str.copy_from_nonoverlapping(raw_cstring, len - 1);
+            *str.add(len - 1) = 0;
+        }
+
+        cycles
+    }
+}
+
+/// Executes and disassembles the next instruction, returning the disassembled string, the cycle count necessary to execute it,
+/// and the vector of the exception that occured during the execution if any.
+///
+/// To process the returned exception, call [M68000::exception].
+///
+/// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
+/// `len` is the maximum size of the buffer.
+#[no_mangle]
+pub extern "C" fn m68000_disassembler_interpreter_exception(m68000: *mut M68000, memory: *mut M68000Callbacks, str: *mut c_char, len: usize) -> ExceptionResult {
+    unsafe {
+        let (dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
+
+        let cstring = CString::new(dis).expect("New CString for disassembler failed")
+            .into_bytes_with_nul();
+        let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
+
+        if cstring.len() <= len {
+            str.copy_from_nonoverlapping(raw_cstring, cstring.len());
+        } else {
+            str.copy_from_nonoverlapping(raw_cstring, len - 1);
+            *str.add(len - 1) = 0;
+        }
+
         ExceptionResult { cycles, exception: vector.unwrap_or(0) }
     }
 }
@@ -229,13 +274,5 @@ pub extern "C" fn m68000_get_registers(m68000: *const M68000) -> Registers {
 pub extern "C" fn m68000_set_registers(m68000: *mut M68000, regs: Registers) {
     unsafe {
         (*m68000).regs = regs;
-    }
-}
-
-/// If `enabled` is true, the core will call `M68000Callbacks::disassembler` on each instruction executed.
-#[no_mangle]
-pub extern "C" fn m68000_enable_disassembler(m68000: *mut M68000, enabled: bool) {
-    unsafe {
-        (*m68000).disassemble = enabled;
     }
 }
