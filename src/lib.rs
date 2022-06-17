@@ -68,6 +68,7 @@ mod fast_interpreter;
 mod fast_operands;
 pub mod instruction;
 mod interpreter;
+mod instruction_interpreter;
 pub mod isa;
 pub mod memory_access;
 pub mod status_register;
