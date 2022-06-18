@@ -47,6 +47,18 @@ impl Instruction {
         res.1 += 2; // Add opcode length.
         Ok(res)
     }
+
+    /// Disassemble the intruction.
+    pub fn disassemble(&self) -> String {
+        let isa: Isa = self.opcode.into();
+        (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(self)
+    }
+}
+
+impl std::fmt::Display for Instruction {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.disassemble())
+    }
 }
 
 /// Specify the direction of the operation.

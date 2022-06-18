@@ -1,10 +1,8 @@
 //! ISA definition and helper structs to decode, disassemble and interpret (internal only) the instructions.
 
-use crate::{M68000, MemoryAccess};
 use crate::decoder::DECODER;
 use crate::disassembler::*;
 use crate::instruction::Instruction;
-use crate::interpreter::InterpreterResult;
 use crate::memory_access::MemoryIter;
 use crate::instruction::*;
 
@@ -222,100 +220,5 @@ impl IsaEntry {
         IsaEntry { /* isa: Isa::Trapv,*/   decode: no_operands,                                   disassemble: disassemble_trapv, },
         IsaEntry { /* isa: Isa::Tst,*/     decode: size_effective_address,                        disassemble: disassemble_tst, },
         IsaEntry { /* isa: Isa::Unlk,*/    decode: register,                                      disassemble: disassemble_unlk, },
-    ];
-}
-
-pub(crate) struct Execute<M: MemoryAccess> {
-    _m: M,
-}
-
-impl<M: MemoryAccess> Execute<M> {
-    /// Function used to executing the instruction.
-    pub(crate) const EXECUTE: [fn(&mut M68000, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
-        M68000::unknown_instruction,
-        M68000::abcd,
-        M68000::add,
-        M68000::adda,
-        M68000::addi,
-        M68000::addq,
-        M68000::addx,
-        M68000::and,
-        M68000::andi,
-        M68000::andiccr,
-        M68000::andisr,
-        M68000::asm,
-        M68000::asr,
-        M68000::bcc,
-        M68000::bchg,
-        M68000::bclr,
-        M68000::bra,
-        M68000::bset,
-        M68000::bsr,
-        M68000::btst,
-        M68000::chk,
-        M68000::clr,
-        M68000::cmp,
-        M68000::cmpa,
-        M68000::cmpi,
-        M68000::cmpm,
-        M68000::dbcc,
-        M68000::divs,
-        M68000::divu,
-        M68000::eor,
-        M68000::eori,
-        M68000::eoriccr,
-        M68000::eorisr,
-        M68000::exg,
-        M68000::ext,
-        M68000::illegal,
-        M68000::jmp,
-        M68000::jsr,
-        M68000::lea,
-        M68000::link,
-        M68000::lsm,
-        M68000::lsr,
-        M68000::r#move,
-        M68000::movea,
-        M68000::moveccr,
-        M68000::movefsr,
-        M68000::movesr,
-        M68000::moveusp,
-        M68000::movem,
-        M68000::movep,
-        M68000::moveq,
-        M68000::muls,
-        M68000::mulu,
-        M68000::nbcd,
-        M68000::neg,
-        M68000::negx,
-        M68000::nop,
-        M68000::not,
-        M68000::or,
-        M68000::ori,
-        M68000::oriccr,
-        M68000::orisr,
-        M68000::pea,
-        M68000::reset,
-        M68000::rom,
-        M68000::ror,
-        M68000::roxm,
-        M68000::roxr,
-        M68000::rte,
-        M68000::rtr,
-        M68000::rts,
-        M68000::sbcd,
-        M68000::scc,
-        M68000::stop,
-        M68000::sub,
-        M68000::suba,
-        M68000::subi,
-        M68000::subq,
-        M68000::subx,
-        M68000::swap,
-        M68000::tas,
-        M68000::trap,
-        M68000::trapv,
-        M68000::tst,
-        M68000::unlk,
     ];
 }

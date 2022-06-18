@@ -46,9 +46,6 @@ pub trait MemoryAccess {
 
     /// Called when the CPU executes a RESET instruction.
     fn reset_instruction(&mut self);
-
-    /// If `M68000::disassemble` is true, called by the interpreter with the address and the disassembly of the next instruction that will be executed.
-    fn disassembler(&mut self, _pc: u32, _inst_string: String);
 }
 
 /// Iterator over 16-bits values in memory.
@@ -166,7 +163,7 @@ impl M68000 {
         }
     }
 
-    /// Returns the word at `self.pc` then advances `self.pc` by 2.
+    /// Returns the word at `self.regs.pc` then advances `self.regs.pc` by 2.
     ///
     /// Please note that this function advances the program counter so be careful when using it.
     /// This function is public because it can be useful in some contexts such as OS-9 environments
@@ -178,7 +175,17 @@ impl M68000 {
         data
     }
 
-    /// Returns the word at `self.pc`.
+    /// Returns the long at `self.regs.pc` then advances `self.regs.pc` by 4.
+    ///
+    /// Please note that this function advances the program counter so be careful when using it.
+    #[must_use]
+    pub fn get_next_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
+        let data = memory.get_long(self.regs.pc);
+        self.regs.pc += 4;
+        data
+    }
+
+    /// Returns the word at `self.regs.pc`.
     ///
     /// This function is public because it can be useful in some contexts such as OS-9 environments
     /// where the trap ID is the immediate next word after the TRAP instruction.
