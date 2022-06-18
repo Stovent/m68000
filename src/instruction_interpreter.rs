@@ -19,14 +19,14 @@ impl M68000 {
     ///
     /// To process the returned exception, call [M68000::exception].
     pub fn disassembler_interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
+        if self.stop {
+            return (String::from(""), 0, None);
+        }
+
         let mut cycle_count = 0;
 
         if !self.exceptions.is_empty() {
             cycle_count += self.process_pending_exceptions(memory);
-        }
-
-        if self.stop {
-            return (String::from(""), 0, None);
         }
 
         let pc = self.regs.pc;

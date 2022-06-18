@@ -43,10 +43,6 @@ impl MemoryAccess for Memory68070 {
         }
     }
 
-    fn get_long(&mut self, addr: u32) -> GetResult<u32> {
-        Ok((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
-    }
-
     fn set_byte(&mut self, addr: u32, value: u8) -> SetResult {
         if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
             if addr == 0x8000_2019 {
@@ -64,11 +60,6 @@ impl MemoryAccess for Memory68070 {
     fn set_word(&mut self, addr: u32, value: u16) -> SetResult {
         self.set_byte(addr, (value >> 8) as u8)?;
         self.set_byte(addr + 1, value as u8)
-    }
-
-    fn set_long(&mut self, addr: u32, value: u32) -> SetResult {
-        self.set_word(addr, (value >> 16) as u16)?;
-        self.set_word(addr + 2, value as u16)
     }
 
     fn reset_instruction(&mut self) {}

@@ -7,18 +7,19 @@ use crate::execution_times as EXEC;
 use crate::instruction::Size;
 use crate::utils::IsEven;
 
-/// Returns the value asked on success, `Err(Vector::AccessError as u8)` if an access (bus) error occured. Alias for `Result<T, u8>`.
+/// Returns the value asked on success, `Err(Vector::ResetSspPc or AccessError as u8)` if a reset or an access (bus) error occured. Alias for `Result<T, u8>`.
 pub type GetResult<T> = Result<T, u8>;
-/// Returns `Ok(())` on success, `Err(Vector::AccessError as u8)` if an access (bus) error occured. Alias for `Result<(), u8>`.
+/// Returns `Ok(())` on success, `Err(Vector::ResetSspPc or AccessError as u8)` if a reset or an access (bus) error occured. Alias for `Result<(), u8>`.
 pub type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 ///
-/// Return `Err(Vector::AccessError as u8)` if an [Access Error (Bus Error)](crate::exception::Vector::AccessError) occured.
-/// It is mandatory to return only this value in an Err.
+/// Returning an `Err()` immediatly abort the current instruction.
+/// The only exception vectors that can abort instruction execution are Reset, Access Error and Address Error.
+/// Address Errors are automatically detected by the library, guaranteeing that the addresses sent are always word-aligned (even addresses).
 ///
-/// It is the implementor's responsibility to send this error.
-/// Access errors are sent when the accessed address is not in the memory range of the system.
+/// Return `Err(Vector::AccessError as u8)` if an [Access Error (Bus Error)](crate::exception::Vector::AccessError) occured,
+/// or `Err(Vector::ResetSspPc as u8)` if a reset occured.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]
@@ -27,8 +28,12 @@ pub trait MemoryAccess {
     #[must_use]
     fn get_word(&mut self, addr: u32) -> GetResult<u16>;
     /// Returns a big-endian 32-bits integer from the given address.
+    ///
+    /// The default implementation is doing 2 calls to [Self::get_word] with the high and low words.
     #[must_use]
-    fn get_long(&mut self, addr: u32) -> GetResult<u32>;
+    fn get_long(&mut self, addr: u32) -> GetResult<u32> {
+        Ok((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
+    }
 
     /// Stores the given 8-bits value at the given address.
     #[must_use]
@@ -37,12 +42,19 @@ pub trait MemoryAccess {
     #[must_use]
     fn set_word(&mut self, addr: u32, value: u16) -> SetResult;
     /// Stores the given 32-bits value at the given address, in big-endian format.
+    ///
+    /// The default implementation is doing 2 calls to [Self::set_word] with the high and low words.
     #[must_use]
-    fn set_long(&mut self, addr: u32, value: u32) -> SetResult;
+    fn set_long(&mut self, addr: u32, value: u32) -> SetResult {
+        self.set_word(addr, (value >> 16) as u16)?;
+        self.set_word(addr + 2, value as u16)
+    }
 
     /// Not meant to be overridden. Returns a [MemoryIter] starting at the given address that will be used to decode instructions.
     #[must_use]
-    fn iter_u16(&mut self, addr: u32) -> MemoryIter where Self: Sized { MemoryIter { memory: self, next_addr: addr } }
+    fn iter_u16(&mut self, addr: u32) -> MemoryIter where Self: Sized {
+        MemoryIter { memory: self, next_addr: addr }
+    }
 
     /// Called when the CPU executes a RESET instruction.
     fn reset_instruction(&mut self);

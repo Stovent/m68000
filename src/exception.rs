@@ -9,10 +9,18 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
 /// Exception vectors of the 68000.
+///
+/// You can directly cast the enum to u8 to get the vector number.
+/// ```
+/// use m68000::exception::Vector;
+/// assert_eq!(Vector::AccessError as u8, 2);
+/// ```
+///
+/// The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Vector {
     ResetSspPc = 0,
-    /// Bus error.
+    /// Bus error. Sent when the accessed address is not in the memory range of the system.
     AccessError = 2,
     AddressError,
     IllegalInstruction,
@@ -21,8 +29,6 @@ pub enum Vector {
     TrapVInstruction,
     PrivilegeViolation,
     Trace,
-    Line1010Emulator,
-    Line1111Emulator,
     FormatError = 14,
     UninitializedInterrupt,
     /// The spurious interrupt vector is taken when there is a bus error indication during interrupt processing.
@@ -50,7 +56,6 @@ pub enum Vector {
     Trap13Instruction,
     Trap14Instruction,
     Trap15Instruction,
-    /// SCC68070 only.
     Level1OnChipInterrupt = 57,
     Level2OnChipInterrupt,
     Level3OnChipInterrupt,
@@ -61,56 +66,32 @@ pub enum Vector {
     UserInterrupt,
 }
 
-// TODO: group of the remaining vectors (Line A/F emulation, Format error, uninitialized interrupt vector).
-pub(crate) fn get_vector_group(vector: u8) -> u8 {
+fn get_vector_priority(vector: u8) -> u8 {
     match vector {
-        0..=3 => 0,
-        4 => 1,
-        5..=7 => 2,
-        8..=9 => 1,
-        24..=31 => 1,
-        32..=47 => 2,
-        64..=255 => 1,
-        _ => panic!("[get_vector_group] Unkown vector {}.", vector),
+        3 => 1, // Address error.
+        2 => 2, // Access Error.
+        9 => 3, // Trace.
+        24..=31 => 4, // Interrupt.
+        64..=255 => 4, // User Interrupt.
+        4 => 5, // Illegal.
+        8 => 6, // Privilege.
+        // Even though Reset has the higest priority, it is given a high number.
+        // The point is to make the reset vector be processed first, and the reset processing clears all the pending exceptions.
+        _ => u8::MAX, // Reset and the other vectors.
     }
 }
 
-// TODO: priority of the remaining vectors (Line A/F emulation, Format error, uninitialized interrupt vector).
-pub(crate) fn get_vector_priority(vector: u8, group: u8) -> u8 {
-    match group {
-        0 => match vector {
-            0 => 0,
-            3 => 1,
-            2 => 2,
-            _ => panic!("[get_vector_priority] Unkown vector {} for group 0.", vector),
-        },
-        1 => match vector {
-            9 => 0,
-            24..=31 => 1,
-            64..=255 => 1,
-            4 => 2,
-            8 => 3,
-            _ => panic!("[get_vector_priority] Unkown vector {} for group 1.", vector),
-        },
-        2 => 0, // Only one instruction can be executed at a time, so no priority necessary.
-        _ => panic!("[get_vector_priority] Unkown group {}.", group),
-    }
-}
-
-/// Lowest number = higher priority.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(crate) struct Exception {
     pub vector: u8,
-    group: u8,
-    /// Priority inside the group.
+    /// Lower means higher priority.
     priority: u8,
 }
 
 impl Exception {
-    pub(crate) fn new(vector: u8) -> Self {
-        let group = get_vector_group(vector);
-        let priority = get_vector_priority(vector, group);
-        Self { vector, group, priority }
+    fn new(vector: u8) -> Self {
+        let priority = get_vector_priority(vector);
+        Self { vector, priority }
     }
 }
 
@@ -121,20 +102,14 @@ impl PartialOrd for Exception {
 }
 
 impl Ord for Exception {
-    /// Max-heap regarding the group and priority number.
+    /// Max-heap regarding the priority number.
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.group < other.group {
+        if self.priority < other.priority {
             Ordering::Less
-        } else if self.group > other.group {
+        } else if self.priority > other.priority {
             Ordering::Greater
         } else {
-            if self.priority < other.priority {
-                Ordering::Less
-            } else if self.priority > other.priority {
-                Ordering::Greater
-            } else {
-                Ordering::Equal
-            }
+            Ordering::Equal
         }
     }
 }
@@ -142,25 +117,18 @@ impl Ord for Exception {
 impl M68000 {
     /// Requests the CPU to process the given exception.
     pub fn exception(&mut self, vector: u8) {
+        if vector == Vector::Trace as u8 ||
+           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
+           vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8 {
+            self.stop = false;
+        }
+
         let exception = Exception::new(vector);
         self.exceptions.push(exception);
     }
 
     /// Attempts to process all the pending exceptions
-    pub(crate) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
-        // The reset vector clears all the pending interrupts.
-        let mut has_reset = false;
-        for ex in self.exceptions.iter() {
-            if *ex == Exception::new(Vector::ResetSspPc as u8) {
-                has_reset = true;
-            }
-        }
-        if has_reset {
-            self.exceptions.clear();
-            return self.process_exception(memory, Vector::ResetSspPc as u8)
-                .unwrap_or_else(|_| panic!("An Access Error occured during reset vector."));
-        }
-
+    pub(super) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
         let mut total = 0;
 
         // Save the unprocessed interrupts.
@@ -212,15 +180,10 @@ impl M68000 {
         if vector == 0 {
             self.regs.ssp = memory.get_long(0)?;
             self.regs.pc  = memory.get_long(4)?;
+            self.regs.sr.interrupt_mask = 7;
             self.stop = false;
-            self.exceptions.clear();
+            self.exceptions.clear(); // The reset vector clears all the pending interrupts.
             return Ok(EXEC::VECTOR_RESET);
-        }
-
-        if vector == Vector::Trace as u8 ||
-           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
-           vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8 {
-            self.stop = false;
         }
 
         #[cfg(feature = "cpu-mc68000")] {

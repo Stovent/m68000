@@ -101,14 +101,14 @@ impl M68000 {
     ///
     /// To process the returned exception, call [M68000::exception].
     pub fn interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
+        if self.stop {
+            return (0, None);
+        }
+
         let mut cycle_count = 0;
 
         if !self.exceptions.is_empty() {
             cycle_count += self.process_pending_exceptions(memory);
-        }
-
-        if self.stop {
-            return (0, None);
         }
 
         let opcode = match self.get_next_word(memory) {

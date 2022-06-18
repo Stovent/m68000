@@ -20,19 +20,11 @@ impl MemoryAccess for Memory {
         Ok((self.data[addr as usize] as u16) << 8 | self.data[addr as usize + 1] as u16)
     }
 
-    fn get_long(&mut self, addr: u32) -> GetResult<u32> {
-        Ok((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
-    }
-
     fn set_byte(&mut self, _: u32, _: u8) -> SetResult {
         Ok(())
     }
 
     fn set_word(&mut self, _: u32, _: u16) -> SetResult {
-        Ok(())
-    }
-
-    fn set_long(&mut self, _: u32, _: u32) -> SetResult {
         Ok(())
     }
 

@@ -10,8 +10,8 @@
 //!
 //! There are no default features. If you don't specify any feature or specify more than one, a compile-time error is raised.
 //!
-//! * MC68000 (feature "cpu-mc68000")
-//! * SCC68070 (feature "cpu-scc68070")
+//! * MC68000 (feature `cpu-mc68000`)
+//! * SCC68070 (feature `cpu-scc68070`)
 //!
 //! # How to use
 //!
@@ -109,7 +109,6 @@ pub struct Registers {
 pub struct M68000 {
     pub regs: Registers,
 
-    #[allow(dead_code)]
     current_opcode: u16,
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
     pub stop: bool,

@@ -2093,7 +2093,6 @@ impl M68000 {
 
     pub(super) fn execute_stop(&mut self, imm: u16) -> InterpreterResult {
         if self.regs.sr.s {
-            // TODO: trace.
             self.regs.sr = imm.into();
             self.stop = true;
             Ok(EXEC::STOP)
