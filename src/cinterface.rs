@@ -1,3 +1,94 @@
+//! The C interface of the library, to use it in other languages.
+//!
+//! The functions and structures defined here should not be used in a rust program.
+//!
+//! To use it, first allocate a new core with [m68000_new] or [m68000_new_no_reset]. When done, delete it with [m68000_delete].
+//!
+//! ## Memory callback
+//!
+//! You need to provide the memory access structure to the core when executing instructions.
+//! Create a new [M68000Callbacks] structure, and assign the correct function callback as its members.
+//!
+//! Each callback returns a [GetSetResult], which indicates if the memory access is successful or not.
+//! If successful, set the `exception` member to 0 and set the `data` member to the value to be returned if read. it is not used on write.
+//! If the address is out of range, set `exception` to 2 (Access Error).
+//!
+//! ## Interpreter functions
+//!
+//! There are several functions to execute instructions, see their individual documentation for more information:
+//! - [m68000_interpreter] is the basic one. It tries to execute the next instruction, and returns the number of cycles the instruction tool to be executed.
+//! if an exception occurs, it is added to the pending exceptions and will be processed on the next call to an interpreter function.
+//! - [m68000_interpreter_exception] is like above, but if an exception occurs, it is returned instead of being processed.
+//! To process the returned exception, call [m68000_exception] with the vector returned.
+//! - [m68000_cycle] which runs the CPU for **at least** the given number of cycles.
+//! - [m68000_cycle_until_exception] which runs the CPU until either an exception occurs or **at least** the given number of cycles have been executed.
+//! - [m68000_loop_until_exception_stop] which runs the CPU indefinitely, until an exception or a STOP instruction occurs.
+//! - [m68000_disassembler_interpreter] which behaves like [m68000_interpreter] and returns the disassembled string of the instruction executed.
+//! - [m68000_disassembler_interpreter_exception] which behaves like [m68000_interpreter_exception] and returns the disassembled string of the instruction executed.
+//!
+//! ## Exceptions processing
+//!
+//! To request the core to process an exception, call [m68000_exception] with the vector number of the exception to process.
+//!
+//! ## Accessing the registers
+//!
+//! There are 3 functions to read and write to the core's registers:
+//! - [m68000_registers] returns a mutable (non-const) pointer to the [Registers](crate::Registers).
+//! The location of the registers does not change during execution, so you can store the pointer for as long as the core lives.
+//! - [m68000_get_registers] returns a copy of the registers. Writing to it does not modify the core's registers.
+//! - [m68000_set_registers] sets the core's registers to the value of the given [Registers] structure.
+//!
+//! ## C example
+//!
+//! See the README.md file for a complete example.
+//!
+//! ```c
+//! #include "m68000.h"
+//!
+//! #include <stdint.h>
+//! #include <stdlib.h>
+//!
+//! #define MEMSIZE (1 << 20) // 1 MB.
+//!
+//! GetSetResult getByte(uint32_t addr, void* user_data)
+//! {
+//!     const uint8_t* memory = user_data;
+//!     if(addr < MEMSIZE)
+//!         return (GetSetResult){
+//!             .data = memory[addr],
+//!             .exception = 0,
+//!         };
+//!
+//!     // If out of range, return an Access (bus) error.
+//!     return (GetSetResult){
+//!         .data = 0,
+//!         .exception = 2,
+//!     };
+//! }
+//!
+//! int main()
+//! {
+//!     uint8_t* memory = malloc(MEMSIZE);
+//!     // Check if malloc is successful, then load your program in memory here.
+//!     // Next create the memory callback structure:
+//!     M68000Callbacks callbacks = {
+//!         .get_byte = getByte,
+//!         // Assign the rest of the members.
+//!         .user_data = memory,
+//!     };
+//!
+//!     M68000* core = m68000_new(); // Create a new core.
+//!
+//!     // Now execute instructions as you want.
+//!     m68000_interpreter(core, &callbacks);
+//!
+//!     // end of the program.
+//!     m68000_delete(core);
+//!     free(memory);
+//!     return 0;
+//! }
+//! ```
+
 use crate::{M68000, Registers};
 use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 
@@ -28,13 +119,13 @@ pub struct GetSetResult {
 /// For example, this can be used to allow the usage of C++ objects, where `user_data` has the value of the `this` pointer of the object.
 #[repr(C)]
 pub struct M68000Callbacks {
-    pub get_byte: extern "C" fn(u32, *mut c_void) -> GetSetResult,
-    pub get_word: extern "C" fn(u32, *mut c_void) -> GetSetResult,
-    pub get_long: extern "C" fn(u32, *mut c_void) -> GetSetResult,
+    pub get_byte: extern "C" fn(addr: u32, user_data: *mut c_void) -> GetSetResult,
+    pub get_word: extern "C" fn(addr: u32, user_data: *mut c_void) -> GetSetResult,
+    pub get_long: extern "C" fn(addr: u32, user_data: *mut c_void) -> GetSetResult,
 
-    pub set_byte: extern "C" fn(u32, u8, *mut c_void) -> GetSetResult,
-    pub set_word: extern "C" fn(u32, u16, *mut c_void) -> GetSetResult,
-    pub set_long: extern "C" fn(u32, u32, *mut c_void) -> GetSetResult,
+    pub set_byte: extern "C" fn(addr: u32, data: u8, user_data: *mut c_void) -> GetSetResult,
+    pub set_word: extern "C" fn(addr: u32, data: u16, user_data: *mut c_void) -> GetSetResult,
+    pub set_long: extern "C" fn(addr: u32, data: u32, user_data: *mut c_void) -> GetSetResult,
 
     pub reset_instruction: extern "C" fn(*mut c_void),
 
@@ -102,10 +193,19 @@ impl MemoryAccess for M68000Callbacks {
     }
 }
 
-/// Allocates a new core and returns the pointer to it. Is is unmanaged by Rust, so you have to delete it after usage.
+/// Allocates a new core and returns the pointer to it. It is not managed by Rust, so you have to delete it after usage with [m68000_delete].
+///
+/// The created core has a Reset exception pushed, so that the first call to an interpreter method
+/// will first fetch the reset vectors, then will execute the first instruction.
 #[no_mangle]
 pub extern "C" fn m68000_new() -> *mut M68000 {
     Box::into_raw(Box::new(M68000::new()))
+}
+
+/// [m68000_new] but without the initial reset vector, so you can initialize the core as you want.
+#[no_mangle]
+pub extern "C" fn m68000_new_no_reset() -> *mut M68000 {
+    Box::into_raw(Box::new(M68000::new_no_reset()))
 }
 
 /// Frees the memory of the given core.

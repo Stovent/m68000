@@ -48,6 +48,10 @@
 //! }
 //! ```
 //!
+//! ## C interface
+//!
+//! This library has a C interface, see the README and the [cinterface] module for how to use it.
+//!
 //! # TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
@@ -60,6 +64,9 @@ compile_error!("You must specify one and only one CPU type feature.");
 
 pub mod addressing_modes;
 pub mod assembler;
+#[cfg(doc)]
+pub mod cinterface;
+#[cfg(not(doc))]
 mod cinterface;
 pub mod decoder;
 pub mod disassembler;
@@ -131,7 +138,7 @@ impl M68000 {
         cpu
     }
 
-    /// [Self::new] but without the initial reset vectors, so you can initialize the core as you want.
+    /// [Self::new] but without the initial reset vector, so you can initialize the core as you want.
     pub fn new_no_reset() -> Self {
         Self {
             regs: Registers {

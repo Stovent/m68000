@@ -46,129 +46,138 @@ You can change the name of the file by changing the last parameter of the previo
 
 ## Use the C interface
 
+The complete documentation for the functions and structures can be found in the `cinterface.rs` module.
+See the C example below for a basic start.
+
 Include the generated header file in your project, and define your memory access callback functions. These functions will be passed to the core through a M68000Callbacks struct.
 
 The returned values are in a GetSetResult struct. Set `GetSetResult.exception` to 0 and set `GetSetResult.data` to the value to be returned on success. Set `GetSetResult.exception` to 2 (Access Error vector) if an Access Error occurs.
 
+## C example
+
 ```c
 #include "m68000.h"
 
-uint8_t memory[0x500000] = {0};
+#include <stdint.h>
+#include <stdlib.h>
 
-GetSetResult getByte(uint32_t addr)
+#define MEMSIZE (1 << 20) // 1 MB.
+
+GetSetResult getByte(uint32_t addr, void* user_data)
 {
-    GetSetResult gs = {
+    const uint8_t* memory = user_data;
+    if(addr < MEMSIZE)
+        return (GetSetResult){
+            .data = memory[addr],
+            .exception = 0,
+        };
+
+    // If out of range, return an Access (bus) error.
+    return (GetSetResult){
         .data = 0,
-        .exception = 0
+        .exception = 2,
     };
-
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
-        gs.data = memory[addr];
-
-    return gs;
 }
 
-GetSetResult getWord(uint32_t addr)
+GetSetResult getWord(uint32_t addr, void* user_data)
 {
-    GetSetResult gs = {
+    const uint8_t* memory = user_data;
+    if(addr < MEMSIZE)
+        return (GetSetResult){
+            .data = (uint16_t)memory[addr] << 8
+                | (uint16_t)memory[addr + 1],
+            .exception = 0,
+        };
+
+    // If out of range, return an Access (bus) error.
+    return (GetSetResult){
         .data = 0,
-        .exception = 0
+        .exception = 2,
     };
-
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
-    {
-        gs.data = (uint16_t)memory[addr] << 8 | (uint16_t)memory[addr + 1];
-    }
-
-    return gs;
 }
 
-GetSetResult getLong(uint32_t addr)
+GetSetResult getLong(uint32_t addr, void* user_data)
 {
-    GetSetResult gs = {
-        .data = 0,
-        .exception = 0
-    };
-
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
-    {
-        gs.data = (uint32_t)memory[addr] << 24
+    const uint8_t* memory = user_data;
+    if(addr < MEMSIZE)
+        return (GetSetResult){
+            .data = (uint32_t)memory[addr] << 24
                 | (uint32_t)memory[addr + 1] << 16
                 | (uint32_t)memory[addr + 2] << 8
-                | (uint32_t)memory[addr + 3];
-    }
+                | memory[addr + 3],
+            .exception = 0,
+        };
 
-    return gs;
+    // If out of range, return an Access (bus) error.
+    return (GetSetResult){
+        .data = 0,
+        .exception = 2,
+    };
 }
 
-GetSetResult setByte(uint32_t addr, uint8_t data)
+GetSetResult setByte(uint32_t addr, uint8_t data, void* user_data)
 {
-    GetSetResult gs = {
-        .data = 0, // Always 0 in Set functions.
-        .exception = 0
+    uint8_t* memory = user_data;
+    GetSetResult res = {
+        .data = 0,
+        .exception = 0,
     };
 
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
+    if(addr < MEMSIZE)
         memory[addr] = data;
+    else
+        res.exception = 2;
 
-    return gs;
+    return res;
 }
 
-GetSetResult setWord(uint32_t addr, uint16_t data)
+GetSetResult setWord(uint32_t addr, uint16_t data, void* user_data)
 {
-    GetSetResult gs = {
-        .data = 0, // Always 0 in Set functions.
-        .exception = 0
+    uint8_t* memory = user_data;
+    GetSetResult res = {
+        .data = 0,
+        .exception = 0,
     };
 
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
+    if(addr < MEMSIZE)
     {
         memory[addr] = data >> 8;
         memory[addr + 1] = data;
     }
+    else
+        res.exception = 2;
 
-    return gs;
+    return res;
 }
 
-GetSetResult setLong(uint32_t addr, uint32_t data)
+GetSetResult setLong(uint32_t addr, uint32_t data, void* user_data)
 {
-    GetSetResult gs = {
-        .data = 0, // Always 0 in Set functions.
-        .exception = 0
+    uint8_t* memory = user_data;
+    GetSetResult res = {
+        .data = 0,
+        .exception = 0,
     };
 
-    if(addr >= 0x500000)
-        gs.exception = 2; // If out of range, return an Access Error.
-    else
+    if(addr < MEMSIZE)
     {
         memory[addr] = data >> 24;
         memory[addr + 1] = data >> 16;
         memory[addr + 2] = data >> 8;
         memory[addr + 3] = data;
     }
+    else
+        res.exception = 2;
 
-    return gs;
+    return res;
 }
 
-void reset() {}
-
-void disassembler(uint32_t pc, const char* str) {}
+void reset(void* user_data) {}
 
 int main()
 {
-    // Load your program in memory here.
-
-    // Create the M68000Callbacks struct, and assign the callbacks to it.
+    uint8_t* memory = malloc(MEMSIZE);
+    // Check if malloc is successful, then load your program in memory here.
+    // Next create the memory callback structure:
     M68000Callbacks callbacks = {
         .get_byte = getByte,
         .get_word = getWord,
@@ -177,21 +186,16 @@ int main()
         .set_word = setWord,
         .set_long = setLong,
         .reset_instruction = reset,
-        .disassembler = disassembler,
+        .user_data = memory,
     };
 
-    // Create a new core.
-    M68000* core = m68000_new();
-    // Enable the disassembler if you want, and implement the disassembler callback.
-//    m68000_enable_disassembler(core, true);
+    M68000* core = m68000_new(); // Create a new core.
+    // Now execute instructions as you want.
+    m68000_interpreter(core, &callbacks);
 
-    // Run the core for the given number of cycles.
-    m68000_cycle(core, &callbacks, 13001038281);
-    // Or call interpreter to execute instructions one by one.
-//    m68000_interpreter(core, &callbacks);
-
-    // Free the allocated memory for the core.
+    // end of the program.
     m68000_delete(core);
+    free(memory);
     return 0;
 }
 ```
