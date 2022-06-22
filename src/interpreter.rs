@@ -18,6 +18,15 @@ pub(super) type InterpreterResult = Result<usize, u8>;
 // All this for only 3 instructions ?
 
 impl M68000 {
+    #[must_use]
+    const fn check_supervisor(&self) -> Result<(), u8> {
+        if self.regs.sr.s {
+            Ok(())
+        } else {
+            Err(Vector::PrivilegeViolation as u8)
+        }
+    }
+
     pub(super) fn execute_unknown_instruction(&self) -> InterpreterResult {
         Err(Vector::IllegalInstruction as u8)
     }
@@ -465,12 +474,10 @@ impl M68000 {
     }
 
     pub(super) fn execute_andisr(&mut self, imm: u16) -> InterpreterResult {
-        if self.regs.sr.s {
-            self.regs.sr &= imm;
-            Ok(EXEC::ANDISR)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        self.check_supervisor()?;
+
+        self.regs.sr &= imm;
+        Ok(EXEC::ANDISR)
     }
 
     pub(super) fn execute_asm(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
@@ -1056,12 +1063,10 @@ impl M68000 {
     }
 
     pub(super) fn execute_eorisr(&mut self, imm: u16) -> InterpreterResult {
-        if self.regs.sr.s {
-            self.regs.sr ^= imm;
-            Ok(EXEC::EORISR)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        self.check_supervisor()?;
+
+        self.regs.sr ^= imm;
+        Ok(EXEC::EORISR)
     }
 
     pub(super) fn execute_exg(&mut self, rx: u8, mode: Direction, ry: u8) -> InterpreterResult {
@@ -1314,29 +1319,25 @@ impl M68000 {
     }
 
     pub(super) fn execute_movesr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
-        if self.regs.sr.s {
-            let mut ea = EffectiveAddress::new(am, Some(Size::Word));
-            let mut exec_time = EXEC::MOVESR;
+        self.check_supervisor()?;
 
-            let sr = self.get_word(memory, &mut ea, &mut exec_time)?;
-            self.regs.sr = sr.into();
-            Ok(exec_time)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        let mut ea = EffectiveAddress::new(am, Some(Size::Word));
+        let mut exec_time = EXEC::MOVESR;
+
+        let sr = self.get_word(memory, &mut ea, &mut exec_time)?;
+        self.regs.sr = sr.into();
+        Ok(exec_time)
     }
 
     pub(super) fn execute_moveusp(&mut self, dir: Direction, reg: u8) -> InterpreterResult {
-        if self.regs.sr.s {
-            if dir == Direction::UspToRegister {
-                *self.a_mut(reg) = self.regs.usp;
-            } else {
-                self.regs.usp = self.a(reg);
-            }
-            Ok(EXEC::MOVEUSP)
+        self.check_supervisor()?;
+
+        if dir == Direction::UspToRegister {
+            *self.a_mut(reg) = self.regs.usp;
         } else {
-            Err(Vector::PrivilegeViolation as u8)
+            self.regs.usp = self.a(reg);
         }
+        Ok(EXEC::MOVEUSP)
     }
 
     pub(super) fn execute_movem(&mut self, memory: &mut impl MemoryAccess, dir: Direction, size: Size, am: AddressingMode, mut list: u16) -> InterpreterResult {
@@ -1795,12 +1796,10 @@ impl M68000 {
     }
 
     pub(super) fn execute_orisr(&mut self, imm: u16) -> InterpreterResult {
-        if self.regs.sr.s {
-            self.regs.sr |= imm;
-            Ok(EXEC::ORISR)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        self.check_supervisor()?;
+
+        self.regs.sr |= imm;
+        Ok(EXEC::ORISR)
     }
 
     pub(super) fn execute_pea(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
@@ -1823,12 +1822,10 @@ impl M68000 {
     }
 
     pub(super) fn execute_reset(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        if self.regs.sr.s {
-            memory.reset_instruction();
-            Ok(EXEC::RESET)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        self.check_supervisor()?;
+
+        memory.reset_instruction();
+        Ok(EXEC::RESET)
     }
 
     pub(super) fn execute_rom(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
@@ -2008,30 +2005,28 @@ impl M68000 {
     }
 
     pub(super) fn execute_rte(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        if self.regs.sr.s {
-            let sr = self.pop_word(memory)?;
-            self.regs.pc = self.pop_long(memory)?;
-            #[allow(unused_mut)]
-            let mut exec_time = EXEC::RTE;
+        self.check_supervisor()?;
 
-            #[cfg(feature = "cpu-scc68070")] {
-                let format = self.pop_word(memory)?;
+        let sr = self.pop_word(memory)?;
+        self.regs.pc = self.pop_long(memory)?;
+        #[allow(unused_mut)]
+        let mut exec_time = EXEC::RTE;
 
-                if format & 0xF000 == 0xF000 { // Long format
-                    *self.sp_mut() += 26;
-                    exec_time += 101;
-                    // TODO: execution times when rerun and rerun TAS.
-                } else if format & 0xF000 != 0 {
-                    return Err(Vector::FormatError as u8);
-                }
+        #[cfg(feature = "cpu-scc68070")] {
+            let format = self.pop_word(memory)?;
+
+            if format & 0xF000 == 0xF000 { // Long format
+                *self.sp_mut() += 26;
+                exec_time += 101;
+                // TODO: execution times when rerun and rerun TAS.
+            } else if format & 0xF000 != 0 {
+                return Err(Vector::FormatError as u8);
             }
-
-            self.regs.sr = sr.into();
-
-            Ok(exec_time)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
         }
+
+        self.regs.sr = sr.into();
+
+        Ok(exec_time)
     }
 
     pub(super) fn execute_rtr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
@@ -2092,13 +2087,11 @@ impl M68000 {
     }
 
     pub(super) fn execute_stop(&mut self, imm: u16) -> InterpreterResult {
-        if self.regs.sr.s {
-            self.regs.sr = imm.into();
-            self.stop = true;
-            Ok(EXEC::STOP)
-        } else {
-            Err(Vector::PrivilegeViolation as u8)
-        }
+        self.check_supervisor()?;
+
+        self.regs.sr = imm.into();
+        self.stop = true;
+        Ok(EXEC::STOP)
     }
 
     pub(super) fn execute_sub(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {

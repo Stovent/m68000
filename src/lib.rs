@@ -56,6 +56,8 @@
 //! - Let memory access return extra read or write cycles for accuracy.
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 
+#![feature(btree_drain_filter)]
+
 #[cfg(any(
     all(feature = "cpu-mc68000", feature = "cpu-scc68070"),
     not(any(feature = "cpu-mc68000", feature = "cpu-scc68070")),
@@ -88,10 +90,11 @@ pub(crate) mod execution_times;
 #[path = "cpu/scc68070.rs"]
 pub(crate) mod execution_times;
 
+use exception::{Exception, Vector};
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
-use std::collections::BinaryHeap;
+use std::collections::BTreeSet;
 
 /// M68000 registers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -120,7 +123,7 @@ pub struct M68000 {
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
     pub stop: bool,
     /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
-    exceptions: BinaryHeap<exception::Exception>,
+    exceptions: BTreeSet<exception::Exception>,
     /// Number of cycles executed by the called interpreter method.
     cycles: usize,
 }
@@ -133,7 +136,7 @@ impl M68000 {
     pub fn new() -> Self {
         let mut cpu = Self::new_no_reset();
 
-        cpu.exception(exception::Vector::ResetSspPc as u8);
+        cpu.exception(Exception::from(Vector::ResetSspPc));
 
         cpu
     }
@@ -152,7 +155,7 @@ impl M68000 {
 
             current_opcode: 0xFFFF,
             stop: false,
-            exceptions: BinaryHeap::new(),
+            exceptions: BTreeSet::new(),
             cycles: 0,
         }
     }

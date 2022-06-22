@@ -1,5 +1,5 @@
 use crate::{M68000, MemoryAccess};
-use crate::exception::Vector;
+use crate::exception::{Exception, Vector};
 use crate::instruction::Instruction;
 use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
@@ -9,7 +9,7 @@ impl M68000 {
     pub fn disassembler_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize) {
         let (dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
         if let Some(e) = exception {
-            self.exception(e);
+            self.exception(Exception::from(e));
         }
         (dis, cycles)
     }
@@ -46,7 +46,7 @@ impl M68000 {
         match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => {
                 cycle_count += cycles;
-                if trace { self.exception(Vector::Trace as u8); }
+                if trace { self.exception(Exception::from(Vector::Trace)); }
             },
             Err(e) => return (dis, cycle_count, Some(e)),
         }

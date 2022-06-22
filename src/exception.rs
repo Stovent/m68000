@@ -6,7 +6,7 @@ use crate::execution_times as EXEC;
 use crate::interpreter::InterpreterResult;
 
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
+use std::collections::BTreeSet;
 
 /// Exception vectors of the 68000.
 ///
@@ -18,6 +18,8 @@ use std::collections::BinaryHeap;
 ///
 /// The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[non_exhaustive]
+#[repr(C)]
 pub enum Vector {
     ResetSspPc = 0,
     /// Bus error. Sent when the accessed address is not in the memory range of the system.
@@ -66,7 +68,7 @@ pub enum Vector {
     UserInterrupt,
 }
 
-fn get_vector_priority(vector: u8) -> u8 {
+const fn get_vector_priority(vector: u8) -> u8 {
     match vector {
         3 => 1, // Address error.
         2 => 2, // Access Error.
@@ -81,17 +83,26 @@ fn get_vector_priority(vector: u8) -> u8 {
     }
 }
 
+/// M68000 exception, with a vector number and a priority.
+///
+/// This struct implements `From<u8>` and `From<Vector>`, to create an exception from the raw vector number or from the nammed vector, respectively.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct Exception {
+pub struct Exception {
     pub vector: u8,
     /// Lower means higher priority.
     priority: u8,
 }
 
-impl Exception {
-    fn new(vector: u8) -> Self {
+impl From<u8> for Exception {
+    fn from(vector: u8) -> Self {
         let priority = get_vector_priority(vector);
         Self { vector, priority }
+    }
+}
+
+impl From<Vector> for Exception {
+    fn from(vector: Vector) -> Self {
+        Self::from(vector as u8)
     }
 }
 
@@ -102,12 +113,12 @@ impl PartialOrd for Exception {
 }
 
 impl Ord for Exception {
-    /// Max-heap regarding the priority number.
+    /// For BTreeSet, compare by actual priority and not by the value itself, so higher number means less priority.
     fn cmp(&self, other: &Self) -> Ordering {
         if self.priority < other.priority {
-            Ordering::Less
-        } else if self.priority > other.priority {
             Ordering::Greater
+        } else if self.priority > other.priority {
+            Ordering::Less
         } else {
             Ordering::Equal
         }
@@ -116,51 +127,60 @@ impl Ord for Exception {
 
 impl M68000 {
     /// Requests the CPU to process the given exception.
-    pub fn exception(&mut self, vector: u8) {
-        if vector == Vector::Trace as u8 ||
-           vector >= Vector::SpuriousInterrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
-           vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8 {
+    pub fn exception(&mut self, ex: Exception) {
+        if ex.vector == Vector::Trace as u8 ||
+           ex.vector >= Vector::Level1Interrupt as u8 && ex.vector <= Vector::Level7Interrupt as u8 ||
+           ex.vector >= Vector::Level1OnChipInterrupt as u8 && ex.vector <= Vector::Level7OnChipInterrupt as u8 {
             self.stop = false;
         }
 
-        let exception = Exception::new(vector);
-        self.exceptions.push(exception);
+        self.exceptions.insert(ex);
     }
 
     /// Attempts to process all the pending exceptions
     pub(super) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
-        let mut total = 0;
-
-        // Save the unprocessed interrupts.
-        let mut masked_interrupts = BinaryHeap::new();
-
-        // Pops from the lowest priority to highest, so that when all exceptions has been processed,
-        // the one with the highest priority will be the one treated first.
-        while let Some(exception) = self.exceptions.pop() {
-            if exception.vector >= Vector::Level1Interrupt as u8 && exception.vector <= Vector::Level7Interrupt as u8 ||
-               exception.vector >= Vector::Level1OnChipInterrupt as u8 && exception.vector <= Vector::Level7OnChipInterrupt as u8 {
+        // Extract the exceptions to process and keep the masked interrupts.
+        let exceptions: BTreeSet<_> = self.exceptions.drain_filter(|ex| {
+            if ex.vector >= Vector::Level1Interrupt as u8 && ex.vector <= Vector::Level7Interrupt as u8 ||
+               ex.vector >= Vector::Level1OnChipInterrupt as u8 && ex.vector <= Vector::Level7OnChipInterrupt as u8 {
                 // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
-                let level = exception.vector & 0x7;
+                let level = ex.vector & 0x7;
                 if level <= self.regs.sr.interrupt_mask {
-                    masked_interrupts.push(exception);
-                    continue;
+                    return false;
                 }
             }
 
+            return true;
+        }).collect();
+
+        let mut total = 0;
+
+        // Iterates from the lowest priority to highest, so that when all exceptions have been processed,
+        // the one with the highest priority will be the one treated first.
+        let mut iter = exceptions.iter();
+        while let Some(exception) = iter.next() {
             total += match self.process_exception(memory, exception.vector) {
                 Ok(cycles) => cycles,
                 Err(e) => {
-                    if exception.vector == e && e == Vector::AccessError as u8 {
-                        panic!("An access error occured during access error processing: {} (at {:#X})", e, self.regs.pc);
+                    if e == Vector::AccessError as u8 {
+                        if exception.vector == Vector::AccessError as u8 {
+                            panic!("An access error occured during access error processing (at {:#X})", self.regs.pc);
+                        }
+
+                        if exception.vector >= Vector::Level1Interrupt as u8 && exception.vector <= Vector::Level7Interrupt as u8 ||
+                           exception.vector >= Vector::Level1OnChipInterrupt as u8 && exception.vector <= Vector::Level7OnChipInterrupt as u8 {
+                            self.exception(Exception::from(Vector::SpuriousInterrupt));
+                        } else {
+                            self.exception(Exception::from(e));
+                        }
                     } else {
-                        self.exception(e);
-                        0
+                        self.exception(Exception::from(e));
                     }
+
+                    0
                 },
             };
         }
-
-        self.exceptions.append(&mut masked_interrupts);
 
         total
     }
@@ -172,7 +192,10 @@ impl M68000 {
     ///
     /// CHK and Zero divide have an effective address field. If the exception occurs, the interpreter returns the effective
     /// address calculation time, and this method returns the exception processing time.
-    pub(super) fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
+    ///
+    /// TODO: the timing may not be perfect here. If two words can be pushed but not the third, then the time taken to push
+    /// the first two words is not counted.
+    fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
         let sr = self.regs.sr.into();
         self.regs.sr.s = true;
         self.regs.sr.t = false;

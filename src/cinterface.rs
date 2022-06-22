@@ -90,6 +90,7 @@
 //! ```
 
 use crate::{M68000, Registers};
+use crate::exception::{Exception, Vector};
 use crate::memory_access::{MemoryAccess, GetResult, SetResult};
 
 use std::ffi::{c_void, CString};
@@ -330,9 +331,9 @@ pub extern "C" fn m68000_disassembler_interpreter_exception(m68000: *mut M68000,
 
 /// Requests the CPU to process the given exception vector.
 #[no_mangle]
-pub extern "C" fn m68000_exception(m68000: *mut M68000, vector: u8) {
+pub extern "C" fn m68000_exception(m68000: *mut M68000, vector: Vector) {
     unsafe {
-        (*m68000).exception(vector)
+        (*m68000).exception(Exception::from(vector))
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::{M68000, MemoryAccess};
-use crate::exception::Vector;
+use crate::exception::{Exception, Vector};
 use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
@@ -91,7 +91,7 @@ impl M68000 {
     pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
         let (cycles, exception) = self.interpreter_exception(memory);
         if let Some(e) = exception {
-            self.exception(e);
+            self.exception(Exception::from(e));
         }
         cycles
     }
@@ -122,7 +122,7 @@ impl M68000 {
         match Execute::<M>::EXECUTE[isa as usize](self, memory) {
             Ok(cycles) => {
                 cycle_count += cycles;
-                if trace { self.exception(Vector::Trace as u8); }
+                if trace { self.exception(Exception::from(Vector::Trace)); }
             },
             Err(e) => return (cycle_count, Some(e)),
         }
