@@ -3,7 +3,7 @@
 use crate::utils::bits;
 
 /// M68000 status register.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[repr(C)]
 pub struct StatusRegister {
     /// Trace
@@ -25,76 +25,76 @@ pub struct StatusRegister {
 }
 
 impl StatusRegister {
-    fn t(self) -> bool {
+    const fn t(&self) -> bool {
         true
     }
 
-    fn f(self) -> bool {
+    const fn f(&self) -> bool {
         false
     }
 
-    fn hi(self) -> bool {
+    const fn hi(&self) -> bool {
         !self.c && !self.z
     }
 
-    fn ls(self) -> bool {
+    const fn ls(&self) -> bool {
         self.c || self.z
     }
 
-    fn cc(self) -> bool {
+    const fn cc(&self) -> bool {
         !self.c
     }
 
-    fn cs(self) -> bool {
+    const fn cs(&self) -> bool {
         self.c
     }
 
-    fn ne(self) -> bool {
+    const fn ne(&self) -> bool {
         !self.z
     }
 
-    fn eq(self) -> bool {
+    const fn eq(&self) -> bool {
         self.z
     }
 
-    fn vc(self) -> bool {
+    const fn vc(&self) -> bool {
         !self.v
     }
 
-    fn vs(self) -> bool {
+    const fn vs(&self) -> bool {
         self.v
     }
 
-    fn pl(self) -> bool {
+    const fn pl(&self) -> bool {
         !self.n
     }
 
-    fn mi(self) -> bool {
+    const fn mi(&self) -> bool {
         self.n
     }
 
-    fn ge(self) -> bool {
+    const fn ge(&self) -> bool {
         self.n && self.v || !self.n && !self.v
     }
 
-    fn lt(self) -> bool {
+    const fn lt(&self) -> bool {
         self.n && !self.v || !self.n && self.v
     }
 
-    fn gt(self) -> bool {
+    const fn gt(&self) -> bool {
         self.n && self.v && !self.z || !self.n && !self.v && !self.z
     }
 
-    fn le(self) -> bool {
+    const fn le(&self) -> bool {
         self.z || self.n && !self.v || !self.n && self.v
     }
 
-    const CONDITIONS: [fn(Self) -> bool; 16] = [
+    const CONDITIONS: [fn(&Self) -> bool; 16] = [
         Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];
 
-    pub fn condition(self, cc: u8) -> bool {
+    pub fn condition(&self, cc: u8) -> bool {
         Self::CONDITIONS[cc as usize](self)
     }
 
@@ -104,21 +104,6 @@ impl StatusRegister {
         self.z = bits(sr, 2, 2) != 0;
         self.v = bits(sr, 1, 1) != 0;
         self.c = bits(sr, 0, 0) != 0;
-    }
-}
-
-impl Default for StatusRegister {
-    fn default() -> Self {
-        Self {
-            t: false,
-            s: false,
-            interrupt_mask: 0,
-            x: false,
-            n: false,
-            z: false,
-            v: false,
-            c: false,
-        }
     }
 }
 

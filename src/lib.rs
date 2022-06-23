@@ -4,6 +4,14 @@
 //! It is configurable at compile-time to behave like the given CPU type (see below), changing the instruction's
 //! execution times and exception handling.
 //!
+//! This library has been designed to be used in two different contexts:
+//! - It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods,
+//! [M68000::reset] and [M68000::exception] when an interrupt occurs. This is usually the case in an emulator.
+//! - It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an
+//! operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for
+//! syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using the C interface), so the
+//! application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
+//!
 //! # Supported CPUs
 //!
 //! The CPU type is specified at compile-time as a feature. There must be one and only one feature specified.
@@ -90,7 +98,6 @@ pub(crate) mod execution_times;
 #[path = "cpu/scc68070.rs"]
 pub(crate) mod execution_times;
 
-use exception::{Exception, Vector};
 use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
@@ -129,19 +136,16 @@ pub struct M68000 {
 }
 
 impl M68000 {
-    /// Creates a new M68000 core.
-    ///
-    /// The created core has a [exception::Vector::ResetSspPc] pushed, so that the first call to an interpreter method
-    /// will first fetch the reset vectors, then will execute the first instruction.
-    pub fn new() -> Self {
+    /// Creates a new M68000 core and resets it by fetching the reset vectors.
+    pub fn new_reset(memory: &mut impl MemoryAccess) -> Self {
         let mut cpu = Self::new_no_reset();
 
-        cpu.exception(Exception::from(Vector::ResetSspPc));
+        cpu.reset(memory);
 
         cpu
     }
 
-    /// [Self::new] but without the initial reset vector, so you can initialize the core as you want.
+    /// [Self::new_reset] but without the initial reset, so you can initialize the core as you want, or call [Self::reset] later.
     pub fn new_no_reset() -> Self {
         Self {
             regs: Registers {
@@ -158,6 +162,18 @@ impl M68000 {
             exceptions: BTreeSet::new(),
             cycles: 0,
         }
+    }
+
+    /// Resets the CPU by fetching the reset vectors.
+    pub fn reset(&mut self, memory: &mut impl MemoryAccess) {
+        self.regs.ssp = memory.get_long(0).expect("An exception occured when reading initial SSP.");
+        self.regs.pc  = memory.get_long(4).expect("An exception occured when reading initial PC.");
+        self.regs.sr.t = false;
+        self.regs.sr.s = true;
+        self.regs.sr.interrupt_mask = 7;
+        self.stop = false;
+        self.exceptions.clear(); // The reset vector clears all the pending interrupts.
+        // return Ok(EXEC::VECTOR_RESET);
     }
 
     /// Sets the lower 8-bits of the given data register to the given value.

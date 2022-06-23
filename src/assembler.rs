@@ -1,4 +1,4 @@
-//! Dynamically assemble M68000 insturctions.
+//! Dynamically assemble M68000 instructions.
 //!
 //! The fields are as described in the M68000 Programming Reference Manual.
 //! Refer to it to know which values are valid for the instructions.

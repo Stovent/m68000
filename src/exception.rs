@@ -2,7 +2,6 @@
 
 use crate::{M68000, MemoryAccess};
 use crate::execution_times::vector_execution_time;
-use crate::execution_times as EXEC;
 use crate::interpreter::InterpreterResult;
 
 use std::cmp::Ordering;
@@ -21,7 +20,6 @@ use std::collections::BTreeSet;
 #[non_exhaustive]
 #[repr(C)]
 pub enum Vector {
-    ResetSspPc = 0,
     /// Bus error. Sent when the accessed address is not in the memory range of the system.
     AccessError = 2,
     AddressError,
@@ -70,16 +68,14 @@ pub enum Vector {
 
 const fn get_vector_priority(vector: u8) -> u8 {
     match vector {
-        3 => 1, // Address error.
-        2 => 2, // Access Error.
-        9 => 3, // Trace.
-        24..=31 => 4, // Interrupt.
-        64..=255 => 4, // User Interrupt.
-        4 => 5, // Illegal.
-        8 => 6, // Privilege.
-        // Even though Reset has the higest priority, it is given a high number.
-        // The point is to make the reset vector be processed first, and the reset processing clears all the pending exceptions.
-        _ => u8::MAX, // Reset and the other vectors.
+        3 => 0, // Address error.
+        2 => 1, // Access Error.
+        9 => 2, // Trace.
+        24..=31 => 3, // Interrupt.
+        64..=255 => 3, // User Interrupt.
+        4 => 4, // Illegal.
+        8 => 5, // Privilege.
+        _ => u8::MAX, // Other vectors.
     }
 }
 
@@ -197,17 +193,8 @@ impl M68000 {
     /// the first two words is not counted.
     fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
         let sr = self.regs.sr.into();
-        self.regs.sr.s = true;
         self.regs.sr.t = false;
-
-        if vector == 0 {
-            self.regs.ssp = memory.get_long(0)?;
-            self.regs.pc  = memory.get_long(4)?;
-            self.regs.sr.interrupt_mask = 7;
-            self.stop = false;
-            self.exceptions.clear(); // The reset vector clears all the pending interrupts.
-            return Ok(EXEC::VECTOR_RESET);
-        }
+        self.regs.sr.s = true;
 
         #[cfg(feature = "cpu-mc68000")] {
             self.push_long(memory, self.regs.pc)?;
