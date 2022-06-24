@@ -2,7 +2,7 @@
 //!
 //! The functions and structures defined here should not be used in a rust program.
 //!
-//! To use it, first allocate a new core with [m68000_new_reset] or [m68000_new_no_reset]. When done, delete it with [m68000_delete].
+//! To use it, first allocate a new core with [m68000_new] or [m68000_new_no_reset]. When done, delete it with [m68000_delete].
 //!
 //! ## Memory callback
 //!
@@ -194,17 +194,18 @@ impl MemoryAccess for M68000Callbacks {
     }
 }
 
-/// Allocates a new core, resets it by fetching the reset vectors and returns the pointer to it.
+/// Allocates a new core and returns the pointer to it.
+///
+/// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an interpreter method
+/// will first fetch the reset vectors, then will execute the first instruction.
 ///
 /// It is not managed by Rust, so you have to delete it after usage with [m68000_delete].
 #[no_mangle]
-pub extern "C" fn m68000_new_reset(memory: *mut M68000Callbacks) -> *mut M68000 {
-    unsafe {
-        Box::into_raw(Box::new(M68000::new_reset(&mut *memory)))
-    }
+pub extern "C" fn m68000_new() -> *mut M68000 {
+    Box::into_raw(Box::new(M68000::new()))
 }
 
-/// [m68000_new_reset] but without the initial reset vector, so you can initialize the core as you want.
+/// [m68000_new] but without the initial reset vector, so you can initialize the core as you want.
 #[no_mangle]
 pub extern "C" fn m68000_new_no_reset() -> *mut M68000 {
     Box::into_raw(Box::new(M68000::new_no_reset()))
@@ -215,14 +216,6 @@ pub extern "C" fn m68000_new_no_reset() -> *mut M68000 {
 pub extern "C" fn m68000_delete(m68000: *mut M68000) {
     unsafe {
         Box::from_raw(m68000);
-    }
-}
-
-/// Resets the CPU by fetching the reset vectors.
-#[no_mangle]
-pub extern "C" fn m68000_reset(m68000: *mut M68000, memory: *mut M68000Callbacks) {
-    unsafe {
-        (*m68000).reset(&mut *memory);
     }
 }
 

@@ -1,7 +1,8 @@
 //! Exception processing.
 
 use crate::{M68000, MemoryAccess};
-use crate::execution_times::vector_execution_time;
+use crate::execution_times as EXEC;
+use EXEC::vector_execution_time;
 use crate::interpreter::InterpreterResult;
 
 use std::cmp::Ordering;
@@ -20,6 +21,7 @@ use std::collections::BTreeSet;
 #[non_exhaustive]
 #[repr(C)]
 pub enum Vector {
+    ResetSspPc = 0,
     /// Bus error. Sent when the accessed address is not in the memory range of the system.
     AccessError = 2,
     AddressError,
@@ -75,7 +77,9 @@ const fn get_vector_priority(vector: u8) -> u8 {
         64..=255 => 3, // User Interrupt.
         4 => 4, // Illegal.
         8 => 5, // Privilege.
-        _ => u8::MAX, // Other vectors.
+        // Even though Reset has the higest priority, it is given a high number.
+        // The point is to make the reset vector be processed first, and the reset processing clears all the pending exceptions.
+        _ => u8::MAX, // Reset and the other vectors.
     }
 }
 
@@ -124,13 +128,25 @@ impl Ord for Exception {
 impl M68000 {
     /// Requests the CPU to process the given exception.
     pub fn exception(&mut self, ex: Exception) {
-        if ex.vector == Vector::Trace as u8 ||
+        if ex.vector == Vector::ResetSspPc as u8 ||
+           ex.vector == Vector::Trace as u8 ||
            ex.vector >= Vector::Level1Interrupt as u8 && ex.vector <= Vector::Level7Interrupt as u8 ||
            ex.vector >= Vector::Level1OnChipInterrupt as u8 && ex.vector <= Vector::Level7OnChipInterrupt as u8 {
             self.stop = false;
         }
 
         self.exceptions.insert(ex);
+    }
+
+    /// Resets the CPU by fetching the reset vectors.
+    fn reset(&mut self, memory: &mut impl MemoryAccess) -> usize {
+        self.regs.ssp = memory.get_long(0).expect("An exception occured when reading initial SSP.");
+        self.regs.pc  = memory.get_long(4).expect("An exception occured when reading initial PC.");
+        self.regs.sr.t = false;
+        self.regs.sr.s = true;
+        self.regs.sr.interrupt_mask = 7;
+        self.stop = false;
+        return EXEC::VECTOR_RESET;
     }
 
     /// Attempts to process all the pending exceptions
@@ -155,6 +171,11 @@ impl M68000 {
         // the one with the highest priority will be the one treated first.
         let mut iter = exceptions.iter();
         while let Some(exception) = iter.next() {
+            if exception.vector == Vector::ResetSspPc as u8 {
+                self.exceptions.clear(); // The reset vector clears all the pending interrupts.
+                return self.reset(memory);
+            }
+
             total += match self.process_exception(memory, exception.vector) {
                 Ok(cycles) => cycles,
                 Err(e) => {

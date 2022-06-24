@@ -80,7 +80,7 @@ fn main()
     }
 
     let mut scc68070 = Scc68070 {
-        cpu: M68000::new_reset(&mut ram),
+        cpu: M68000::new(),
         memory: ram,
     };
 
