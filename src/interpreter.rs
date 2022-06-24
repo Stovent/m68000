@@ -3,7 +3,7 @@ use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::Vector;
 use crate::execution_times as EXEC;
 use crate::instruction::{Direction, Size};
-use crate::utils::{BigInt, bits};
+use crate::utils::{BigInt, bits, IsEven};
 
 pub(super) const SR_UPPER_MASK: u16 = 0xA700;
 pub(super) const CCR_MASK: u16 = 0x001F;
@@ -300,7 +300,7 @@ impl M68000 {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(ry, size);
                     let dst_addr = self.ariwpr(rx, size);
-                    (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
+                    (memory.get_word(src_addr.even()?)?, memory.get_word(dst_addr.even()?)?)
                 } else {
                     (self.regs.d[ry as usize] as u16, self.regs.d[rx as usize] as u16)
                 };
@@ -328,7 +328,7 @@ impl M68000 {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(ry, size);
                     let dst_addr = self.ariwpr(rx, size);
-                    (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
+                    (memory.get_long(src_addr.even()?)?, memory.get_long(dst_addr.even()?)?)
                 } else {
                     (self.regs.d[ry as usize], self.regs.d[rx as usize])
                 };
@@ -870,8 +870,8 @@ impl M68000 {
                 Ok(EXEC::CMPM_BW)
             },
             Size::Word => {
-                let src = memory.get_word(addry)?;
-                let dst = memory.get_word(addrx)?;
+                let src = memory.get_word(addry.even()?)?;
+                let dst = memory.get_word(addrx.even()?)?;
 
                 let (res, v) = (dst as i16).overflowing_sub(src as i16);
                 let (_, c) = dst.overflowing_sub(src);
@@ -884,8 +884,8 @@ impl M68000 {
                 Ok(EXEC::CMPM_BW)
             },
             Size::Long => {
-                let src = memory.get_long(addry)?;
-                let dst = memory.get_long(addrx)?;
+                let src = memory.get_long(addry.even()?)?;
+                let dst = memory.get_long(addrx.even()?)?;
 
                 let (res, v) = (dst as i32).overflowing_sub(src as i32);
                 let (_, c) = dst.overflowing_sub(src);
@@ -1355,8 +1355,8 @@ impl M68000 {
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr -= gap;
-                    if size.is_word() { memory.set_word(addr, self.a(reg) as u16)?; }
-                    else { memory.set_long(addr, self.a(reg))?; }
+                    if size.is_word() { memory.set_word(addr.even()?, self.a(reg) as u16)?; }
+                        else { memory.set_long(addr.even()?, self.a(reg))?; }
                 }
 
                 list >>= 1;
@@ -1365,8 +1365,8 @@ impl M68000 {
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr -= gap;
-                    if size.is_word() { memory.set_word(addr, self.regs.d[reg] as u16)?; }
-                    else { memory.set_long(addr, self.regs.d[reg])?; }
+                    if size.is_word() { memory.set_word(addr.even()?, self.regs.d[reg] as u16)?; }
+                        else { memory.set_long(addr.even()?, self.regs.d[reg])?; }
                 }
 
                 list >>= 1;
@@ -1383,12 +1383,12 @@ impl M68000 {
             for reg in 0..8 {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
-                        let value = if size.is_word() { memory.get_word(addr)? as i16 as u32 }
-                            else { memory.get_long(addr)? };
+                        let value = if size.is_word() { memory.get_word(addr.even()?)? as i16 as u32 }
+                            else { memory.get_long(addr.even()?)? };
                         self.regs.d[reg] = value;
                     } else {
-                        if size.is_word() { memory.set_word(addr, self.regs.d[reg] as u16)?; }
-                        else { memory.set_long(addr, self.regs.d[reg])?; }
+                        if size.is_word() { memory.set_word(addr.even()?, self.regs.d[reg] as u16)?; }
+                            else { memory.set_long(addr.even()?, self.regs.d[reg])?; }
                     }
 
                     addr += gap;
@@ -1400,12 +1400,12 @@ impl M68000 {
             for reg in 0..8 {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
-                        let value = if size.is_word() { memory.get_word(addr)? as i16 as u32 }
-                            else { memory.get_long(addr)? };
+                        let value = if size.is_word() { memory.get_word(addr.even()?)? as i16 as u32 }
+                            else { memory.get_long(addr.even()?)? };
                         *self.a_mut(reg) = value;
                     } else {
-                        if size.is_word() { memory.set_word(addr, self.a(reg as u8) as u16)?; }
-                        else { memory.set_long(addr, self.a(reg as u8))?; }
+                        if size.is_word() { memory.set_word(addr.even()?, self.a(reg as u8) as u16)?; }
+                            else { memory.set_long(addr.even()?, self.a(reg as u8))?; }
                     }
 
                     addr += gap;
@@ -2343,7 +2343,7 @@ impl M68000 {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(rx, size);
                     let dst_addr = self.ariwpr(ry, size);
-                    (memory.get_word(src_addr)?, memory.get_word(dst_addr)?)
+                    (memory.get_word(src_addr.even()?)?, memory.get_word(dst_addr.even()?)?)
                 } else {
                     (self.regs.d[rx as usize] as u16, self.regs.d[ry as usize] as u16)
                 };
@@ -2371,7 +2371,7 @@ impl M68000 {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(rx, size);
                     let dst_addr = self.ariwpr(ry, size);
-                    (memory.get_long(src_addr)?, memory.get_long(dst_addr)?)
+                    (memory.get_long(src_addr.even()?)?, memory.get_long(dst_addr.even()?)?)
                 } else {
                     (self.regs.d[rx as usize], self.regs.d[ry as usize])
                 };

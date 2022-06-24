@@ -1,5 +1,6 @@
 //! Utility traits and functions.
 
+use crate::exception::Vector;
 use crate::instruction::Size;
 
 /// Returns bits [beg, end] inclusive, starting at 0.
@@ -10,14 +11,24 @@ pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
 }
 
 /// Trait to see if an integer is even or not.
-pub trait IsEven {
+pub trait IsEven : Sized {
     fn is_even(self) -> bool;
+    fn even(self) -> Result<Self, u8>;
 }
 
 impl IsEven for u32 {
     #[inline(always)]
     fn is_even(self) -> bool {
         self & 1 == 0
+    }
+
+    #[inline(always)]
+    fn even(self) -> Result<Self, u8> {
+        if self.is_even() {
+            Ok(self)
+        } else {
+            Err(Vector::AddressError as u8)
+        }
     }
 }
 

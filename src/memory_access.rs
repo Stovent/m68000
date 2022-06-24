@@ -72,9 +72,13 @@ impl Iterator for MemoryIter<'_> {
     type Item = GetResult<u16>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let data = self.memory.get_word(self.next_addr);
-        self.next_addr += 2;
-        Some(data)
+        if self.next_addr.is_even() {
+            let data = self.memory.get_word(self.next_addr);
+            self.next_addr += 2;
+            Some(data)
+        } else {
+            Some(Err(Vector::AddressError as u8))
+        }
     }
 }
 
@@ -102,11 +106,7 @@ impl M68000 {
             },
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                if addr.is_even() {
-                    memory.get_word(addr)
-                } else {
-                    Err(Vector::AddressError as u8)
-                }
+                memory.get_word(addr.even()?)
             },
         }
     }
@@ -122,13 +122,9 @@ impl M68000 {
             },
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                if addr.is_even() {
-                    let r = memory.get_long(addr);
-                    *exec_time += 4;
-                    r
-                } else {
-                    Err(Vector::AddressError as u8)
-                }
+                let r = memory.get_long(addr.even()?);
+                *exec_time += 4;
+                r
             },
         }
     }
@@ -148,11 +144,7 @@ impl M68000 {
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                if addr.is_even() {
-                    memory.set_word(addr, value)
-                } else {
-                    Err(Vector::AddressError as u8)
-                }
+                memory.set_word(addr.even()?, value)
             },
         }
     }
@@ -164,13 +156,9 @@ impl M68000 {
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                if addr.is_even() {
-                    let r = memory.set_long(addr, value);
-                    *exec_time += 4;
-                    r
-                } else {
-                    Err(Vector::AddressError as u8)
-                }
+                let r = memory.set_long(addr.even()?, value);
+                *exec_time += 4;
+                r
             },
         }
     }
@@ -182,7 +170,7 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        let data = memory.get_word(self.regs.pc);
+        let data = memory.get_word(self.regs.pc.even()?);
         self.regs.pc += 2;
         data
     }
@@ -192,7 +180,7 @@ impl M68000 {
     /// Please note that this function advances the program counter so be careful when using it.
     #[must_use]
     pub fn get_next_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
-        let data = memory.get_long(self.regs.pc);
+        let data = memory.get_long(self.regs.pc.even()?);
         self.regs.pc += 4;
         data
     }
@@ -203,34 +191,34 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        memory.get_word(self.regs.pc)
+        memory.get_word(self.regs.pc.even()?)
     }
 
     /// Pops the 16-bits value from the stack.
     #[must_use]
     pub(super) fn pop_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
         let addr = self.ariwpo(7, Size::Word);
-        memory.get_word(addr)
+        memory.get_word(addr.even()?)
     }
 
     /// Pops the 32-bits value from the stack.
     #[must_use]
     pub(super) fn pop_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
         let addr = self.ariwpo(7, Size::Long);
-        memory.get_long(addr)
+        memory.get_long(addr.even()?)
     }
 
     /// Pushes the given 16-bits value on the stack.
     #[must_use]
     pub(super) fn push_word(&mut self, memory: &mut impl MemoryAccess, value: u16) -> SetResult {
         let addr = self.ariwpr(7, Size::Word);
-        memory.set_word(addr, value)
+        memory.set_word(addr.even()?, value)
     }
 
     /// Pushes the given 32-bits value on the stack.
     #[must_use]
     pub(super) fn push_long(&mut self, memory: &mut impl MemoryAccess, value: u32) -> SetResult {
         let addr = self.ariwpr(7, Size::Long);
-        memory.set_long(addr, value)
+        memory.set_long(addr.even()?, value)
     }
 }
