@@ -14,7 +14,7 @@ use crate::utils::bits;
 impl M68000 {
     /// ANDI/EORI/ORI CCR/SR, STOP
     pub(super) fn immediate(&mut self, memory: &mut impl MemoryAccess) -> u16 {
-        self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e))
+        self.get_next_word(memory).expect("Access error occured when fetching immediate operand.")
     }
 
     /// ADDI, ANDI, CMPI, EORI, ORI, SUBI
@@ -22,9 +22,9 @@ impl M68000 {
         let size = Size::from(bits(self.current_opcode, 6, 7));
 
         let imm = if size.is_long() {
-            self.get_next_long(memory).unwrap_or_else(|e| panic!("Failed to get immediate operand high: {}", e))
+            self.get_next_long(memory).expect("Access error occured when fetching immediate operand.")
         } else {
-            self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e)) as u32
+            self.get_next_word(memory).expect("Access error occured when fetching immediate operand.") as u32
         };
 
         let eareg = bits(self.current_opcode, 0, 2) as u8;
@@ -39,7 +39,7 @@ impl M68000 {
         let count = if bits(self.current_opcode, 8, 8) != 0 { // dynamic bit number
             bits(self.current_opcode, 9, 11) as u8
         } else { // Static bit number
-            self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get count operand: {}", e)) as u8
+            self.get_next_word(memory).expect("Access error occured when fetching count operand.") as u8
         };
 
         let eareg = bits(self.current_opcode, 0, 2) as u8;
@@ -105,7 +105,7 @@ impl M68000 {
         let dir = if bits(self.current_opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
         let size = if bits(self.current_opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
         let areg = bits(self.current_opcode, 0, 2) as u8;
-        let disp = self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+        let disp = self.get_next_word(memory).expect("Access error occured when fetching displacement operand.") as i16;
 
         (dreg, dir, size, areg, disp)
     }
@@ -168,7 +168,7 @@ impl M68000 {
     /// LINK
     pub(super) fn register_displacement(&mut self, memory: &mut impl MemoryAccess) -> (u8, i16) {
         let reg = bits(self.current_opcode, 0, 2) as u8;
-        let disp = self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+        let disp = self.get_next_word(memory).expect("Access error occured when fetching displacement operand.") as i16;
 
         (reg, disp)
     }
@@ -187,7 +187,7 @@ impl M68000 {
 
     /// MOVEM
     pub(super) fn direction_size_effective_address_list(&mut self, memory: &mut impl MemoryAccess) -> (Direction, Size, AddressingMode, u16) {
-        let list = self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get list operand: {}", e));
+        let list = self.get_next_word(memory).expect("Access error occured when fetching list operand.");
         let dir = if bits(self.current_opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
         let size = Size::from_bit(bits(self.current_opcode, 6, 6));
 
@@ -223,7 +223,7 @@ impl M68000 {
 
     /// DBcc
     pub(super) fn condition_register_displacement(&mut self, memory: &mut impl MemoryAccess) -> (u8, u8, i16) {
-        let disp = self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+        let disp = self.get_next_word(memory).expect("Access error occured when fetching displacement operand.") as i16;
         let condition = bits(self.current_opcode, 8, 11) as u8;
         let reg = bits(self.current_opcode, 0, 2) as u8;
 
@@ -234,7 +234,7 @@ impl M68000 {
     pub(super) fn displacement(&mut self, memory: &mut impl MemoryAccess) -> i16 {
         let disp = self.current_opcode as i8 as i16;
         if disp == 0 {
-            self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16
+            self.get_next_word(memory).expect("Access error occured when fetching displacement operand.") as i16
         } else {
             disp
         }
@@ -244,7 +244,7 @@ impl M68000 {
     pub(super) fn condition_displacement(&mut self, memory: &mut impl MemoryAccess) -> (u8, i16) {
         let mut disp = self.current_opcode as i8 as i16;
         if disp == 0 {
-            disp = self.get_next_word(memory).unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+            disp = self.get_next_word(memory).expect("Access error occured when fetching displacement operand.") as i16;
         }
         let condition = bits(self.current_opcode, 8, 11) as u8;
 

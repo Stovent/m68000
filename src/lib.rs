@@ -5,6 +5,7 @@
 //! execution times and exception handling.
 //!
 //! This library has been designed to be used in two different contexts:
+//!
 //! - It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods
 //! and [M68000::exception] when an interrupt or reset occurs. This is usually the case in an emulator.
 //! - It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an
@@ -35,11 +36,11 @@
 //! struct Memory([u8; MEM_SIZE as usize]); // Define your memory management system.
 //!
 //! impl MemoryAccess for Memory { // Implement the MemoryAccess trait.
-//!     fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
+//!     fn get_byte(&mut self, addr: u32) -> Option<u8> {
 //!         if addr < MEM_SIZE {
-//!             Ok(self.0[addr as usize])
+//!             Some(self.0[addr as usize])
 //!         } else {
-//!             Err(Vector::AccessError as u8)
+//!             None
 //!         }
 //!     }
 //!

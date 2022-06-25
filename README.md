@@ -4,6 +4,11 @@ m68000 is a Motorola 68000 assembler, disassembler and interpreter written in Ru
 
 This library emulates the common user and supervisor instructions of the M68k ISA. It is configurable at compile-time to behave like the given CPU type (see below), changing the instruction's execution times and exception handling.
 
+This library has been designed to be used in two different contexts:
+
+- It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods and [M68000::exception] when an interrupt or reset occurs. This is the typical use case for an emulator.
+- It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using the C interface), so the application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
+
 # Supported CPUs
 
 The CPU type is specified at compile-time as a feature. There must be one and only one feature specified.
@@ -15,17 +20,45 @@ There are no default features. If you don't specify any feature or specify more 
 
 # How to use
 
-Include this library in your project and configure the CPU type by specifying the correct feature.
+Include this library in your project and configure the CPU type by specifying the correct feature. It requires a nightly compiler as it uses the `btree_drain_filter` feature of the std.
 
-Since the memory map is application-dependant (especially for the SCC68070 microcontroller), it is the user's responsibility to define it by implementing the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
+Since the memory map is application-dependant, it is the user's responsibility to define it by implementing the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
 
-The `mais.rs` file is a usage example that implements the SCC68070 microcontroller.
+The `main.rs` file is a usage example that implements the SCC68070 microcontroller.
+
+## Basic Rust example
+
+```rs
+const MEM_SIZE: u32 = 65536;
+struct Memory([u8; MEM_SIZE as usize]); // Define your memory management system.
+
+impl MemoryAccess for Memory { // Implement the MemoryAccess trait.
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        if addr < MEM_SIZE {
+            Some(self.0[addr as usize])
+        } else {
+            None
+        }
+    }
+
+    // And so on...
+}
+
+fn main() {
+    let mut memory = Memory([0; MEM_SIZE as usize]);
+    // Load the program in memory here.
+    let mut cpu = M68000::new();
+
+    // Execute instructions
+    cpu.interpreter(&mut memory);
+}
+```
 
 # C interface
 
 ## Build the C interface
 
-This library has a C interface to generate a static library and use it in your C/C++ projects.
+This library has a C interface to generate a static library and use it in the language you want.
 
 To generate the static library, simply build the project using the correct target toolchain.
 ```sh
@@ -34,7 +67,7 @@ cargo build --release --lib --features=cpu-scc68070
 
 Change the CPU type you want to use by changing the last parameter of the previous command. To change the build toolchain, add `+<toolchain name>`. For example, to build it for windows targetting the GCC compiler, type
 ```sh
-cargo +stable-x86_64-pc-windows-gnu build --release --lib --features=cpu-scc68070
+cargo +nightly-x86_64-pc-windows-gnu build --release --lib --features=cpu-scc68070
 ```
 
 To generate the C header file, it is recommended to use [cbindgen](https://github.com/eqrion/cbindgen), and to use the `cbindgen.toml` file provided in this repo. In a terminal, type the following command to generate the header file:

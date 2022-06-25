@@ -40,7 +40,7 @@
 //!
 //! ## C example
 //!
-//! See the README.md file for a complete example.
+//! The code below is a minimalist example showing a single function callback. See the README.md file for a complete example.
 //!
 //! ```c
 //! #include "m68000.h"
@@ -65,6 +65,8 @@
 //!         .exception = 2,
 //!     };
 //! }
+//!
+//! // Implement the rest of the callback function.
 //!
 //! int main()
 //! {
@@ -91,7 +93,7 @@
 
 use crate::{M68000, Registers};
 use crate::exception::{Exception, Vector};
-use crate::memory_access::{MemoryAccess, GetResult, SetResult};
+use crate::memory_access::MemoryAccess;
 
 use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
@@ -111,6 +113,8 @@ pub struct GetSetResult {
     /// Set to the value to be returned. Only the low order bytes are read depending on the size. Unused with SetResult.
     pub data: u32,
     /// Set to 0 if read successfully, set to 2 (Access Error) otherwise (Address errors are automatically detected by the library).
+    ///
+    /// If used as the return value of [m68000_peek_next_word], this field contains the exception vector that occured when trying to read the next word.
     pub exception: u8,
 }
 
@@ -134,58 +138,58 @@ pub struct M68000Callbacks {
 }
 
 impl MemoryAccess for M68000Callbacks {
-    fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
         let res = (self.get_byte)(addr, self.user_data);
         if res.exception == 0 {
-            Ok(res.data as u8)
+            Some(res.data as u8)
         } else {
-            Err(res.exception)
+            None
         }
     }
 
-    fn get_word(&mut self, addr: u32) -> GetResult<u16> {
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
         let res = (self.get_word)(addr, self.user_data);
         if res.exception == 0 {
-            Ok(res.data as u16)
+            Some(res.data as u16)
         } else {
-            Err(res.exception)
+            None
         }
 
     }
 
-    fn get_long(&mut self, addr: u32) -> GetResult<u32> {
+    fn get_long(&mut self, addr: u32) -> Option<u32> {
         let res = (self.get_long)(addr, self.user_data);
         if res.exception == 0 {
-            Ok(res.data)
+            Some(res.data)
         } else {
-            Err(res.exception)
+            None
         }
     }
 
-    fn set_byte(&mut self, addr: u32, value: u8) -> SetResult {
+    fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
         let res = (self.set_byte)(addr, value, self.user_data);
         if res.exception == 0 {
-            Ok(())
+            Some(())
         } else {
-            Err(res.exception)
+            None
         }
     }
 
-    fn set_word(&mut self, addr: u32, value: u16) -> SetResult {
+    fn set_word(&mut self, addr: u32, value: u16) -> Option<()> {
         let res = (self.set_word)(addr, value, self.user_data);
         if res.exception == 0 {
-            Ok(())
+            Some(())
         } else {
-            Err(res.exception)
+            None
         }
     }
 
-    fn set_long(&mut self, addr: u32, value: u32) -> SetResult {
+    fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
         let res = (self.set_long)(addr, value, self.user_data);
         if res.exception == 0 {
-            Ok(())
+            Some(())
         } else {
-            Err(res.exception)
+            None
         }
     }
 

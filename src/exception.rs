@@ -8,6 +8,11 @@ use crate::interpreter::InterpreterResult;
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
+/// Constant equal to the AccessError vector.
+pub const ACCESS_ERROR: u8 = Vector::AccessError as u8;
+/// Constant equal to the AddressError vector.
+pub const ADDRESS_ERROR: u8 = Vector::AddressError as u8;
+
 /// Exception vectors of the 68000.
 ///
 /// You can directly cast the enum to u8 to get the vector number.
@@ -179,8 +184,8 @@ impl M68000 {
             total += match self.process_exception(memory, exception.vector) {
                 Ok(cycles) => cycles,
                 Err(e) => {
-                    if e == Vector::AccessError as u8 {
-                        if exception.vector == Vector::AccessError as u8 {
+                    if e == ACCESS_ERROR {
+                        if exception.vector == ACCESS_ERROR {
                             panic!("An access error occured during access error processing (at {:#X})", self.regs.pc);
                         }
 
@@ -251,7 +256,7 @@ impl M68000 {
             self.push_word(memory, sr)?;
         }
 
-        self.regs.pc = memory.get_long(vector as u32 * 4)?;
+        self.regs.pc = memory.get_long(vector as u32 * 4).ok_or(ACCESS_ERROR)?;
 
         Ok(vector_execution_time(vector))
     }

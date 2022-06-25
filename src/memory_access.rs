@@ -2,50 +2,53 @@
 
 use crate::M68000;
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
-use crate::exception::Vector;
+use crate::exception::{ACCESS_ERROR, ADDRESS_ERROR};
 use crate::execution_times as EXEC;
 use crate::instruction::Size;
 use crate::utils::IsEven;
 
-/// Returns the value asked on success, `Err(Vector::ResetSspPc or AccessError as u8)` if a reset or an access (bus) error occured. Alias for `Result<T, u8>`.
-pub type GetResult<T> = Result<T, u8>;
-/// Returns `Ok(())` on success, `Err(Vector::ResetSspPc or AccessError as u8)` if a reset or an access (bus) error occured. Alias for `Result<(), u8>`.
-pub type SetResult = Result<(), u8>;
+/// Return type of M68000's read memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or access (bus) error occured. Alias for `Result<T, u8>`.
+type GetResult<T> = Result<T, u8>;
+/// Return type of M68000's write memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or access (bus) error occured. Alias for `Result<(), u8>`.
+type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.
 ///
-/// Returning an `Err()` immediatly abort the current instruction.
-/// The only exception vectors that can abort instruction execution are Reset, Access Error and Address Error.
-/// Address Errors are automatically detected by the library, guaranteeing that the addresses sent are always word-aligned (even addresses).
+/// If the read is successful, return a `Some()` with the requested value.
+/// If the address of the value asked is not in the memory map of the system, return `None`.
+/// This will trigger an Access (Bus) Error, which will interrupt the current instruction processing.
 ///
-/// Return `Err(Vector::AccessError as u8)` if an [Access Error (Bus Error)](crate::exception::Vector::AccessError) occured,
-/// or `Err(Vector::ResetSspPc as u8)` if a reset occured.
+/// The address is guaranted to be even (16-bits word aligned), as odd addresses are detected by the library and automatically trigger an Address Error.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]
-    fn get_byte(&mut self, addr: u32) -> GetResult<u8>;
+    fn get_byte(&mut self, addr: u32) -> Option<u8>;
+
     /// Returns a big-endian 16-bits integer from the given address.
     #[must_use]
-    fn get_word(&mut self, addr: u32) -> GetResult<u16>;
+    fn get_word(&mut self, addr: u32) -> Option<u16>;
+
     /// Returns a big-endian 32-bits integer from the given address.
     ///
     /// The default implementation is doing 2 calls to [Self::get_word] with the high and low words.
     #[must_use]
-    fn get_long(&mut self, addr: u32) -> GetResult<u32> {
-        Ok((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
+    fn get_long(&mut self, addr: u32) -> Option<u32> {
+        Some((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
     }
 
     /// Stores the given 8-bits value at the given address.
     #[must_use]
-    fn set_byte(&mut self, addr: u32, value: u8) -> SetResult;
+    fn set_byte(&mut self, addr: u32, value: u8) -> Option<()>;
+
     /// Stores the given 16-bits value at the given address, in big-endian format.
     #[must_use]
-    fn set_word(&mut self, addr: u32, value: u16) -> SetResult;
+    fn set_word(&mut self, addr: u32, value: u16) -> Option<()>;
+
     /// Stores the given 32-bits value at the given address, in big-endian format.
     ///
     /// The default implementation is doing 2 calls to [Self::set_word] with the high and low words.
     #[must_use]
-    fn set_long(&mut self, addr: u32, value: u32) -> SetResult {
+    fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
         self.set_word(addr, (value >> 16) as u16)?;
         self.set_word(addr + 2, value as u16)
     }
@@ -75,9 +78,9 @@ impl Iterator for MemoryIter<'_> {
         if self.next_addr.is_even() {
             let data = self.memory.get_word(self.next_addr);
             self.next_addr += 2;
-            Some(data)
+            Some(data.ok_or(ACCESS_ERROR))
         } else {
-            Some(Err(Vector::AddressError as u8))
+            Some(Err(ADDRESS_ERROR))
         }
     }
 }
@@ -91,7 +94,7 @@ impl M68000 {
                 *exec_time += EXEC::EA_IMMEDIATE;
                 Ok(imm as u8)
             },
-            _ => memory.get_byte(self.get_effective_address(ea, exec_time)),
+            _ => memory.get_byte(self.get_effective_address(ea, exec_time)).ok_or(ACCESS_ERROR),
         }
     }
 
@@ -106,7 +109,7 @@ impl M68000 {
             },
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                memory.get_word(addr.even()?)
+                memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)
             },
         }
     }
@@ -122,7 +125,7 @@ impl M68000 {
             },
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                let r = memory.get_long(addr.even()?);
+                let r = memory.get_long(addr.even()?).ok_or(ACCESS_ERROR);
                 *exec_time += 4;
                 r
             },
@@ -133,7 +136,7 @@ impl M68000 {
     pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u8) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.d_byte(reg, value)),
-            _ => memory.set_byte(self.get_effective_address(ea, exec_time), value),
+            _ => memory.set_byte(self.get_effective_address(ea, exec_time), value).ok_or(ACCESS_ERROR),
         }
     }
 
@@ -144,7 +147,7 @@ impl M68000 {
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                memory.set_word(addr.even()?, value)
+                memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
             },
         }
     }
@@ -156,7 +159,7 @@ impl M68000 {
             AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
-                let r = memory.set_long(addr.even()?, value);
+                let r = memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR);
                 *exec_time += 4;
                 r
             },
@@ -170,7 +173,7 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        let data = memory.get_word(self.regs.pc.even()?);
+        let data = memory.get_word(self.regs.pc.even()?).ok_or(ACCESS_ERROR);
         self.regs.pc += 2;
         data
     }
@@ -180,7 +183,7 @@ impl M68000 {
     /// Please note that this function advances the program counter so be careful when using it.
     #[must_use]
     pub fn get_next_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
-        let data = memory.get_long(self.regs.pc.even()?);
+        let data = memory.get_long(self.regs.pc.even()?).ok_or(ACCESS_ERROR);
         self.regs.pc += 4;
         data
     }
@@ -191,34 +194,34 @@ impl M68000 {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        memory.get_word(self.regs.pc.even()?)
+        memory.get_word(self.regs.pc.even()?).ok_or(ACCESS_ERROR)
     }
 
     /// Pops the 16-bits value from the stack.
     #[must_use]
     pub(super) fn pop_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
         let addr = self.ariwpo(7, Size::Word);
-        memory.get_word(addr.even()?)
+        memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)
     }
 
     /// Pops the 32-bits value from the stack.
     #[must_use]
     pub(super) fn pop_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
         let addr = self.ariwpo(7, Size::Long);
-        memory.get_long(addr.even()?)
+        memory.get_long(addr.even()?).ok_or(ACCESS_ERROR)
     }
 
     /// Pushes the given 16-bits value on the stack.
     #[must_use]
     pub(super) fn push_word(&mut self, memory: &mut impl MemoryAccess, value: u16) -> SetResult {
         let addr = self.ariwpr(7, Size::Word);
-        memory.set_word(addr.even()?, value)
+        memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
     }
 
     /// Pushes the given 32-bits value on the stack.
     #[must_use]
     pub(super) fn push_long(&mut self, memory: &mut impl MemoryAccess, value: u32) -> SetResult {
         let addr = self.ariwpr(7, Size::Long);
-        memory.set_long(addr.even()?, value)
+        memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR)
     }
 }

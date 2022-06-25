@@ -548,7 +548,7 @@ pub fn no_operands(_: u16, _: &mut MemoryIter) -> (Operands, usize) {
 
 /// ANDI/EORI/ORI CCR/SR, STOP
 pub fn immediate(_: u16, memory: &mut MemoryIter) -> (Operands, usize) {
-    let imm = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e)); // Get immediate word
+    let imm = memory.next().unwrap().expect("Access error occured when fetching immediate operand."); // Get immediate word
     (Operands::Immediate(imm), 2)
 }
 
@@ -560,11 +560,11 @@ pub fn size_effective_address_immediate(opcode: u16, memory: &mut MemoryIter) ->
 
     let imm = if size.is_long() {
         len += 2;
-        let high = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand high: {}", e));
-        let low = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand low: {}", e));
+        let high = memory.next().unwrap().expect("Access error occured when fetching immediate operand high.");
+        let low = memory.next().unwrap().expect("Access error occured when fetching immediate operand low.");
         (high as u32) << 16 | low as u32
     } else {
-        memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get immediate operand: {}", e)) as u32
+        memory.next().unwrap().expect("Access error occured when fetching immediate operand.") as u32
     };
 
     let naddr = memory.next_addr;
@@ -583,7 +583,7 @@ pub fn effective_address_count(opcode: u16, memory: &mut MemoryIter) -> (Operand
         bits(opcode, 9, 11) as u8
     } else { // Static bit number
         len += 2;
-        memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get count operand: {}", e)) as u8
+        memory.next().unwrap().expect("Access error occured when fetching count operand.") as u8
     };
 
     let naddr = memory.next_addr;
@@ -654,7 +654,7 @@ pub fn register_direction_size_register_displacement(opcode: u16, memory: &mut M
     let dir = if bits(opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
     let size = if bits(opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
     let areg = bits(opcode, 0, 2) as u8;
-    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+    let disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
     (Operands::RegisterDirectionSizeRegisterDisplacement(dreg, dir, size, areg, disp), 2)
 }
 
@@ -721,7 +721,7 @@ pub fn vector(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) {
 /// LINK
 pub fn register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let reg = bits(opcode, 0, 2) as u8;
-    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+    let disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
     (Operands::RegisterDisplacement(reg, disp), 2)
 }
 
@@ -740,7 +740,7 @@ pub fn direction_register(opcode: u16, _: &mut MemoryIter) -> (Operands, usize) 
 
 /// MOVEM
 pub fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
-    let list = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get list operand: {}", e));
+    let list = memory.next().unwrap().expect("Access error occured when fetching list operand.");
     let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
     let size = Size::from_bit(bits(opcode, 6, 6));
 
@@ -782,7 +782,7 @@ pub fn condition_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Ope
 
 /// DBcc
 pub fn condition_register_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
-    let disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+    let disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
     let condition = bits(opcode, 8, 11) as u8;
     let reg = bits(opcode, 0, 2) as u8;
     (Operands::ConditionRegisterDisplacement(condition, reg, disp), 2)
@@ -794,7 +794,7 @@ pub fn displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
         len += 2;
-        disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+        disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
     }
     (Operands::Displacement(disp), len)
 }
@@ -805,7 +805,7 @@ pub fn condition_displacement(opcode: u16, memory: &mut MemoryIter) -> (Operands
     let mut disp = opcode as i8 as i16;
     if disp == 0 {
         len += 2;
-        disp = memory.next().unwrap().unwrap_or_else(|e| panic!("Failed to get displacement operand: {}", e)) as i16;
+        disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
     }
     let condition = bits(opcode, 8, 11) as u8;
     (Operands::ConditionDisplacement(condition, disp), len)

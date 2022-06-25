@@ -1,8 +1,7 @@
 //! This program is a test function that runs a M68000 test ROM.
 
 use m68000::M68000;
-use m68000::exception::Vector;
-use m68000::memory_access::{GetResult, MemoryAccess, SetResult};
+use m68000::memory_access::MemoryAccess;
 
 use std::fs::File;
 use std::io::Read;
@@ -20,44 +19,44 @@ struct Memory68070 {
 }
 
 impl MemoryAccess for Memory68070 {
-    fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
         if addr >= 0x8000_2011 && addr <= 0x8000_201B {
             if addr == 0x8000_2013 {
-                Ok(0b0000_1110)
+                Some(0b0000_1110)
             } else {
-                Ok(0)
+                Some(0)
             }
         } else if (addr as usize) < self.ram.len() {
-            Ok(self.ram[addr as usize])
+            Some(self.ram[addr as usize])
         } else {
-            Err(Vector::AccessError as u8)
+            None
         }
     }
 
-    fn get_word(&mut self, addr: u32) -> GetResult<u16> {
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
         if self.memory_swap < 4 {
             self.memory_swap += 1;
-            Ok((self.get_byte(addr + 0x40_0000)? as u16) << 8 | self.get_byte(addr + 0x40_0001)? as u16)
+            Some((self.get_byte(addr + 0x40_0000)? as u16) << 8 | self.get_byte(addr + 0x40_0001)? as u16)
         } else {
-            Ok((self.get_byte(addr)? as u16) << 8 | self.get_byte(addr + 1)? as u16)
+            Some((self.get_byte(addr)? as u16) << 8 | self.get_byte(addr + 1)? as u16)
         }
     }
 
-    fn set_byte(&mut self, addr: u32, value: u8) -> SetResult {
+    fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
         if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
             if addr == 0x8000_2019 {
                 print!("{}", value as char);
             }
-            Ok(())
+            Some(())
         } else if (addr as usize) < self.ram.len() {
             self.ram[addr as usize] = value;
-            Ok(())
+            Some(())
         } else {
-            Err(Vector::AccessError as u8)
+            None
         }
     }
 
-    fn set_word(&mut self, addr: u32, value: u16) -> SetResult {
+    fn set_word(&mut self, addr: u32, value: u16) -> Option<()> {
         self.set_byte(addr, (value >> 8) as u8)?;
         self.set_byte(addr + 1, value as u8)
     }

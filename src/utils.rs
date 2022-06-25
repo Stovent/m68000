@@ -1,6 +1,6 @@
 //! Utility traits and functions.
 
-use crate::exception::Vector;
+use crate::exception::ADDRESS_ERROR;
 use crate::instruction::Size;
 
 /// Returns bits [beg, end] inclusive, starting at 0.
@@ -27,7 +27,7 @@ impl IsEven for u32 {
         if self.is_even() {
             Ok(self)
         } else {
-            Err(Vector::AddressError as u8)
+            Err(ADDRESS_ERROR)
         }
     }
 }

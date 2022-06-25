@@ -1,7 +1,7 @@
 use m68000::decoder::DECODER;
 use m68000::instruction::Instruction;
 use m68000::isa::IsaEntry;
-use m68000::memory_access::{GetResult, MemoryAccess, SetResult};
+use m68000::memory_access::MemoryAccess;
 
 use std::borrow::BorrowMut;
 use std::fs::File;
@@ -12,20 +12,20 @@ struct Memory {
 }
 
 impl MemoryAccess for Memory {
-    fn get_byte(&mut self, addr: u32) -> GetResult<u8> {
-        Ok(self.data[addr as usize])
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        Some(self.data[addr as usize])
     }
 
-    fn get_word(&mut self, addr: u32) -> GetResult<u16> {
-        Ok((self.data[addr as usize] as u16) << 8 | self.data[addr as usize + 1] as u16)
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
+        Some((self.data[addr as usize] as u16) << 8 | self.data[addr as usize + 1] as u16)
     }
 
-    fn set_byte(&mut self, _: u32, _: u8) -> SetResult {
-        Ok(())
+    fn set_byte(&mut self, _: u32, _: u8) -> Option<()> {
+        Some(())
     }
 
-    fn set_word(&mut self, _: u32, _: u16) -> SetResult {
-        Ok(())
+    fn set_word(&mut self, _: u32, _: u16) -> Option<()> {
+        Some(())
     }
 
     fn reset_instruction(&mut self) {}

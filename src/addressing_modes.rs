@@ -44,24 +44,24 @@ impl AddressingMode {
             2 => Self::Ari(reg),
             3 => Self::Ariwpo(reg),
             4 => Self::Ariwpr(reg),
-            5 => Self::Ariwd(reg, memory.next().unwrap().unwrap() as i16),
-            6 => Self::Ariwi8(reg, BriefExtensionWord(memory.next().unwrap().unwrap())),
+            5 => Self::Ariwd(reg, memory.next().unwrap().expect("An Access Error occured in Ariwd.") as i16),
+            6 => Self::Ariwi8(reg, BriefExtensionWord(memory.next().unwrap().expect("An Access Error occured in Ariwi8."))),
             7 => match reg {
-                0 => Self::AbsShort(memory.next().unwrap().unwrap()),
+                0 => Self::AbsShort(memory.next().unwrap().expect("An Access Error occured in AbsShort.")),
                 1 => {
-                    let high = (memory.next().unwrap().unwrap() as u32) << 16;
-                    let low = memory.next().unwrap().unwrap() as u32;
+                    let high = (memory.next().unwrap().expect("An Access Error occured in AbsLong high.") as u32) << 16;
+                    let low = memory.next().unwrap().expect("An Access Error occured in AbsLong low.") as u32;
                     Self::AbsLong(high | low)
                 },
-                2 => Self::Pciwd(memory.next_addr, memory.next().unwrap().unwrap() as i16),
-                3 => Self::Pciwi8(memory.next_addr, BriefExtensionWord(memory.next().unwrap().unwrap())),
+                2 => Self::Pciwd(memory.next_addr, memory.next().unwrap().expect("An Access Error occured in Pciwd.") as i16),
+                3 => Self::Pciwi8(memory.next_addr, BriefExtensionWord(memory.next().unwrap().expect("An Access Error occured in Pciwi8."))),
                 4 => {
                     if size.unwrap().is_long() {
-                        let high = (memory.next().unwrap().unwrap() as u32) << 16;
-                        let low = memory.next().unwrap().unwrap() as u32;
+                        let high = (memory.next().unwrap().expect("An Access Error occured in Immediate high.") as u32) << 16;
+                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate low.") as u32;
                         Self::Immediate(high | low)
                     } else {
-                        let low = memory.next().unwrap().unwrap() as u32;
+                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate.") as u32;
                         Self::Immediate(low as u32)
                     }
                 },
