@@ -100,7 +100,7 @@ pub(crate) mod execution_times;
 pub(crate) mod execution_times;
 
 use exception::{Exception, Vector};
-use memory_access::MemoryAccess;
+pub use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
 use std::collections::BTreeSet;

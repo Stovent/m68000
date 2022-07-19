@@ -111,6 +111,8 @@ impl From<u16> for Isa {
 /// # Usage:
 ///
 /// ```ignore
+/// use m68000::isa::{Isa, IsaEntry};
+///
 /// let opcode = 0; // Read raw opcode here.
 /// let isa = Isa::from(opcode);
 ///
@@ -120,7 +122,7 @@ impl From<u16> for Isa {
 ///
 /// // Disassemble
 /// let inst = (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction);
-/// println("{}", inst);
+/// println!("{}", inst);
 /// ```
 #[derive(Clone, Copy)]
 pub struct IsaEntry {

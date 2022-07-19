@@ -1,7 +1,11 @@
 //! Dynamically assemble M68000 instructions.
 //!
-//! The fields are as described in the M68000 Programming Reference Manual.
+//! The fields are as described in the M68000 Programming Reference Manual, left (high order bits) to right (low order bits).
 //! Refer to it to know which values are valid for the instructions.
+//!
+//! The shift/rotate instructions are regrouped by their destination location and not by their shift/rotate direction.
+//! So [asm] is the arithmetic shift with the data in memory, and [asr] is the arithmetic shift with data in register.
+//! The direction is specified as a parameter in these functions.
 
 use crate::addressing_modes::AddressingMode;
 use crate::instruction::{Direction, Size};
@@ -136,7 +140,7 @@ fn size_effective_address_effective_address(size: Size, dst: AddressingMode, src
     let mut vec = Vec::new();
 
     let src = src.assemble(size.is_long());
-    let dst = dst.assemble_move_dst(size.is_long());
+    let dst = dst.assemble_move_dst();
     let opcode = size.into_move() << 12 | dst.0 | src.0;
 
     vec.push(opcode);
@@ -284,7 +288,7 @@ pub fn add(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> 
     if dir == Direction::DstEa {
         assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode.");
     } else {
-        assert!(am.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct source operand.");
+        assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct source operand.");
         assert!(am.verify(&MODES_01234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode.");
     }
     register_direction_size_effective_address(0b1101, reg, dir, size, am)
@@ -304,7 +308,7 @@ pub fn addi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
 /// `data` is 1 to 8. The assembler converts it.
 pub fn addq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
-    assert!(am.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct destination operand.");
+    assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
     assert!(data >= 1 && data <= 8, "Invalid data.");
     let data = if data == 8 { 0 } else { data };
     data_size_effective_address(data, 0, size, am)
@@ -343,20 +347,19 @@ pub fn andisr(imm: u16) -> [u16; 2] {
     [0x027C, imm]
 }
 
-/// Arithmetic Shift in memory (BYTE size only). `dir` must be `Direction::Left` or `Direction::Right`.
+/// Arithmetic Shift in memory (BYTE size only). `dir` must be [Direction::Left] or [Direction::Right].
 pub fn asm(dir: Direction, am: AddressingMode) -> Vec<u16> {
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ASm assembler: expected left or right, got {:?}", dir);
     assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode field in ASm assembler");
     direction_effective_address(0b1110_000, dir, 0b11, am)
 }
 
-/// Arithmetic Shift in register. `dir` must be `Direction::Left` or `Direction::Right`.
-pub fn asr(count_reg: u16, dir: Direction, size: Size, ir: u16, reg: u16) -> u16 {
+/// Arithmetic Shift in register. `dir` must be [Direction::Left] or [Direction::Right].
+pub fn asr(count_reg: u16, dir: Direction, size: Size, reg_shift: bool, reg: u16) -> u16 {
     assert!(count_reg <= 7, "Invalid count/register field in ASr assembler: expected 0 to 7, got {}", count_reg);
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ASr assembler: expected left or right, got {:?}", dir);
-    assert!(ir <= 1, "Invalid i/r field in ASr assembler: expected 0 or 1, got {}", ir);
     assert!(reg <= 7, "Invalid register field in ASr assembler: expected 0 to 7, got {}", reg);
-    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, ir, 0b00, reg)
+    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, reg_shift as u16, 0b00, reg)
 }
 
 /// If the displacement fits in an i8 and is not 0, 1 opcode is used, otherwise 2.
@@ -365,10 +368,10 @@ pub fn bcc(cond: Condition, disp: i16) -> Vec<u16> {
     condition_displacement(cond, disp)
 }
 
-pub fn bchg_dynamic(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn bchg_dynamic(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in BCHG dynamic assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1]), "Invalid addressing mode in BCHG dynamic assembler");
-    register_effective_address(0b0000, reg, 0b101, am)
+    register_effective_address(0b0000, reg as u16, 0b101, am)
 }
 
 pub fn bchg_static(am: AddressingMode, count: u8) -> Vec<u16> {
@@ -376,10 +379,10 @@ pub fn bchg_static(am: AddressingMode, count: u8) -> Vec<u16> {
     effective_address_count(0b0000_1000_01, am, count)
 }
 
-pub fn bclr_dynamic(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn bclr_dynamic(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in BCLR dynamic assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1]), "Invalid addressing mode in BCLR dynamic assembler");
-    register_effective_address(0b0000, reg, 0b110, am)
+    register_effective_address(0b0000, reg as u16, 0b110, am)
 }
 
 pub fn bclr_static(am: AddressingMode, count: u8) -> Vec<u16> {
@@ -392,10 +395,10 @@ pub fn bra(disp: i16) -> Vec<u16> {
     condition_displacement(Condition::T, disp)
 }
 
-pub fn bset_dynamic(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn bset_dynamic(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in BSET dynamic assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1]), "Invalid addressing mode in BSET dynamic assembler");
-    register_effective_address(0b0000, reg, 0b111, am)
+    register_effective_address(0b0000, reg as u16, 0b111, am)
 }
 
 pub fn bset_static(am: AddressingMode, count: u8) -> Vec<u16> {
@@ -408,10 +411,10 @@ pub fn bsr(disp: i16) -> Vec<u16> {
     condition_displacement(Condition::F, disp)
 }
 
-pub fn btst_dynamic(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn btst_dynamic(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in BTST dynamic assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in BTST dynamic assembler");
-    register_effective_address(0b0000, reg, 0b100, am)
+    register_effective_address(0b0000, reg as u16, 0b100, am)
 }
 
 pub fn btst_static(am: AddressingMode, count: u8) -> Vec<u16> {
@@ -419,10 +422,10 @@ pub fn btst_static(am: AddressingMode, count: u8) -> Vec<u16> {
     effective_address_count(0b0000_1000_00, am, count)
 }
 
-pub fn chk(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn chk(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in CHK assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in CHK assembler");
-    register_effective_address(0b0100, reg, 0b110, am)
+    register_effective_address(0b0100, reg as u16, 0b110, am)
 }
 
 pub fn clr(size: Size, am: AddressingMode) -> Vec<u16> {
@@ -432,9 +435,9 @@ pub fn clr(size: Size, am: AddressingMode) -> Vec<u16> {
 
 pub fn cmp(reg: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register.");
-    assert!(am.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct source operand.");
+    assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct source operand.");
     assert!(am.verify(&MODES_01234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode.");
-    register_direction_size_effective_address(0b1100, reg, Direction::DstReg, size, am)
+    register_direction_size_effective_address(0b1011, reg, Direction::DstReg, size, am)
 }
 
 pub fn cmpa(reg: u8, size: Size, am: AddressingMode) -> Vec<u16> {
@@ -459,16 +462,16 @@ pub fn dbcc(cond: Condition, reg: u8, disp: i16) -> [u16; 2] {
     [0b0101 << 12 | (cond as u16) << 8 | 0b1100_1 << 3 | reg as u16 & 7, disp as u16]
 }
 
-pub fn divs(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn divs(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in DIVS assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in DIVS assembler");
-    register_effective_address(0b1000, reg, 0b111, am)
+    register_effective_address(0b1000, reg as u16, 0b111, am)
 }
 
-pub fn divu(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn divu(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in DIVU assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in DIVU assembler");
-    register_effective_address(0b1000, reg, 0b011, am)
+    register_effective_address(0b1000, reg as u16, 0b011, am)
 }
 
 pub fn eor(reg: u8, size: Size, am: AddressingMode) -> Vec<u16> {
@@ -525,10 +528,10 @@ pub fn jsr(am: AddressingMode) -> Vec<u16> {
     effective_address(0b0100_1110_10, am)
 }
 
-pub fn lea(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn lea(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in LEA assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_2567, &[0, 1, 2, 3]), "Invalid addressing mode in LEA assembler");
-    register_effective_address(0b0100, reg, 0b111, am)
+    register_effective_address(0b0100, reg as u16, 0b111, am)
 }
 
 pub fn link(reg: u8, disp: i16) -> [u16; 2] {
@@ -536,25 +539,24 @@ pub fn link(reg: u8, disp: i16) -> [u16; 2] {
     [0b0100_1110_0101_0 << 3 | reg as u16 & 7, disp as u16]
 }
 
-/// Logical Shift in memory (BYTE size only). `dir` must be `Direction::Left` or `Direction::Right`.
+/// Logical Shift in memory (BYTE size only). `dir` must be [Direction::Left] or [Direction::Right].
 pub fn lsm(dir: Direction, am: AddressingMode) -> Vec<u16> {
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in LSm assembler: expected left or right, got {:?}", dir);
     assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode field in LSm assembler");
     direction_effective_address(0b1110_001, dir, 0b11, am)
 }
 
-/// Logical Shift in register. `dir` must be `Direction::Left` or `Direction::Right`.
-pub fn lsr(count_reg: u16, dir: Direction, size: Size, ir: u16, reg: u16) -> u16 {
+/// Logical Shift in register. `dir` must be [Direction::Left] or [Direction::Right].
+pub fn lsr(count_reg: u16, dir: Direction, size: Size, reg_shift: bool, reg: u16) -> u16 {
     assert!(count_reg <= 7, "Invalid count/register field in LSr assembler: expected 0 to 7, got {}", count_reg);
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in LSr assembler: expected left or right, got {:?}", dir);
-    assert!(ir <= 1, "Invalid i/r field in LSr assembler: expected 0 or 1, got {}", ir);
     assert!(reg <= 7, "Invalid register field in LSr assembler: expected 0 to 7, got {}", reg);
-    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, ir, 0b01, reg)
+    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, reg_shift as u16, 0b01, reg)
 }
 
 pub fn r#move(size: Size, dst: AddressingMode, src: AddressingMode) -> Vec<u16> {
     assert!(dst.verify(&MODES_0234567, &[0, 1]), "Invalid destination addressing mode.");
-    assert!(src.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct source operand.");
+    assert!(!(src.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct source operand.");
     size_effective_address_effective_address(size, dst, src)
 }
 
@@ -639,16 +641,16 @@ pub fn moveq(reg: u8, data: i8) -> u16 {
     0b0111 << 12 | (reg as u16) << 9 | data as u8 as u16
 }
 
-pub fn muls(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn muls(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in MULS assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in MULS assembler");
-    register_effective_address(0b1100, reg, 0b111, am)
+    register_effective_address(0b1100, reg as u16, 0b111, am)
 }
 
-pub fn mulu(reg: u16, am: AddressingMode) -> Vec<u16> {
+pub fn mulu(reg: u8, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register field in MULU assembler: expected 0 to 7, got {}", reg);
     assert!(am.verify(&MODES_0234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode in MULU assembler");
-    register_effective_address(0b1100, reg, 0b011, am)
+    register_effective_address(0b1100, reg as u16, 0b011, am)
 }
 
 pub fn nbcd(am: AddressingMode) -> Vec<u16> {
@@ -709,36 +711,34 @@ pub fn reset() -> u16 {
     0x4E70
 }
 
-/// Rotate in memory (BYTE size only). `dir` must be `Direction::Left` or `Direction::Right`.
+/// Rotate in memory (BYTE size only). `dir` must be [Direction::Left] or [Direction::Right].
 pub fn rom(dir: Direction, am: AddressingMode) -> Vec<u16> {
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ROm assembler: expected left or right, got {:?}", dir);
     assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode field in ROm assembler");
     direction_effective_address(0b1110_011, dir, 0b11, am)
 }
 
-/// Rotate in register. `dir` must be `Direction::Left` or `Direction::Right`.
-pub fn ror(count_reg: u16, dir: Direction, size: Size, ir: u16, reg: u16) -> u16 {
+/// Rotate in register. `dir` must be [Direction::Left] or [Direction::Right].
+pub fn ror(count_reg: u16, dir: Direction, size: Size, reg_shift: bool, reg: u16) -> u16 {
     assert!(count_reg <= 7, "Invalid count/register field in ROr assembler: expected 0 to 7, got {}", count_reg);
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ROr assembler: expected left or right, got {:?}", dir);
-    assert!(ir <= 1, "Invalid i/r field in ROr assembler: expected 0 or 1, got {}", ir);
     assert!(reg <= 7, "Invalid register field in ROr assembler: expected 0 to 7, got {}", reg);
-    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, ir, 0b11, reg)
+    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, reg_shift as u16, 0b11, reg)
 }
 
-/// Rotate with Extend in memory (BYTE size only). `dir` must be `Direction::Left` or `Direction::Right`.
+/// Rotate with Extend in memory (BYTE size only). `dir` must be [Direction::Left] or [Direction::Right].
 pub fn roxm(dir: Direction, am: AddressingMode) -> Vec<u16> {
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ROXm assembler: expected left or right, got {:?}", dir);
     assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode field in ROXm assembler");
     direction_effective_address(0b1110_010, dir, 0b11, am)
 }
 
-/// Rotate with Extend in register. `dir` must be `Direction::Left` or `Direction::Right`.
-pub fn roxr(count_reg: u16, dir: Direction, size: Size, ir: u16, reg: u16) -> u16 {
+/// Rotate with Extend in register. `dir` must be [Direction::Left] or [Direction::Right].
+pub fn roxr(count_reg: u16, dir: Direction, size: Size, reg_shift: bool, reg: u16) -> u16 {
     assert!(count_reg <= 7, "Invalid count/register field in ROXr assembler: expected 0 to 7, got {}", count_reg);
     assert!(dir == Direction::Left || dir == Direction::Right, "Invalid direction field in ROXr assembler: expected left or right, got {:?}", dir);
-    assert!(ir <= 1, "Invalid i/r field in ROXr assembler: expected 0 or 1, got {}", ir);
     assert!(reg <= 7, "Invalid register field in ROXr assembler: expected 0 to 7, got {}", reg);
-    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, ir, 0b10, reg)
+    rotation_direction_size_mode_register(0b1110, count_reg, dir, size, reg_shift as u16, 0b10, reg)
 }
 
 pub fn rte() -> u16 {
@@ -787,7 +787,7 @@ pub fn sub(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> 
     if dir == Direction::DstEa {
         assert!(am.verify(&MODES_234567, &[0, 1]), "Invalid addressing mode.");
     } else {
-        assert!(am.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct source operand.");
+        assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct source operand.");
         assert!(am.verify(&MODES_01234567, &[0, 1, 2, 3, 4]), "Invalid addressing mode.");
     }
     register_direction_size_effective_address(0b1001, reg, dir, size, am)
@@ -807,7 +807,7 @@ pub fn subi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
 /// `data` is 1 to 8. The assembler converts it.
 pub fn subq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
-    assert!(am.is_ard() && !size.is_byte(), "Byte size cannot be used with Address Register Direct destination operand.");
+    assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
     assert!(data >= 1 && data <= 8, "Invalid data.");
     let data = if data == 8 { 0 } else { data };
     data_size_effective_address(data, 1, size, am)

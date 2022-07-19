@@ -32,8 +32,6 @@ fn overflowing() {
     test_operator!(0i8.overflowing_add(-1), (-1, false));
     test_operator!((-128i8).overflowing_add(-1), (127, true));
 
-    test_operator!((0i8).extended_add(127, true), (-128, true));
-
     // sub u8 1
     test_operator!(0u8.overflowing_sub(1), (255, true));
     test_operator!(128u8.overflowing_sub(1), (127, false));
@@ -47,8 +45,6 @@ fn overflowing() {
     // sub i8 -1
     test_operator!((255u8 as i8).overflowing_sub(-1), (0, false));
     test_operator!(127i8.overflowing_sub(-1), (-128, true));
-
-    test_operator!((0i8).extended_sub(-128, true), (127, false)); // no intermediate overflow
 }
 
 #[test]
@@ -103,7 +99,7 @@ fn custom_extended() {
     test_operator!(127i8.extended_add(-1, true), (127, false)); // no intermediate overflow
     test_operator!((-128i8).extended_add(-1, false), (127, true));
     test_operator!((-128i8).extended_add(-1, true), (-128, false)); // no intermediate overflow
-    test_operator!((0i8).extended_add(127, true), (-128, true)); // no intermediate overflow
+    test_operator!((0i8).extended_add(127, true), (-128, true));
 
     // sub u8
     test_operator!(0u8.extended_sub(1, false), (255u8, true));
@@ -120,5 +116,5 @@ fn custom_extended() {
     test_operator!((-128i8).extended_sub(-1, true), (-128, false)); // no intermediate overflow
     test_operator!(127i8.extended_sub(-1, false), (-128, true));
     test_operator!(127i8.extended_sub(-1, true), (127, false)); // no intermediate overflow
-    test_operator!((0i8).extended_sub(-128, true), (127, false)); // no intermediate overflow
+    test_operator!((0i8).extended_sub(-128, true), (127, false));
 }

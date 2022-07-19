@@ -28,8 +28,12 @@ pub enum AddressingMode {
     /// Absolute Long.
     AbsLong(u32),
     /// Program Counter Indirect With Displacement (PC value, displacement).
+    ///
+    /// When using it with the assembler, the PC value is ignored.
     Pciwd(u32, i16),
     /// Program Counter Indirect With Index 8 (PC value, brief extension word).
+    ///
+    /// When using it with the assembler, the PC value is ignored.
     Pciwi8(u32, BriefExtensionWord),
     /// Immediate Data (cast this variant to the correct type when used).
     Immediate(u32),
@@ -204,7 +208,7 @@ impl AddressingMode {
     ///
     /// Left contains the mode and register encoded as in the destination (bits 6 to 11).
     /// Right contains the extension words.
-    pub fn assemble_move_dst(self, long: bool) -> (u16, Box<[u16]>) {
+    pub fn assemble_move_dst(self) -> (u16, Box<[u16]>) {
         match self {
             AddressingMode::Drd(reg) => ((reg as u16) << 9, Box::new([])),
             AddressingMode::Ard(reg) => ((reg as u16) << 9 | 1 << 6, Box::new([])),
@@ -215,15 +219,7 @@ impl AddressingMode {
             AddressingMode::Ariwi8(reg, bew) => ((reg as u16) << 9 | 6 << 6, Box::new([bew.0])),
             AddressingMode::AbsShort(addr) => (7 << 6, Box::new([addr])),
             AddressingMode::AbsLong(addr) => (1 << 9 | 7 << 6, Box::new([(addr >> 16) as u16, addr as u16])),
-            AddressingMode::Pciwd(_, disp) => (2 << 9 | 7 << 6, Box::new([disp as u16])),
-            AddressingMode::Pciwi8(_, bew) => (3 << 9 | 7 << 6, Box::new([bew.0])),
-            AddressingMode::Immediate(imm) => {
-                if long {
-                    (4 << 9 | 7 << 6, Box::new([(imm >> 16) as u16, imm as u16]))
-                } else {
-                    (4 << 9 | 7 << 6, Box::new([imm as u16]))
-                }
-            },
+            _ => panic!("{self:?} mode cannot be used as a destination mode."),
         }
     }
 
