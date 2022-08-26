@@ -174,8 +174,7 @@ impl M68000 {
 
         // Iterates from the lowest priority to highest, so that when all exceptions have been processed,
         // the one with the highest priority will be the one treated first.
-        let mut iter = exceptions.iter();
-        while let Some(exception) = iter.next() {
+        for exception in exceptions.iter() {
             if exception.vector == Vector::ResetSspPc as u8 {
                 self.exceptions.clear(); // The reset vector clears all the pending interrupts.
                 return self.reset(memory);

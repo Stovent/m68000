@@ -219,7 +219,7 @@ pub extern "C" fn m68000_new_no_reset() -> *mut M68000 {
 #[no_mangle]
 pub extern "C" fn m68000_delete(m68000: *mut M68000) {
     unsafe {
-        Box::from_raw(m68000);
+        std::mem::drop(Box::from_raw(m68000));
     }
 }
 

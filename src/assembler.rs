@@ -2,6 +2,7 @@
 //!
 //! The fields are as described in the M68000 Programming Reference Manual, left (high order bits) to right (low order bits).
 //! Refer to it to know which values are valid for the instructions.
+//! If a bad parameter is send to an assembler function, it panics.
 //!
 //! The shift/rotate instructions are regrouped by their destination location and not by their shift/rotate direction.
 //! So [asm] is the arithmetic shift with the data in memory, and [asr] is the arithmetic shift with data in register.
@@ -192,7 +193,7 @@ fn condition_displacement(cond: Condition, disp: i16) -> Vec<u16> {
 
 /// ADD, AND, CMP, EOR, OR, SUB
 ///
-/// `DstReg` or `DstEa`.
+/// [Direction::DstReg] or [Direction::DstEa].
 fn register_direction_size_effective_address(bits12_15: u16, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> {
     let mut vec = Vec::new();
 
@@ -226,7 +227,7 @@ fn register_size_effective_address(bits12_15: u16, reg: u8, size: Size, am: Addr
 
 /// ABCD, ADDX, SBCD, SUBX
 ///
-/// `RegisterToRegister` or `MemoryToMemory`.
+/// [Direction::RegisterToRegister] or [Direction::MemoryToMemory].
 fn register_size_mode_register(bits12_15: u16, dst: u8, size: Size, bits4_5: u16, mode: Direction, src: u8) -> u16 {
     let mut opcode = (bits12_15 & 0xF) << 12
                    | (dst as u16 & 7) << 9
@@ -273,7 +274,7 @@ fn rotation_direction_size_mode_register(bits12_15: u16, count_reg: u16, dir: Di
     opcode
 }
 
-/// `mode` must be `RegisterToRegister` or `MemoryToMemory`.
+/// `mode` must be [Direction::RegisterToRegister] or [Direction::MemoryToMemory].
 pub fn abcd(dst: u8, mode: Direction, src: u8) -> u16 {
     assert!(dst <= 7, "Invalid destination register number {}.", dst);
     assert!(mode == Direction::RegisterToRegister || mode == Direction::MemoryToMemory, "Invalid mode.");
@@ -281,7 +282,7 @@ pub fn abcd(dst: u8, mode: Direction, src: u8) -> u16 {
     register_size_mode_register(0b1100, dst, Size::Byte, 0, mode, src)
 }
 
-/// `dir` must be `DstReg` or `DstEa`.
+/// `dir` must be [Direction::DstReg] or [Direction::DstEa].
 pub fn add(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register.");
     assert!(dir == Direction::DstEa || dir == Direction::DstReg, "Invalid direction.");
@@ -305,7 +306,7 @@ pub fn addi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
     size_effective_address_immediate(0b0000_0110, size, am, imm)
 }
 
-/// `data` is 1 to 8. The assembler converts it.
+/// `data` must be 1 to 8.
 pub fn addq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
     assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
@@ -314,7 +315,7 @@ pub fn addq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     data_size_effective_address(data, 0, size, am)
 }
 
-/// `mode` must be `RegisterToRegister` or `MemoryToMemory`.
+/// `mode` must be [Direction::RegisterToRegister] or [Direction::MemoryToMemory].
 pub fn addx(dst: u8, size: Size, mode: Direction, src: u8) -> u16 {
     assert!(dst <= 7, "Invalid destination register number {}.", dst);
     assert!(mode == Direction::RegisterToRegister || mode == Direction::MemoryToMemory, "Invalid mode.");
@@ -322,7 +323,7 @@ pub fn addx(dst: u8, size: Size, mode: Direction, src: u8) -> u16 {
     register_size_mode_register(0b1101, dst, size, 0, mode, src)
 }
 
-/// `dir` must be `DstReg` or `DstEa`.
+/// `dir` must be [Direction::DstReg] or [Direction::DstEa].
 pub fn and(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register.");
     assert!(dir == Direction::DstEa || dir == Direction::DstReg, "Invalid direction.");
@@ -493,7 +494,7 @@ pub fn eorisr(imm: u16) -> [u16; 2] {
     [0x0A7C, imm]
 }
 
-/// `dir` must be `ExchangeData`, `ExchangeAddress` or `ExchangeDataAddress`.
+/// `dir` must be [Direction::ExchangeData], [Direction::ExchangeAddress] or [Direction::ExchangeDataAddress].
 pub fn exg(rx: u8, dir: Direction, ry: u8) -> u16 {
     assert!(dir == Direction::ExchangeData || dir == Direction::ExchangeAddress || dir == Direction::ExchangeDataAddress, "Invalid operation");
     assert!(rx <= 7, "Invalid Rx register.");
@@ -581,7 +582,7 @@ pub fn movesr(am: AddressingMode) -> Vec<u16> {
     effective_address(0b0100_0110_11, am)
 }
 
-/// `dir` must be `UspToRegister` or `RegisterToUsp`.
+/// `dir` must be [Direction::UspToRegister] or [Direction::RegisterToUsp].
 pub fn moveusp(dir: Direction, reg: u8) -> u16 {
     assert!(dir == Direction::UspToRegister || dir == Direction::RegisterToUsp, "Invalid direction.");
     assert!(reg <= 7, "Invalid register");
@@ -589,7 +590,7 @@ pub fn moveusp(dir: Direction, reg: u8) -> u16 {
     0b0100_1110_0110 << 4 | d << 3 | reg as u16 & 7
 }
 
-/// `dir` must be `RegisterToMemory` or `MemoryToRegister`. `mask` is the raw mask list.
+/// `dir` must be [Direction::RegisterToMemory] or [Direction::MemoryToRegister]. `mask` is the raw mask list.
 pub fn movem(dir: Direction, size: Size, am: AddressingMode, mask: u16) -> Vec<u16> {
     assert!(dir == Direction::RegisterToMemory || dir == Direction::MemoryToRegister, "Invalid direction.");
     assert!(!size.is_byte(), "Invalid byte size for MOVEM.");
@@ -617,7 +618,7 @@ pub fn movem(dir: Direction, size: Size, am: AddressingMode, mask: u16) -> Vec<u
     vec
 }
 
-/// `dir` must be `MemoryToRegister` or `RegisterToMemory`.
+/// `dir` must be [Direction::MemoryToRegister] or [Direction::RegisterToMemory].
 pub fn movep(data_reg: u8, dir: Direction, size: Size, addr_reg: u8, disp: i16) -> [u16; 2] {
     assert!(data_reg <= 7, "Invalid data register.");
     assert!(dir == Direction::RegisterToMemory || dir == Direction::MemoryToRegister, "Invalid direction.");
@@ -677,7 +678,7 @@ pub fn not(size: Size, am: AddressingMode) -> Vec<u16> {
     size_effective_address(0b0100_0110, size, am)
 }
 
-/// `dir` must be `DstReg` or `DstEa`.
+/// `dir` must be [Direction::DstReg] or [Direction::DstEa].
 pub fn or(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register.");
     assert!(dir == Direction::DstEa || dir == Direction::DstReg, "Invalid direction.");
@@ -753,7 +754,7 @@ pub fn rts() -> u16 {
     0x4E75
 }
 
-/// `mode` must be `RegisterToRegister` or `MemoryToMemory`.
+/// `mode` must be [Direction::RegisterToRegister] or [Direction::MemoryToMemory].
 pub fn sbcd(dst: u8, mode: Direction, src: u8) -> u16 {
     assert!(dst <= 7, "Invalid destination register number {}.", dst);
     assert!(mode == Direction::RegisterToRegister || mode == Direction::MemoryToMemory, "Invalid mode.");
@@ -780,7 +781,7 @@ pub fn stop(sr: u16) -> [u16; 2] {
     [0x4E72, sr]
 }
 
-/// `dir` must be `DstReg` or `DstEa`.
+/// `dir` must be [Direction::DstReg] or [Direction::DstEa].
 pub fn sub(reg: u8, dir: Direction, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(reg <= 7, "Invalid register.");
     assert!(dir == Direction::DstEa || dir == Direction::DstReg, "Invalid direction.");
@@ -804,7 +805,7 @@ pub fn subi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
     size_effective_address_immediate(0b0000_0100, size, am, imm)
 }
 
-/// `data` is 1 to 8. The assembler converts it.
+/// `data` must be 1 to 8.
 pub fn subq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
     assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
@@ -813,7 +814,7 @@ pub fn subq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     data_size_effective_address(data, 1, size, am)
 }
 
-/// `mode` must be `RegisterToRegister` or `MemoryToMemory`.
+/// `mode` must be [Direction::RegisterToRegister] or [Direction::MemoryToMemory].
 pub fn subx(dst: u8, size: Size, mode: Direction, src: u8) -> u16 {
     assert!(dst <= 7, "Invalid destination register number {}.", dst);
     assert!(mode == Direction::RegisterToRegister || mode == Direction::MemoryToMemory, "Invalid mode.");

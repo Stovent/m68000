@@ -87,7 +87,10 @@ impl M68000 {
         }
     }
 
-    /// Executes the next instruction, returning the cycle count necessary to execute it.
+    /// Runs the interpreter loop once, returning the cycle count necessary to execute it.
+    ///
+    /// This method may or may not execute any instruction.
+    /// For example, if an Access Error occurs during instruction fetch or if the CPU is stopped, it returns 0 and no instruction is executed.
     pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
         let (cycles, exception) = self.interpreter_exception(memory);
         if let Some(e) = exception {
@@ -96,10 +99,13 @@ impl M68000 {
         cycles
     }
 
-    /// Executes the next instruction, returning the cycle count necessary to execute it,
+    /// Runs the interpreter loop once, returning the cycle count necessary to execute it
     /// and the vector of the exception that occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
+    ///
+    /// This method may or may not execute any instruction.
+    /// For example, if an Access Error occurs during instruction fetch, the exception is returned and no instruction is executed.
     pub fn interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
         if self.stop {
             return (0, None);

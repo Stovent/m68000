@@ -75,29 +75,28 @@ compile_error!("You must specify one and only one CPU type feature.");
 
 pub mod addressing_modes;
 pub mod assembler;
-#[cfg(doc)]
+#[cfg(doc)] // I don't want the C interface to be accessible from the library but I want it to be documented with the rest.
 pub mod cinterface;
 #[cfg(not(doc))]
 mod cinterface;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
-mod fast_interpreter;
-mod fast_operands;
-pub mod instruction;
-mod interpreter;
-mod instruction_interpreter;
-pub mod isa;
-pub mod memory_access;
-pub mod status_register;
-pub mod utils;
-
 #[cfg(feature = "cpu-mc68000")]
 #[path = "cpu/mc68000.rs"]
 pub(crate) mod execution_times;
 #[cfg(feature = "cpu-scc68070")]
 #[path = "cpu/scc68070.rs"]
 pub(crate) mod execution_times;
+pub mod instruction;
+mod interpreter;
+mod interpreter_disassembler;
+mod interpreter_fast;
+pub mod isa;
+pub mod memory_access;
+mod operands_fast;
+pub mod status_register;
+pub mod utils;
 
 use exception::{Exception, Vector};
 pub use memory_access::MemoryAccess;
@@ -126,8 +125,10 @@ pub struct Registers {
 /// A M68000 core.
 #[derive(Clone, Debug)]
 pub struct M68000 {
+    /// The registers of the CPU.
     pub regs: Registers,
 
+    /// The opcode of the instruction currently executing. Stored because it is an information of the long exception stack frame.
     current_opcode: u16,
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
     pub stop: bool,

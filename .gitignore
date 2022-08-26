@@ -3,8 +3,8 @@
 !.gitignore
 !Cargo.toml
 !cbindgen.toml
-!LICENSE
-!LICENSE.LESSER
+!COPYING
+!COPYING.LESSER
 !README.md
 
 !.github/

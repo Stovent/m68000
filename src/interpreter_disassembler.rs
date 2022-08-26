@@ -5,7 +5,9 @@ use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
 impl M68000 {
-    /// Executes and disassembles the next instruction, returning the disassembler string and the cycle count necessary to execute it.
+    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembler string and the cycle count necessary to execute it.
+    ///
+    /// See [Self::interpreter] for the potential caveat.
     pub fn disassembler_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize) {
         let (dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
         if let Some(e) = exception {
@@ -14,10 +16,12 @@ impl M68000 {
         (dis, cycles)
     }
 
-    /// Executes and disassembles the next instruction, returning the disassembled string, the cycle count necessary to execute it,
+    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembled string, the cycle count necessary to execute it,
     /// and the vector of the exception that occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
+    ///
+    /// See [Self::interpreter_exception] for the potential caveat.
     pub fn disassembler_interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
         if self.stop {
             return (String::from(""), 0, None);

@@ -6,7 +6,7 @@ This library emulates the common user and supervisor instructions of the M68k IS
 
 This library has been designed to be used in two different contexts:
 
-- It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods and [M68000::exception] when an interrupt or reset occurs. This is the typical use case for an emulator.
+- It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods and exception when an interrupt or reset occurs. This is the typical use case for an emulator.
 - It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using the C interface), so the application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
 
 # Supported CPUs
@@ -65,7 +65,7 @@ To generate the static library, simply build the project using the correct targe
 cargo build --release --lib --features=cpu-scc68070
 ```
 
-Change the CPU type you want to use by changing the last parameter of the previous command. To change the build toolchain, add `+<toolchain name>`. For example, to build it for windows targetting the GCC compiler, type
+Change the CPU type you want to use by changing the last parameter of the previous command. To change the build toolchain, add `+<toolchain name>`. For example, to build it for windows targetting the MinGW compiler, type
 ```sh
 cargo +nightly-x86_64-pc-windows-gnu build --release --lib --features=cpu-scc68070
 ```
