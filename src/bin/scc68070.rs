@@ -1,4 +1,5 @@
-//! This program is a test function that runs a M68000 test ROM.
+//! This is a minimal SCC68070 microcontroller emulation used to run test ROMs.
+//! It also demonstrate how to use this library in Rust projects.
 
 use m68000::M68000;
 use m68000::memory_access::MemoryAccess;
@@ -83,7 +84,7 @@ fn main()
         memory: ram,
     };
 
-    // Execute 1 000 000 000 instructions
+    // Execute 1 000 000 000 instructions.
     for _ in 0..1_000_000_000 {
         scc68070.cpu.interpreter(&mut scc68070.memory);
     }
