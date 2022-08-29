@@ -1,6 +1,6 @@
 [package]
 name = "m68000"
-version = "0.1.0"
+version = "0.1.1"
 authors = ["Stovent <StoventTAS@gmail.com>"]
 edition = "2021"
 license = "LGPL-3.0-or-later"
@@ -21,3 +21,6 @@ lto = true
 
 [lib]
 crate-type = ["lib", "staticlib"]
+
+[package.metadata.docs.rs]
+features = ["cpu-mc68000"]
