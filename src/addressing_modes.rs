@@ -1,7 +1,6 @@
 //! Addressing mode-related structs, enums and functions.
 
-use crate::M68000;
-use crate::execution_times as EXEC;
+use crate::{CpuDetails, M68000};
 use crate::memory_access::{MemoryAccess, MemoryIter};
 use crate::instruction::Size;
 use crate::utils::bits;
@@ -76,7 +75,7 @@ impl AddressingMode {
     }
 
     /// Fast new addressing mode.
-    pub fn new_fast(mode: u16, reg: u8, size: Option<Size>, m68000: &mut M68000, memory: &mut impl MemoryAccess) -> Self {
+    pub fn new_fast<CPU: CpuDetails>(mode: u16, reg: u8, size: Option<Size>, m68000: &mut M68000<CPU>, memory: &mut impl MemoryAccess) -> Self {
         match mode {
             0 => Self::Drd(reg),
             1 => Self::Ard(reg),
@@ -329,7 +328,7 @@ impl EffectiveAddress {
     }
 }
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     /// Calculates the value of the given effective address.
     ///
     /// If the address has already been calculated (`ea.address` is Some), it is returned and no computation is performed.
@@ -338,39 +337,39 @@ impl M68000 {
         if ea.address.is_none() {
             ea.address = match ea.mode {
                 AddressingMode::Ari(reg) => {
-                    *exec_time += EXEC::EA_ARI;
+                    *exec_time += CPU::EA_ARI;
                     Some(self.a(reg))
                 },
                 AddressingMode::Ariwpo(reg) => {
-                    *exec_time += EXEC::EA_ARIWPO;
+                    *exec_time += CPU::EA_ARIWPO;
                     Some(self.ariwpo(reg, ea.size.expect("ariwpo must have a size")))
                 },
                 AddressingMode::Ariwpr(reg) => {
-                    *exec_time += EXEC::EA_ARIWPR;
+                    *exec_time += CPU::EA_ARIWPR;
                     Some(self.ariwpr(reg, ea.size.expect("ariwpr must have a size")))
                 },
                 AddressingMode::Ariwd(reg, disp)  => {
-                    *exec_time += EXEC::EA_ARIWD;
+                    *exec_time += CPU::EA_ARIWD;
                     Some(self.a(reg) + disp as u32)
                 },
                 AddressingMode::Ariwi8(reg, bew) => {
-                    *exec_time += EXEC::EA_ARIWI8;
+                    *exec_time += CPU::EA_ARIWI8;
                     Some(self.a(reg) + bew.disp() as u32 + self.get_index_register(bew))
                 },
                 AddressingMode::AbsShort(addr) => {
-                    *exec_time += EXEC::EA_ABSSHORT;
+                    *exec_time += CPU::EA_ABSSHORT;
                     Some(addr as i16 as u32)
                 },
                 AddressingMode::AbsLong(addr) => {
-                    *exec_time += EXEC::EA_ABSLONG;
+                    *exec_time += CPU::EA_ABSLONG;
                     Some(addr)
                 },
                 AddressingMode::Pciwd(pc, disp) => {
-                    *exec_time += EXEC::EA_PCIWD;
+                    *exec_time += CPU::EA_PCIWD;
                     Some(pc + disp as u32)
                 },
                 AddressingMode::Pciwi8(pc, bew) => {
-                    *exec_time += EXEC::EA_PCIWI8;
+                    *exec_time += CPU::EA_PCIWI8;
                     Some(pc + bew.disp() as u32 + self.get_index_register(bew))
                 },
                 _ => None,

@@ -9,10 +9,6 @@ repository = "https://github.com/Stovent/m68000"
 keywords = ["motorola", "68000", "m68k", "interpreter", "emulator"]
 categories = ["compilers", "emulators"]
 
-[features]
-cpu-mc68000 = []
-cpu-scc68070 = []
-
 [profile.dev]
 overflow-checks = false
 
@@ -21,6 +17,3 @@ lto = true
 
 [lib]
 crate-type = ["lib", "staticlib"]
-
-[package.metadata.docs.rs]
-features = ["cpu-mc68000"]

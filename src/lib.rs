@@ -64,30 +64,20 @@
 //! # TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
+//! - Implement long exception stack frame.
 
 #![feature(btree_drain_filter)]
 
-#[cfg(any(
-    all(feature = "cpu-mc68000", feature = "cpu-scc68070"),
-    not(any(feature = "cpu-mc68000", feature = "cpu-scc68070")),
-))]
-compile_error!("You must specify one and only one CPU type feature.");
-
 pub mod addressing_modes;
 pub mod assembler;
-#[cfg(doc)] // I don't want the C interface to be accessible from the library but I want it to be documented with the rest.
-pub mod cinterface;
-#[cfg(not(doc))]
-mod cinterface;
+// #[cfg(doc)] // I don't want the C interface to be accessible from the library but I want it to be documented with the rest.
+// pub mod cinterface;
+// #[cfg(not(doc))]
+// mod cinterface;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
-#[cfg(feature = "cpu-mc68000")]
-#[path = "cpu/mc68000.rs"]
-pub(crate) mod execution_times;
-#[cfg(feature = "cpu-scc68070")]
-#[path = "cpu/scc68070.rs"]
-pub(crate) mod execution_times;
+pub mod cpu_details;
 pub mod instruction;
 mod interpreter;
 mod interpreter_disassembler;
@@ -99,6 +89,7 @@ pub mod status_register;
 pub mod utils;
 
 use exception::{Exception, Vector};
+pub use cpu_details::{CpuDetails, StackFormat};
 pub use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
@@ -124,7 +115,7 @@ pub struct Registers {
 
 /// A M68000 core.
 #[derive(Clone, Debug)]
-pub struct M68000 {
+pub struct M68000<CPU: CpuDetails> {
     /// The registers of the CPU.
     pub regs: Registers,
 
@@ -136,9 +127,11 @@ pub struct M68000 {
     exceptions: BTreeSet<exception::Exception>,
     /// Number of cycles executed by the called interpreter method.
     cycles: usize,
+    /// The details of the emulated CPU.
+    _cpu: CPU,
 }
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     /// Creates a new M68000 core.
     ///
     /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an interpreter method
@@ -167,6 +160,7 @@ impl M68000 {
             stop: false,
             exceptions: BTreeSet::new(),
             cycles: 0,
+            _cpu: CPU::default(),
         }
     }
 

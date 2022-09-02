@@ -3,7 +3,7 @@
 //! The functions returns the operands and the size in bytes of the extension words.
 //! They take as parameters the opcode of the instruction and an iterator over the extension words.
 
-use crate::M68000;
+use crate::{CpuDetails, M68000};
 use crate::addressing_modes::AddressingMode;
 use crate::decoder::DECODER;
 use crate::instruction::{Direction, Size};
@@ -11,7 +11,7 @@ use crate::isa::Isa;
 use crate::memory_access::MemoryAccess;
 use crate::utils::bits;
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     /// ANDI/EORI/ORI CCR/SR, STOP
     pub(super) fn immediate(&mut self, memory: &mut impl MemoryAccess) -> u16 {
         self.get_next_word(memory).expect("Access error occured when fetching immediate operand.")

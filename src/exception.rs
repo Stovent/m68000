@@ -1,8 +1,6 @@
 //! Exception processing.
 
-use crate::{M68000, MemoryAccess};
-use crate::execution_times as EXEC;
-use EXEC::vector_execution_time;
+use crate::{CpuDetails, M68000, MemoryAccess, StackFormat};
 use crate::interpreter::InterpreterResult;
 
 use std::cmp::Ordering;
@@ -130,7 +128,7 @@ impl Ord for Exception {
     }
 }
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     /// Requests the CPU to process the given exception.
     pub fn exception(&mut self, ex: Exception) {
         if ex.vector == Vector::ResetSspPc as u8 ||
@@ -151,7 +149,7 @@ impl M68000 {
         self.regs.sr.s = true;
         self.regs.sr.interrupt_mask = 7;
         self.stop = false;
-        return EXEC::VECTOR_RESET;
+        return CPU::VECTOR_RESET;
     }
 
     /// Attempts to process all the pending exceptions
@@ -221,42 +219,43 @@ impl M68000 {
         self.regs.sr.t = false;
         self.regs.sr.s = true;
 
-        #[cfg(feature = "cpu-mc68000")] {
-            self.push_long(memory, self.regs.pc)?;
-            self.push_word(memory, sr)?;
+        match CPU::STACK_FORMAT {
+            StackFormat::MC68000 => {
+                self.push_long(memory, self.regs.pc)?;
+                self.push_word(memory, sr)?;
 
-            if vector == 2 || vector == 3 { // TODO: Long format
-                self.push_word(memory, self.current_opcode)?;
-                self.push_long(memory, 0)?; // Access address
-                self.push_word(memory, 0)?; // function code
-                // MC68000UM 6.3.9.1: It is the responsibility of the error handler routine
-                // to clean up the stack and determine where to continue execution.
-            }
-        }
+                if vector == 2 || vector == 3 { // TODO: Long format
+                    self.push_word(memory, self.current_opcode)?;
+                    self.push_long(memory, 0)?; // Access address
+                    self.push_word(memory, 0)?; // function code
+                    // MC68000UM 6.3.9.1: It is the responsibility of the error handler routine
+                    // to clean up the stack and determine where to continue execution.
+                }
+            },
+            StackFormat::SCC68070 => {
+                if vector == 2 || vector == 3 { // TODO: Long format
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_long(memory, 0)?;
+                    self.push_long(memory, 0)?;
+                    self.push_long(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0xF000 | vector as u16 * 4)?;
+                } else { // Short format
+                    self.push_word(memory, vector as u16 * 4)?;
+                }
 
-        #[cfg(feature = "cpu-scc68070")] {
-            if vector == 2 || vector == 3 { // TODO: Long format
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_long(memory, 0)?;
-                self.push_long(memory, 0)?;
-                self.push_long(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0)?;
-                self.push_word(memory, 0xF000 | vector as u16 * 4)?;
-            } else { // Short format
-                self.push_word(memory, vector as u16 * 4)?;
-            }
-
-            self.push_long(memory, self.regs.pc)?;
-            self.push_word(memory, sr)?;
+                self.push_long(memory, self.regs.pc)?;
+                self.push_word(memory, sr)?;
+            },
         }
 
         self.regs.pc = memory.get_long(vector as u32 * 4).ok_or(ACCESS_ERROR)?;
 
-        Ok(vector_execution_time(vector))
+        Ok(CPU::vector_execution_time(vector))
     }
 }

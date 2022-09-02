@@ -1,10 +1,10 @@
-use crate::{M68000, MemoryAccess};
+use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::exception::{Exception, Vector};
 use crate::instruction::Instruction;
 use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembler string and the cycle count necessary to execute it.
     ///
     /// See [Self::interpreter] for the potential caveat.
@@ -47,7 +47,7 @@ impl M68000 {
 
         let dis = instruction.disassemble();
         let trace = self.regs.sr.t;
-        match Execute::<M>::EXECUTE[isa as usize](self, memory, &instruction) {
+        match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => {
                 cycle_count += cycles;
                 if trace { self.exception(Exception::from(Vector::Trace)); }
@@ -482,13 +482,14 @@ impl M68000 {
     }
 }
 
-struct Execute<M: MemoryAccess> {
+struct Execute<E: CpuDetails, M: MemoryAccess> {
+    _e: E,
     _m: M,
 }
 
-impl<M: MemoryAccess> Execute<M> {
+impl<E: CpuDetails, M: MemoryAccess> Execute<E, M> {
     /// Function used to execute the instruction.
-    const EXECUTE: [fn(&mut M68000, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
+    const EXECUTE: [fn(&mut M68000<E>, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
         M68000::instruction_unknown_instruction,
         M68000::instruction_abcd,
         M68000::instruction_add,

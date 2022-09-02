@@ -1,9 +1,8 @@
 //! Memory access-related traits and structs.
 
-use crate::M68000;
+use crate::{CpuDetails, M68000};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::{ACCESS_ERROR, ADDRESS_ERROR};
-use crate::execution_times as EXEC;
 use crate::instruction::Size;
 use crate::utils::IsEven;
 
@@ -85,13 +84,13 @@ impl Iterator for MemoryIter<'_> {
     }
 }
 
-impl M68000 {
+impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u8> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u8),
             AddressingMode::Immediate(imm) => {
-                *exec_time += EXEC::EA_IMMEDIATE;
+                *exec_time += CPU::EA_IMMEDIATE;
                 Ok(imm as u8)
             },
             _ => memory.get_byte(self.get_effective_address(ea, exec_time)).ok_or(ACCESS_ERROR),
@@ -104,7 +103,7 @@ impl M68000 {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u16),
             AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
             AddressingMode::Immediate(imm) => {
-                *exec_time += EXEC::EA_IMMEDIATE;
+                *exec_time += CPU::EA_IMMEDIATE;
                 Ok(imm as u16)
             },
             _ => {
@@ -120,7 +119,7 @@ impl M68000 {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize]),
             AddressingMode::Ard(reg) => Ok(self.a(reg)),
             AddressingMode::Immediate(imm) => {
-                *exec_time += EXEC::EA_IMMEDIATE + 4;
+                *exec_time += CPU::EA_IMMEDIATE + 4;
                 Ok(imm)
             },
             _ => {

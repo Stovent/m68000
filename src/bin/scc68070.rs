@@ -9,7 +9,7 @@ use std::io::Read;
 
 /// The microcontroller structure, with its CPU core and its internal peripherals memory.
 struct Scc68070 {
-    pub cpu: M68000,
+    pub cpu: M68000<m68000::cpu_details::Scc68070>,
     pub memory: Memory68070,
 }
 

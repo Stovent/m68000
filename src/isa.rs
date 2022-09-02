@@ -120,6 +120,12 @@ impl From<u16> for Isa {
 /// let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
 /// let (operands, len) = decode(opcode, memory); // Give here the memory structure.
 ///
+/// let instruction = Instruction {
+///     opcode,
+///     pc,
+///     operands,
+/// };
+///
 /// // Disassemble
 /// let inst = (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(&instruction);
 /// println!("{}", inst);
