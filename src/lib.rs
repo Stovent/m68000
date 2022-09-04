@@ -1,8 +1,7 @@
-//! Motorola 68000 assembler, disassembler and interpreter.
+//! Motorola 68000 interpreter, disassembler and assembler (code emitter).
 //!
 //! This library emulates the common user and supervisor instructions of the M68k ISA.
-//! It is configurable at compile-time to behave like the given CPU type (see below), changing the instruction's
-//! execution times and exception handling.
+//! It is configurable to behave like the given CPU type (see below), changing the instruction's execution times and exception handling.
 //!
 //! This library has been designed to be used in two different contexts:
 //!
@@ -15,19 +14,27 @@
 //!
 //! # Supported CPUs
 //!
-//! The CPU type is specified at compile-time as a feature. There must be one and only one feature specified.
+//! The CPU type is specified with a generic parameter on the main structure.
+//! The trait `CpuDetails` contains all the details of the emulated CPU:
+//! - Instruction execution times
+//! - Exception processing times
+//! - Exception stack format
 //!
-//! There are no default features. If you don't specify any feature or specify more than one, a compile-time error is raised.
-//!
-//! * MC68000 (feature `cpu-mc68000`)
-//! * SCC68070 (feature `cpu-scc68070`)
+//! m68000 provides CPU details for the following CPUs:
+//! * MC68000 (as described in the M68000 8-/16-/32-Bit Microprocessors User’s Manual, Ninth Edition)
+//! * SCC68070 microcontroller
 //!
 //! # How to use
 //!
-//! Include this library in your project and configure the CPU type by specifying the correct feature.
+//! m68000 requires a nightly compiler as it uses the `btree_drain_filter` feature of the std.
 //!
-//! Since the memory map is application-dependant, you have to implement the [MemoryAccess] trait on your memory management
-//! structure, and pass it to the core when executing instructions.
+//! First, since the memory map is application-dependant, it is the user's responsibility to define it by implementing
+//! the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
+//!
+//! Second, choose the CPU behavior by specifying the instance that implements the `CpuDetails` trait,
+//! whether it is your own or one the provided ones.
+//!
+//! The file `src/bin/scc68070.rs` is a usage example that implements the SCC68070 microcontroller.
 //!
 //! ## Basic usage:
 //!
@@ -50,7 +57,7 @@
 //! fn main() {
 //!     let mut memory = Memory([0; MEM_SIZE as usize]);
 //!     // Load the program in memory here.
-//!     let mut cpu = M68000::new();
+//!     let mut cpu: M68000<m68000::cpu_details::Mc68000> = M68000::new();
 //!
 //!     // Execute instructions
 //!     cpu.interpreter(&mut memory);

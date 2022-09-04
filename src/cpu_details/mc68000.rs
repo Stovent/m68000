@@ -7,6 +7,23 @@ pub struct Mc68000;
 impl CpuDetails for Mc68000 {
     const STACK_FORMAT: StackFormat = StackFormat::MC68000;
 
+    const VECTOR_RESET: usize = 40;
+    fn vector_execution_time(vector: u8) -> usize {
+        match vector {
+            2 => 50, // Access Error
+            3 => 50, // Address Error
+            4 => 34, // Illegal
+            5 => 38, // Zero Divide
+            6 => 40, // Chk
+            7 => 34, // Trapv
+            8 => 34, // Privilege Violation
+            9 => 34, // Trace
+            24..=31 => 44, // Interrupt
+            32..=47 => 34, // Trap
+            _ => Self::VECTOR_RESET, // TODO: what to return with the other vectors?
+        }
+    }
+
     const EA_ARI: usize = 4;
     const EA_ARIWPO: usize = 4;
     const EA_ARIWPR: usize = 6;
@@ -324,21 +341,4 @@ impl CpuDetails for Mc68000 {
     const TST_MEM_L: usize = 4;
 
     const UNLK: usize = 12;
-
-    const VECTOR_RESET: usize = 40;
-    fn vector_execution_time(vector: u8) -> usize {
-        match vector {
-            2 => 50, // Access Error
-            3 => 50, // Address Error
-            4 => 34, // Illegal
-            5 => 38, // Zero Divide
-            6 => 40, // Chk
-            7 => 34, // Trapv
-            8 => 34, // Privilege Violation
-            9 => 34, // Trace
-            24..=31 => 44, // Interrupt
-            32..=47 => 34, // Trap
-            _ => Self::VECTOR_RESET, // TODO: what to return with the other vectors?
-        }
-    }
 }
