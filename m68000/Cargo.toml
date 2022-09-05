@@ -1,0 +1,10 @@
+[package]
+name = "m68000"
+version = "0.1.1"
+authors = ["Stovent <StoventTAS@gmail.com>"]
+edition = "2021"
+license = "LGPL-3.0-or-later"
+description = "A Motorola 68000 interpreter, disassembler and assembler (code emitter)"
+repository = "https://github.com/Stovent/m68000"
+keywords = ["motorola", "68000", "m68k", "interpreter", "emulator"]
+categories = ["compilers", "emulators"]

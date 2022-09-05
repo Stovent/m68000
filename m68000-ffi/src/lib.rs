@@ -91,12 +91,14 @@
 //! }
 //! ```
 
-use crate::{M68000, Registers};
-use crate::exception::{Exception, Vector};
-use crate::memory_access::MemoryAccess;
+use m68000::Registers;
+use m68000::exception::{Exception, Vector};
+use m68000::memory_access::MemoryAccess;
 
 use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
+
+type M68000 = m68000::M68000<m68000::cpu_details::Scc68070>;
 
 /// Return value of the `cycle_until_exception`, `loop_until_exception_stop` and `interpreter_exception` functions.
 #[repr(C)]

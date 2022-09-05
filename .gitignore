@@ -2,11 +2,10 @@
 
 !.gitignore
 !Cargo.toml
-!cbindgen.toml
 !COPYING
 !COPYING.LESSER
 !README.md
 
 !.github/
-!src/
-!tests/
+!m68000/
+!m68000-ffi/

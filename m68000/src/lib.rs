@@ -77,10 +77,6 @@
 
 pub mod addressing_modes;
 pub mod assembler;
-// #[cfg(doc)] // I don't want the C interface to be accessible from the library but I want it to be documented with the rest.
-// pub mod cinterface;
-// #[cfg(not(doc))]
-// mod cinterface;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
