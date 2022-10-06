@@ -64,11 +64,17 @@
 //! }
 //! ```
 //!
-//! ## C interface
+//! ## FFI and C interface
 //!
-//! This library has a C interface, see the README and the [cinterface] module for how to use it.
+//! By enabling the `ffi` feature, the following structs are made `repr(C)`:
+//! - [Registers]
+//! - [StatusRegister]
+//! - [Vector]
 //!
-//! # TODO:
+//! The crate `m68000-ffi` in the repo is a collection of structures and functions that allows using m68000's
+//! interpreter and disassembler in other languages through a C interface.
+//!
+//! ## TODO:
 //! - Let memory access return extra read or write cycles for accuracy.
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 //! - Implement long exception stack frame.
@@ -100,7 +106,7 @@ use std::collections::BTreeSet;
 
 /// M68000 registers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[repr(C)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub struct Registers {
     /// Data registers.
     pub d: [u32; 8],

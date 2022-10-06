@@ -7,7 +7,7 @@ This library emulates the common user and supervisor instructions of the M68k IS
 This library has been designed to be used in two different contexts:
 
 - It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods and exception when an interrupt or reset occurs. This is the typical use case for an emulator.
-- It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using the C interface), so the application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
+- It can also be used as a M68k user-mode interpreter to run a M68k program, but without the requirement of having an operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for syscalls, zero divide, etc.), which can be handled in Rust code (or any other language using the C interface), so the application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
 
 # Supported CPUs
 
@@ -58,7 +58,15 @@ fn main() {
 }
 ```
 
-# C interface
+# FFI and C interface
+
+By enabling the `ffi` feature, the following structs are made `repr(C)`:
+- Registers
+- StatusRegister
+- Vector
+
+The crate `m68000-ffi` in the repo is a collection of structures and functions that allows using m68000's
+interpreter and disassembler in other languages through a C interface.
 
 ## Build the C interface
 

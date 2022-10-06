@@ -4,7 +4,7 @@ use crate::utils::bits;
 
 /// M68000 status register.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[repr(C)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub struct StatusRegister {
     /// Trace
     pub t: bool,

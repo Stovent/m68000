@@ -21,8 +21,8 @@ pub const ADDRESS_ERROR: u8 = Vector::AddressError as u8;
 ///
 /// The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
-#[non_exhaustive]
-#[repr(C)]
+#[cfg_attr(not(feature = "ffi"), non_exhaustive)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub enum Vector {
     ResetSspPc = 0,
     /// Bus error. Sent when the accessed address is not in the memory range of the system.
