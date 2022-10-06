@@ -2,7 +2,7 @@ use crate::{CpuDetails, M68000, MemoryAccess, StackFormat};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::{ACCESS_ERROR, Vector};
 use crate::instruction::{Direction, Size};
-use crate::utils::{BigInt, bits, IsEven};
+use crate::utils::{bits, IsEven};
 
 pub(super) const SR_UPPER_MASK: u16 = 0xA700;
 pub(super) const CCR_MASK: u16 = 0x001F;
@@ -276,8 +276,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize] as u8, self.regs.d[rx as usize] as u8)
                 };
 
-                let (res, v) = (src as i8).extended_add(dst as i8, self.regs.sr.x);
-                let (_, c) = src.extended_add(dst, self.regs.sr.x);
+                let (res, v) = (src as i8).carrying_add(dst as i8, self.regs.sr.x);
+                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
@@ -304,8 +304,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize] as u16, self.regs.d[rx as usize] as u16)
                 };
 
-                let (res, v) = (src as i16).extended_add(dst as i16, self.regs.sr.x);
-                let (_, c) = src.extended_add(dst, self.regs.sr.x);
+                let (res, v) = (src as i16).carrying_add(dst as i16, self.regs.sr.x);
+                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
@@ -332,8 +332,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize], self.regs.d[rx as usize])
                 };
 
-                let (res, v) = (src as i32).extended_add(dst as i32, self.regs.sr.x);
-                let (_, c) = src.extended_add(dst, self.regs.sr.x);
+                let (res, v) = (src as i32).carrying_add(dst as i32, self.regs.sr.x);
+                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
@@ -1587,49 +1587,44 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let mut ea = EffectiveAddress::new(am, Some(size));
 
-        // using overflowing_sub indicates an overflow when negating -128 with the X flag set.
-        // 0 - -128 stays -128, then -128 - 1 gives 127, which is an overflow.
-        // However I don't know if the hardware has intermediate overflow.
-        // The other way is 0 - -128 gives 128, then 128 - 1 gives 127 which generates no overflow.
-        // TODO: test what the hardware actually does.
         match size {
             Size::Byte => {
-                let data = self.get_byte(memory, &mut ea, &mut exec_time)? as i8;
-                let res = 0 - data - self.regs.sr.x as i8;
-                let vres = 0 - data as i16 - self.regs.sr.x as i16;
-                let (_, c) = 0u8.extended_sub(data as u8, self.regs.sr.x);
+                let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
+
+                let (res, v) = 0i8.borrowing_sub(data as i8, self.regs.sr.x);
+                let (_, c) = 0u8.borrowing_sub(data, self.regs.sr.x);
                 self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false };
-                self.regs.sr.v = vres < i8::MIN as i16 || vres > i8::MAX as i16;
+                if res != 0 { self.regs.sr.z = false }
+                self.regs.sr.v = v;
                 self.regs.sr.c = c;
             },
             Size::Word => {
-                let data = self.get_word(memory, &mut ea, &mut exec_time)? as i16;
-                let res = 0 - data - self.regs.sr.x as i16;
-                let vres = 0 - data as i32 - self.regs.sr.x as i32;
-                let (_, c) = 0u16.extended_sub(data as u16, self.regs.sr.x);
+                let data = self.get_word(memory, &mut ea, &mut exec_time)?;
+
+                let (res, v) = 0i16.borrowing_sub(data as i16, self.regs.sr.x);
+                let (_, c) = 0u16.borrowing_sub(data, self.regs.sr.x);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false };
-                self.regs.sr.v = vres < i16::MIN as i32 || vres > i16::MAX as i32;
+                if res != 0 { self.regs.sr.z = false }
+                self.regs.sr.v = v;
                 self.regs.sr.c = c;
             },
             Size::Long => {
-                let data = self.get_long(memory, &mut ea, &mut exec_time)? as i32;
-                let res = 0 - data - self.regs.sr.x as i32;
-                let vres = 0 - data as i64 - self.regs.sr.x as i64;
-                let (_, c) = 0u32.extended_sub(data as u32, self.regs.sr.x);
+                let data = self.get_long(memory, &mut ea, &mut exec_time)?;
+
+                let (res, v) = 0i32.borrowing_sub(data as i32, self.regs.sr.x);
+                let (_, c) = 0u32.borrowing_sub(data, self.regs.sr.x);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
                 self.regs.sr.x = c;
                 self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false };
-                self.regs.sr.v = vres < i32::MIN as i64 || vres > i32::MAX as i64;
+                if res != 0 { self.regs.sr.z = false }
+                self.regs.sr.v = v;
                 self.regs.sr.c = c;
             },
         }
@@ -2318,8 +2313,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize] as u8, self.regs.d[ry as usize] as u8)
                 };
 
-                let (res, v) = (dst as i8).extended_sub(src as i8, self.regs.sr.x);
-                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
+                let (res, v) = (dst as i8).borrowing_sub(src as i8, self.regs.sr.x);
+                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
 
                 self.regs.sr.n = res < 0;
                 if res != 0 {
@@ -2346,8 +2341,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize] as u16, self.regs.d[ry as usize] as u16)
                 };
 
-                let (res, v) = (dst as i16).extended_sub(src as i16, self.regs.sr.x);
-                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
+                let (res, v) = (dst as i16).borrowing_sub(src as i16, self.regs.sr.x);
+                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
 
                 self.regs.sr.n = res < 0;
                 if res != 0 {
@@ -2374,8 +2369,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize], self.regs.d[ry as usize])
                 };
 
-                let (res, v) = (dst as i32).extended_sub(src as i32, self.regs.sr.x);
-                let (_, c) = dst.extended_sub(src, self.regs.sr.x);
+                let (res, v) = (dst as i32).borrowing_sub(src as i32, self.regs.sr.x);
+                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
 
                 self.regs.sr.n = res < 0;
                 if res != 0 {

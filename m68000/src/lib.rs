@@ -79,6 +79,7 @@
 //! - Verify ABCD, NBCD, SBCD, DIVS and DIVU instructions.
 //! - Implement long exception stack frame.
 
+#![feature(bigint_helper_methods)]
 #![feature(btree_drain_filter)]
 
 pub mod addressing_modes;
