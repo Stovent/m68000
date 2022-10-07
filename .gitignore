@@ -2,6 +2,7 @@
 
 !.gitignore
 !Cargo.toml
+!CHANGELOG.md
 !LICENSE
 !README.md
 
