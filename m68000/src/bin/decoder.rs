@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Program dedicated to generate the decoder.rs file of m68000.
 //!
 //! The goal is to make a decoding look-up table as a const member, so it has to be generated before.

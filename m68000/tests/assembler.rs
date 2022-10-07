@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! This file is used to generate a test ROM, that will be later tested by the interpreter.
 
 use m68000::addressing_modes::{AddressingMode as AM, BriefExtensionWord as BEW};

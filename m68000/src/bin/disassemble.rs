@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Little program to disassemble the given binary file for the specified range.
 //!
 //! Usage: ./disassembler.exe <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Tests for the `overflowing_add`, `overflowing_sub`, `carrying_add` and `borrowing_sub` functions.
 //!
 //! The goal is to ensure that the functions have the correct behaviours on carry/overflow detection

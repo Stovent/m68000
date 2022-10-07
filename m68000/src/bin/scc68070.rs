@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! This is a minimal SCC68070 microcontroller emulation used to run test ROMs.
 //! It also demonstrate how to use this library in Rust projects.
 

@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 use crate::cpu_details::{CpuDetails, StackFormat};
 
 /// The CPU details of a MC68000 CPU as described in the M68000 8-/16-/32-Bit Microprocessors User’s Manual, Ninth Edition.

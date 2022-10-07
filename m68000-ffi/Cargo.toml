@@ -3,8 +3,11 @@ name = "m68000-ffi"
 version = "0.1.1"
 authors = ["Stovent <StoventTAS@gmail.com>"]
 edition = "2021"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MPL-2.0"
+description = "m68000 FFI bindings."
+repository = "https://github.com/Stovent/m68000"
+keywords = ["motorola", "68000", "m68k", "interpreter", "emulator"]
+categories = ["compilers", "emulators"]
 
 [dependencies]
 m68000 = { path = "../m68000", version = "0.1.1" }

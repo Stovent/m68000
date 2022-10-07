@@ -1,3 +1,7 @@
+// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
 //! Dynamically assemble M68000 instructions.
 //!
 //! The fields are as described in the M68000 Programming Reference Manual, left (high order bits) to right (low order bits).
