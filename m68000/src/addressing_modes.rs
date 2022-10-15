@@ -342,7 +342,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             ea.address = match ea.mode {
                 AddressingMode::Ari(reg) => {
                     *exec_time += CPU::EA_ARI;
-                    Some(self.a(reg))
+                    Some(self.regs.a(reg))
                 },
                 AddressingMode::Ariwpo(reg) => {
                     *exec_time += CPU::EA_ARIWPO;
@@ -354,11 +354,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 },
                 AddressingMode::Ariwd(reg, disp)  => {
                     *exec_time += CPU::EA_ARIWD;
-                    Some(self.a(reg) + disp as u32)
+                    Some(self.regs.a(reg) + disp as u32)
                 },
                 AddressingMode::Ariwi8(reg, bew) => {
                     *exec_time += CPU::EA_ARIWI8;
-                    Some(self.a(reg) + bew.disp() as u32 + self.get_index_register(bew))
+                    Some(self.regs.a(reg) + bew.disp() as u32 + self.get_index_register(bew))
                 },
                 AddressingMode::AbsShort(addr) => {
                     *exec_time += CPU::EA_ABSSHORT;
@@ -388,9 +388,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         if bew.0 & 0x8000 != 0 { // Address register
             if bew.0 & 0x0800 != 0 { // Long
-                self.a(reg)
+                self.regs.a(reg)
             } else { // Word
-                self.a(reg) as i16 as u32
+                self.regs.a(reg) as i16 as u32
             }
         } else { // Data register
             if bew.0 & 0x0800 != 0 { // Long
@@ -403,7 +403,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Address Register Indirect With POstincrement
     pub(super) fn ariwpo(&mut self, reg: u8, size: Size) -> u32 {
-        let areg = self.a_mut(reg);
+        let areg = self.regs.a_mut(reg);
         let addr = *areg;
         *areg += if reg == 7 { size.as_word_long() } else { size } as u32;
         addr
@@ -411,7 +411,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Address Register Indirect With PRedecrement
     pub(super) fn ariwpr(&mut self, reg: u8, size: Size) -> u32 {
-        let areg = self.a_mut(reg);
+        let areg = self.regs.a_mut(reg);
         *areg -= if reg == 7 { size.as_word_long() } else { size } as u32;
         *areg
     }

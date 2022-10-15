@@ -105,7 +105,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u16> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u16),
-            AddressingMode::Ard(reg) => Ok(self.a(reg) as u16),
+            AddressingMode::Ard(reg) => Ok(self.regs.a(reg) as u16),
             AddressingMode::Immediate(imm) => {
                 *exec_time += CPU::EA_IMMEDIATE;
                 Ok(imm as u16)
@@ -121,7 +121,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u32> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize]),
-            AddressingMode::Ard(reg) => Ok(self.a(reg)),
+            AddressingMode::Ard(reg) => Ok(self.regs.a(reg)),
             AddressingMode::Immediate(imm) => {
                 *exec_time += CPU::EA_IMMEDIATE + 4;
                 Ok(imm)
@@ -138,7 +138,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn set_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u8) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d_byte(reg, value)),
+            AddressingMode::Drd(reg) => Ok(self.regs.d_byte(reg, value)),
             _ => memory.set_byte(self.get_effective_address(ea, exec_time), value).ok_or(ACCESS_ERROR),
         }
     }
@@ -146,8 +146,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u16) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.d_word(reg, value)),
-            AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value as i16 as u32),
+            AddressingMode::Drd(reg) => Ok(self.regs.d_word(reg, value)),
+            AddressingMode::Ard(reg) => Ok(*self.regs.a_mut(reg) = value as i16 as u32),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
                 memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
@@ -159,7 +159,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u32) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] = value),
-            AddressingMode::Ard(reg) => Ok(*self.a_mut(reg) = value),
+            AddressingMode::Ard(reg) => Ok(*self.regs.a_mut(reg) = value),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
                 let r = memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR);

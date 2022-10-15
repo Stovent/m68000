@@ -127,6 +127,58 @@ pub struct Registers {
     pub pc: u32,
 }
 
+impl Registers {
+    /// Sets the lower 8-bits of the given data register to the given value.
+    /// The higher 24-bits remains untouched.
+    pub fn d_byte(&mut self, reg: u8, value: u8) {
+        self.d[reg as usize] &= 0xFFFF_FF00;
+        self.d[reg as usize] |= value as u32;
+    }
+
+    /// Sets the lower 16-bits of the given data register to the given value.
+    /// The higher 16-bits remains untouched.
+    pub fn d_word(&mut self, reg: u8, value: u16) {
+        self.d[reg as usize] &= 0xFFFF_0000;
+        self.d[reg as usize] |= value as u32;
+    }
+
+    /// Returns an address register.
+    pub const fn a(&self, reg: u8) -> u32 {
+        if reg < 7 {
+            self.a[reg as usize]
+        } else {
+            self.sp()
+        }
+    }
+
+    /// Returns a mutable reference to an address register.
+    pub fn a_mut(&mut self, reg: u8) -> &mut u32 {
+        if reg < 7 {
+            &mut self.a[reg as usize]
+        } else {
+            self.sp_mut()
+        }
+    }
+
+    /// Returns the stack pointer, SSP if in supervisor mode, USP if in user mode.
+    pub const fn sp(&self) -> u32 {
+        if self.sr.s {
+            self.ssp
+        } else {
+            self.usp
+        }
+    }
+
+    /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
+    pub fn sp_mut(&mut self) -> &mut u32 {
+        if self.sr.s {
+            &mut self.ssp
+        } else {
+            &mut self.usp
+        }
+    }
+}
+
 /// A M68000 core.
 #[derive(Clone, Debug)]
 pub struct M68000<CPU: CpuDetails> {
@@ -146,8 +198,8 @@ pub struct M68000<CPU: CpuDetails> {
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Creates a new M68000 core.
     ///
-    /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an interpreter method
-    /// will first fetch the reset vectors, then will execute the first instruction.
+    /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an
+    /// interpreter method will first fetch the reset vectors, then will execute the first instruction.
     pub fn new() -> Self {
         let mut cpu = Self::new_no_reset();
 
@@ -172,56 +224,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
             stop: false,
             exceptions: BTreeSet::new(),
             _cpu: CPU::default(),
-        }
-    }
-
-    /// Sets the lower 8-bits of the given data register to the given value.
-    /// The higher 24-bits remains untouched.
-    pub fn d_byte(&mut self, reg: u8, value: u8) {
-        self.regs.d[reg as usize] &= 0xFFFF_FF00;
-        self.regs.d[reg as usize] |= value as u32;
-    }
-
-    /// Sets the lower 16-bits of the given data register to the given value.
-    /// The higher 16-bits remains untouched.
-    pub fn d_word(&mut self, reg: u8, value: u16) {
-        self.regs.d[reg as usize] &= 0xFFFF_0000;
-        self.regs.d[reg as usize] |= value as u32;
-    }
-
-    /// Returns an address register.
-    pub const fn a(&self, reg: u8) -> u32 {
-        if reg < 7 {
-            self.regs.a[reg as usize]
-        } else {
-            self.sp()
-        }
-    }
-
-    /// Returns a mutable reference to an address register.
-    pub fn a_mut(&mut self, reg: u8) -> &mut u32 {
-        if reg < 7 {
-            &mut self.regs.a[reg as usize]
-        } else {
-            self.sp_mut()
-        }
-    }
-
-    /// Returns the stack pointer, SSP if in supervisor mode, USP if in user mode.
-    pub const fn sp(&self) -> u32 {
-        if self.regs.sr.s {
-            self.regs.ssp
-        } else {
-            self.regs.usp
-        }
-    }
-
-    /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
-    pub fn sp_mut(&mut self) -> &mut u32 {
-        if self.regs.sr.s {
-            &mut self.regs.ssp
-        } else {
-            &mut self.regs.usp
         }
     }
 }

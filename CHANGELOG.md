@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Change license from LGPL-3.0 to MPL-2.0.
 - Separate the C interface from the main crate.
 - CPU behavior is now controlled using a trait and generic member instead of features (breaking).
+- Move the register access helper methods to the Registers struct.
 
 ### Removed
 - M68000 core does not store the extra cycles count anymore (breaking).
