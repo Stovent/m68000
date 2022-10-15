@@ -139,8 +139,6 @@ pub struct M68000<CPU: CpuDetails> {
     pub stop: bool,
     /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
     exceptions: BTreeSet<exception::Exception>,
-    /// Number of cycles executed by the called interpreter method.
-    cycles: usize,
     /// The details of the emulated CPU.
     _cpu: CPU,
 }
@@ -173,7 +171,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
             current_opcode: 0xFFFF,
             stop: false,
             exceptions: BTreeSet::new(),
-            cycles: 0,
             _cpu: CPU::default(),
         }
     }

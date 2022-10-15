@@ -8,69 +8,46 @@ use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
 impl<CPU: CpuDetails> M68000<CPU> {
-    /// Runs the CPU for `cycles` number of cycles.
+    /// Runs the CPU for **at least** the given number of cycles.
     ///
-    /// This function executes **at least** the given number of cycles.
     /// Returns the number of cycles actually executed.
     ///
-    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
-    /// it will be executed and the 2 extra cycles will be subtracted in the next call.
+    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute, it will be executed
+    /// and 6 is returned. It is the caller's responsibility to handle the extra cycles.
     pub fn cycle(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> usize {
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-            return 0;
-        }
+        let mut total = 0;
 
-        let initial = self.cycles;
+        while total < cycles {
+            total += self.interpreter(memory);
 
-        while self.cycles < cycles {
-            self.cycles += self.interpreter(memory);
             if self.stop {
-                self.cycles = cycles;
+                return cycles;
             }
         }
 
-        let total = self.cycles - initial;
-        self.cycles -= cycles;
         total
     }
 
-    /// Runs the CPU until either an exception occurs or `cycle` cycles have been executed.
+    /// Runs the CPU until either an exception occurs or **at least** the given number cycles have been executed.
     ///
-    /// This function executes **at least** the given number of cycles.
     /// Returns the number of cycles actually executed, and the exception that occured if any.
     ///
-    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
-    /// it will be executed and the 2 extra cycles will be subtracted in the next call.
+    /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute, it will be executed
+    /// and 6 is returned, along with the vector that occured if any.
+    /// It is the caller's responsibility to handle the extra cycles.
     pub fn cycle_until_exception(&mut self, memory: &mut impl MemoryAccess, cycles: usize) -> (usize, Option<u8>) {
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-            return (0, None);
-        }
+        let mut total = 0;
 
-        let initial = self.cycles;
-        let mut vector = None;
-
-        while self.cycles < cycles {
+        while total < cycles {
             let (c, v) = self.interpreter_exception(memory);
-            self.cycles += c;
+            total += c;
 
-            if v.is_some() {
-                vector = v;
-                break;
-            }
-            if self.stop {
-                self.cycles = cycles;
+            if v.is_some() || self.stop {
+                return (total, v);
             }
         }
 
-        let total = self.cycles - initial;
-        if self.cycles >= cycles {
-            self.cycles -= cycles;
-        } else {
-            self.cycles = 0;
-        }
-        (total, vector)
+        (total, None)
     }
 
     /// Runs indefinitely until an exception or STOP instruction occurs.
@@ -78,8 +55,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the number of cycles executed and the exception that occured.
     /// If exception is None, this means the CPU has executed a STOP instruction.
     pub fn loop_until_exception_stop(&mut self, memory: &mut impl MemoryAccess) -> (usize, Option<u8>) {
-        let mut total_cycles = self.cycles;
-        self.cycles = 0;
+        let mut total_cycles = 0;
 
         loop {
             let (cycles, vector) = self.interpreter_exception(memory);
@@ -95,7 +71,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// This method may or may not execute any instruction.
     /// For example, if an Access Error occurs during instruction fetch or if the CPU is stopped, it returns 0 and no instruction is executed.
-    pub fn interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> usize {
+    pub fn interpreter(&mut self, memory: &mut impl MemoryAccess) -> usize {
         let (cycles, exception) = self.interpreter_exception(memory);
         if let Some(e) = exception {
             self.exception(Exception::from(e));
@@ -132,7 +108,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
         match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory) {
             Ok(cycles) => {
                 cycle_count += cycles;
-                if trace { self.exception(Exception::from(Vector::Trace)); }
+                if trace {
+                    return (cycle_count, Some(Vector::Trace as u8));
+                }
             },
             Err(e) => return (cycle_count, Some(e)),
         }

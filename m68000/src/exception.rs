@@ -228,7 +228,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 self.push_long(memory, self.regs.pc)?;
                 self.push_word(memory, sr)?;
 
-                if vector == 2 || vector == 3 { // TODO: Long format
+                if vector == 2 || vector == 3 { // TODO: Long format.
                     self.push_word(memory, self.current_opcode)?;
                     self.push_long(memory, 0)?; // Access address
                     self.push_word(memory, 0)?; // function code
@@ -237,7 +237,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 }
             },
             StackFormat::SCC68070 => {
-                if vector == 2 || vector == 3 { // TODO: Long format
+                if vector == 2 || vector == 3 { // TODO: Long format.
                     self.push_word(memory, 0)?;
                     self.push_word(memory, 0)?;
                     self.push_word(memory, 0)?;

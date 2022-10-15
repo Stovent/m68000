@@ -7,14 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `ffi` feature to enable `repr(C)` on some structs and enums.
-- CPU behavior is now controlled using a trait and generic member.
 
 ### Changed
 - Change license from LGPL-3.0 to MPL-2.0.
 - Separate the C interface from the main crate.
+- CPU behavior is now controlled using a trait and generic member instead of features (breaking).
 
 ### Removed
-- Remove CPU behavior selection using features.
+- M68000 core does not store the extra cycles count anymore (breaking).
 
 ## [0.1.1] - 2022-08-28
 ### Fixed
