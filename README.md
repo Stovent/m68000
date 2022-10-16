@@ -60,8 +60,14 @@ fn main() {
 
 # FFI and C interface
 
-By enabling the `ffi` feature, the following structs are made `repr(C)`:
+By enabling the `ffi` feature, the following structs and enums are made `repr(C)`:
+- AddressingMode
+- BriefExtensionWord
+- Direction
+- Instruction
+- Operands
 - Registers
+- Size
 - StatusRegister
 - Vector
 

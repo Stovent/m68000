@@ -21,7 +21,8 @@ type SetResult = Result<(), u8>;
 /// If the address of the value asked is not in the memory map of the system, return `None`.
 /// This will trigger an Access (Bus) Error, which will interrupt the current instruction processing.
 ///
-/// The address is guaranted to be even (16-bits word aligned), as odd addresses are detected by the library and automatically trigger an Address Error.
+/// For word and long accesses, the address is guaranted to be even (16-bits word aligned),
+/// as odd addresses are detected by the library and automatically trigger an Address Error.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]

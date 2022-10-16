@@ -11,6 +11,7 @@ use crate::utils::bits;
 
 /// Addressing modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub enum AddressingMode {
     /// Data Register Direct.
     Drd(u8),
@@ -279,6 +280,7 @@ impl std::fmt::UpperHex for AddressingMode {
 
 /// Raw Brief Extension Word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub struct BriefExtensionWord(u16);
 
 impl BriefExtensionWord {

@@ -15,6 +15,7 @@ use crate::utils::bits;
 
 /// M68000 instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub struct Instruction {
     /// The opcode itself.
     pub opcode: u16,
@@ -77,6 +78,7 @@ impl std::fmt::Display for Instruction {
 ///
 /// `RegisterToRegister` and `MemoryToMemory` are used by ABCD, ADDX, SBCD and SUBX.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub enum Direction {
     /// Transfert from a register to memory.
     RegisterToMemory,
@@ -121,6 +123,7 @@ impl std::fmt::Display for Direction {
 
 /// Size of an operation.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub enum Size {
     Byte = 1,
     Word = 2,
@@ -256,6 +259,7 @@ impl std::fmt::Display for Size {
 
 /// Operands of an instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "ffi", repr(C))]
 pub enum Operands {
     /// ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
     NoOperands,

@@ -84,7 +84,7 @@ const fn get_vector_priority(vector: u8) -> u8 {
         64..=255 => 3, // User Interrupt.
         4 => 4, // Illegal.
         8 => 5, // Privilege.
-        // Even though Reset has the higest priority, it is given a high number.
+        // Even though Reset has the highest priority, it is given a high number.
         // The point is to make the reset vector be processed first, and the reset processing clears all the pending exceptions.
         _ => u8::MAX, // Reset and the other vectors.
     }
