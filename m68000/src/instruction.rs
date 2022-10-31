@@ -764,6 +764,7 @@ pub fn direction_size_effective_address_list(opcode: u16, memory: &mut MemoryIte
 /// ADDQ, SUBQ
 pub fn data_size_effective_address(opcode: u16, memory: &mut MemoryIter) -> (Operands, usize) {
     let data = bits(opcode, 9, 11) as u8;
+    let data = if data == 0 { 8 } else { data };
     let size = Size::from(bits(opcode, 6, 7));
 
     let naddr = memory.next_addr;

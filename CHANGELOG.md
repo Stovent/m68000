@@ -17,6 +17,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 - M68000 core does not store the extra cycles count anymore (breaking).
 
+### Fixed
+- Fix ADDQ/SUBQ immediate data 0 not interpreted as 8.
+
 ## [0.1.1] - 2022-08-28
 ### Fixed
 - Fixed docs.rs documentation generation.
