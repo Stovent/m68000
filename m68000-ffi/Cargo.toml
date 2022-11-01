@@ -10,7 +10,8 @@ keywords = ["motorola", "68000", "m68k", "interpreter", "emulator"]
 categories = ["compilers", "emulators"]
 
 [dependencies]
-m68000 = { path = "../m68000", version = "0.1.1" }
+m68000 = { path = "../m68000", features = ["ffi"] }
+paste = "1.0"
 
 [lib]
 crate-type = ["staticlib"]

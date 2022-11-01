@@ -79,25 +79,28 @@ interpreter and disassembler in other languages through a C interface.
 This library has a C interface to generate a static library and use it in the language you want.
 
 To generate the static library, simply build the project using the correct target toolchain.
+To change the build toolchain, add `+<toolchain name>`.
 ```sh
-cargo build --release --lib --features=cpu-scc68070
+cargo build --release --features="ffi"
+cargo +nightly-x86_64-pc-windows-gnu build --release --features="ffi"
 ```
 
-Change the CPU type you want to use by changing the last parameter of the previous command. To change the build toolchain, add `+<toolchain name>`. For example, to build it for windows targetting the MinGW compiler, type
-```sh
-cargo +nightly-x86_64-pc-windows-gnu build --release --lib --features=cpu-scc68070
-```
-
-To generate the C header file, it is recommended to use [cbindgen](https://github.com/eqrion/cbindgen), and to use the `cbindgen.toml` file provided in this repo. In a terminal, type the following command to generate the header file:
-```sh
-bindgen.exe --config .\cbindgen.toml --crate m68000 --output m68000.h
-```
-
-You can change the name of the file by changing the last parameter of the previous command.
+The two C headers are generated using [cbindgen](https://github.com/eqrion/cbindgen) and a bit modified to adapt to the situation. It is recommended to use the ones in the root directory of the repo.
 
 ## Use the C interface
 
-The complete documentation for the functions and structures can be found in the `cinterface.rs` module.
+You need to link to the two generated libraries in your project:
+- `libm68000` which contains the Rust core of the library.
+- `libm68000_ffi` which contains the interface code between Rust and C.
+
+The `m68000.h` header contains the m68000 library data structures.
+The `m68000-ffi.h` header is the one to include in your C files and it contains the structs and functions declarations of the interface.
+
+Because the main Rust library is generic over a certain CPU type trait, and this trait is only usable in Rust code, the C interface exports both of the pre-defined CPU types.
+
+Each function name starts with the library name `m68000_`, then the CPU type `mc68000_` or `scc68070_` and finally the action performed by the function. Make sure you use the correct core with the correct functions.
+
+The complete documentation for the functions and structures can be found in the `m68000-ffi/lib.rs` file.
 See the C example below for a basic start.
 
 Include the generated header file in your project, and define your memory access callback functions. These functions will be passed to the core through a M68000Callbacks struct.
@@ -107,7 +110,7 @@ The returned values are in a GetSetResult struct. Set `GetSetResult.exception` t
 ## C example
 
 ```c
-#include "m68000.h"
+#include "m68000-ffi.h"
 
 #include <stdint.h>
 #include <stdlib.h>
@@ -240,12 +243,12 @@ int main()
         .user_data = memory,
     };
 
-    M68000* core = m68000_new(); // Create a new core.
+    m68000_mc68000_t* core = m68000_mc68000_new(); // Create a new core.
     // Now execute instructions as you want.
-    m68000_interpreter(core, &callbacks);
+    m68000_mc68000_interpreter(core, &callbacks);
 
     // end of the program.
-    m68000_delete(core);
+    m68000_mc68000_delete(core);
     free(memory);
     return 0;
 }
