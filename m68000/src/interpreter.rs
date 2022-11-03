@@ -216,6 +216,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_addq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+        if am.is_ard() {
+            *self.regs.a_mut(am.register().unwrap()) += imm as u32;
+            return Ok(if size.is_long() { CPU::ADDQ_REG_L } else { CPU::ADDQ_REG_BW });
+        }
+
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -235,34 +240,30 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 self.regs.sr.c = c;
             },
             Size::Word => {
-                exec_time = if am.is_dard() { CPU::ADDQ_REG_BW } else { CPU::ADDQ_MEM_BW };
+                exec_time = if am.is_drd() { CPU::ADDQ_REG_BW } else { CPU::ADDQ_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
                 let (res, v) = (data as i16).overflowing_add(imm as i16);
                 let (_, c) = data.overflowing_add(imm as u16);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                if !ea.mode.is_ard() {
-                    self.regs.sr.x = c;
-                    self.regs.sr.n = res < 0;
-                    self.regs.sr.z = res == 0;
-                    self.regs.sr.v = v;
-                    self.regs.sr.c = c;
-                }
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
-                exec_time = if am.is_dard() { CPU::ADDQ_REG_L } else { CPU::ADDQ_MEM_L };
+                exec_time = if am.is_drd() { CPU::ADDQ_REG_L } else { CPU::ADDQ_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
                 let (res, v) = (data as i32).overflowing_add(imm as i32);
                 let (_, c) = data.overflowing_add(imm as u32);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                if !ea.mode.is_ard() {
-                    self.regs.sr.x = c;
-                    self.regs.sr.n = res < 0;
-                    self.regs.sr.z = res == 0;
-                    self.regs.sr.v = v;
-                    self.regs.sr.c = c;
-                }
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 
@@ -2247,6 +2248,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_subq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+        if am.is_ard() {
+            *self.regs.a_mut(am.register().unwrap()) -= imm as u32;
+            return Ok(if size.is_long() { CPU::SUBQ_REG_L } else { CPU::SUBQ_AREG_BW });
+        }
+
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -2266,40 +2272,30 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 self.regs.sr.c = c;
             },
             Size::Word => {
-                exec_time = if am.is_drd() {
-                    CPU::SUBQ_DREG_BW
-                } else if am.is_ard() {
-                    CPU::SUBQ_AREG_BW
-                } else {
-                    CPU::SUBQ_MEM_BW
-                };
+                exec_time = if am.is_drd() { CPU::SUBQ_DREG_BW } else { CPU::SUBQ_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
                 let (res, v) = (data as i16).overflowing_sub(imm as i16);
                 let (_, c) = data.overflowing_sub(imm as u16);
                 self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                if !ea.mode.is_ard() {
-                    self.regs.sr.x = c;
-                    self.regs.sr.n = res < 0;
-                    self.regs.sr.z = res == 0;
-                    self.regs.sr.v = v;
-                    self.regs.sr.c = c;
-                }
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
             Size::Long => {
-                exec_time = if am.is_dard() { CPU::SUBQ_REG_L } else { CPU::SUBQ_MEM_L };
+                exec_time = if am.is_drd() { CPU::SUBQ_REG_L } else { CPU::SUBQ_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
                 let (res, v) = (data as i32).overflowing_sub(imm as i32);
                 let (_, c) = data.overflowing_sub(imm as u32);
                 self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                if !ea.mode.is_ard() {
-                    self.regs.sr.x = c;
-                    self.regs.sr.n = res < 0;
-                    self.regs.sr.z = res == 0;
-                    self.regs.sr.v = v;
-                    self.regs.sr.c = c;
-                }
+                self.regs.sr.x = c;
+                self.regs.sr.n = res < 0;
+                self.regs.sr.z = res == 0;
+                self.regs.sr.v = v;
+                self.regs.sr.c = c;
             },
         }
 

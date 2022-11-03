@@ -205,6 +205,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// ADDQ, SUBQ
     pub(super) fn data_size_effective_address(&mut self, memory: &mut impl MemoryAccess) -> (u8, Size, AddressingMode) {
         let data = bits(self.current_opcode, 9, 11) as u8;
+        let data = if data == 0 { 8 } else { data };
         let size = Size::from(bits(self.current_opcode, 6, 7));
 
         let eareg = bits(self.current_opcode, 0, 2) as u8;
