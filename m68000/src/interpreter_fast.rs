@@ -102,20 +102,22 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Err(e) => return (cycle_count, Some(e)),
         };
         self.current_opcode = opcode;
-        let isa: Isa = opcode.into();
+        let isa = Isa::from(opcode);
 
         let trace = self.regs.sr.t;
-        match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory) {
+        let exception = match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory) {
             Ok(cycles) => {
                 cycle_count += cycles;
                 if trace {
-                    return (cycle_count, Some(Vector::Trace as u8));
+                    Some(Vector::Trace as u8)
+                } else {
+                    None
                 }
             },
-            Err(e) => return (cycle_count, Some(e)),
-        }
+            Err(e) => Some(e),
+        };
 
-        (cycle_count, None)
+        (cycle_count, exception)
     }
 
     fn fast_unknown_instruction(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {

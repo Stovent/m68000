@@ -10,9 +10,11 @@ use crate::exception::{ACCESS_ERROR, ADDRESS_ERROR};
 use crate::instruction::Size;
 use crate::utils::IsEven;
 
-/// Return type of M68000's read memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or access (bus) error occured. Alias for `Result<T, u8>`.
+/// Return type of M68000's read memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or
+/// access (bus) error occured. Alias for `Result<T, u8>`.
 type GetResult<T> = Result<T, u8>;
-/// Return type of M68000's write memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or access (bus) error occured. Alias for `Result<(), u8>`.
+/// Return type of M68000's write memory methods. `Err(Vector::AddressError or AccessError as u8)` if an address or
+/// access (bus) error occured. Alias for `Result<(), u8>`.
 type SetResult = Result<(), u8>;
 
 /// The trait to be implemented by the memory system that will be used by the core.

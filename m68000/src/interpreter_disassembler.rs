@@ -9,7 +9,18 @@ use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
 impl<CPU: CpuDetails> M68000<CPU> {
-    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembler string and the cycle count necessary to execute it.
+    /// Returns the instruction at the current Program Counter and advances it to the next instruction.
+    ///
+    /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
+    pub fn get_next_instruction(&mut self, memory: &mut impl MemoryAccess) -> Result<Instruction, u8> {
+        let mut iter = memory.iter_u16(self.regs.pc);
+        let (instruction, len) = Instruction::from_memory(&mut iter)?;
+        self.regs.pc += len as u32;
+        Ok(instruction)
+    }
+
+    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembler string
+    /// and the cycle count necessary to execute it.
     ///
     /// See [Self::interpreter] for the potential caveat.
     pub fn disassembler_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize) {
@@ -20,8 +31,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
         (dis, cycles)
     }
 
-    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembled string, the cycle count necessary to execute it,
-    /// and the vector of the exception that occured during the execution if any.
+    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembled string,
+    /// the cycle count necessary to execute it, and the vector of the exception that occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
     ///
@@ -37,29 +48,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
             cycle_count += self.process_pending_exceptions(memory);
         }
 
-        let pc = self.regs.pc;
-        let opcode = match self.get_next_word(memory) {
-            Ok(op) => op,
+        let instruction = match self.get_next_instruction(memory) {
+            Ok(i) => i,
             Err(e) => return (String::from(""), cycle_count, Some(e)),
         };
-        self.current_opcode = opcode;
-        let isa: Isa = opcode.into();
 
-        let mut iter = memory.iter_u16(self.regs.pc);
-        let (instruction, len) = Instruction::from_opcode(opcode, pc, &mut iter);
-        self.regs.pc += len as u32;
+        self.current_opcode = instruction.opcode;
+        let isa = Isa::from(instruction.opcode);
 
         let dis = instruction.disassemble();
         let trace = self.regs.sr.t;
-        match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory, &instruction) {
+        let exception = match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => {
                 cycle_count += cycles;
-                if trace { self.exception(Exception::from(Vector::Trace)); }
+                if trace {
+                    Some(Vector::Trace as u8)
+                } else {
+                    None
+                }
             },
-            Err(e) => return (dis, cycle_count, Some(e)),
-        }
+            Err(e) => Some(e),
+        };
 
-        (dis, cycle_count, None)
+        (dis, cycle_count, exception)
     }
 
     fn instruction_unknown_instruction(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {

@@ -28,9 +28,9 @@ pub struct Instruction {
 impl Instruction {
     /// Decodes the given opcode.
     ///
-    /// Returns the decoded instruction and the number of bytes of the extension words.
+    /// Returns the decoded instruction and the size in bytes of the extension words.
     pub fn from_opcode(opcode: u16, pc: u32, memory: &mut MemoryIter) -> (Self, usize) {
-        let isa: Isa = opcode.into();
+        let isa = Isa::from(opcode);
         let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
         let (operands, len) = decode(opcode, memory);
 
@@ -41,10 +41,10 @@ impl Instruction {
         }, len)
     }
 
-    /// Decodes the opcode at the given memory location.
+    /// Decodes the instruction at the given memory location.
     ///
-    /// Returns the decoded instruction and the number of bytes of the instruction (opcode + extension words).
-    /// Returns Err when there was an error when reading memory (Access error).
+    /// Returns the decoded instruction and the size in bytes of the instruction (opcode + extension words).
+    /// Returns Err when there was an error when reading memory (Access or Address error).
     pub fn from_memory(memory: &mut MemoryIter) -> Result<(Self, usize), u8> {
         let pc = memory.next_addr;
         let opcode = memory.next().unwrap()?;
@@ -55,7 +55,7 @@ impl Instruction {
 
     /// Disassemble the intruction.
     pub fn disassemble(&self) -> String {
-        let isa: Isa = self.opcode.into();
+        let isa = Isa::from(self.opcode);
         (IsaEntry::ISA_ENTRY[isa as usize].disassemble)(self)
     }
 }
@@ -237,6 +237,7 @@ impl From<u16> for Size {
 }
 
 impl Into<u16> for Size {
+    /// Returns `0`, `1` or `2` for [Byte](Size::Byte), [Word](Size::Word) or [Long](Size::Long) respectively.
     fn into(self) -> u16 {
         match self {
             Size::Byte => 0,
@@ -247,7 +248,7 @@ impl Into<u16> for Size {
 }
 
 impl std::fmt::Display for Size {
-    /// Disassembles to `"B"`, `"W"` or `"L"`
+    /// Disassembles to `B`, `W` or `L`.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Size::Byte => write!(f, "B"),
