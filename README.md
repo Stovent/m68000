@@ -22,11 +22,18 @@ m68000 provides CPU details for the following CPUs:
 
 # How to use
 
-m68000 requires a nightly compiler as it uses the `btree_drain_filter` feature of the std.
+m68000 requires a nightly compiler as it uses the `btree_drain_filter` and `bigint_helper_methods` features of the std.
+
+To behave properly, overflow checks MUST be disabled for this crate by adding the following lines in your `Cargo.toml`:
+
+```toml
+[profile.dev.package.m68000]
+overflow-checks = false
+```
 
 First, since the memory map is application-dependant, it is the user's responsibility to define it by implementing the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
 
-Second, choose the CPU behavior by specifying the instance that implements the `CpuDetails` trait, whether it is your own or one the provided ones.
+Second, choose the CPU behavior by specifying the instance that implements the `CpuDetails` trait, whether it is your own or one of the provided ones in the crate.
 
 The file `src/bin/scc68070.rs` is a usage example that implements the SCC68070 microcontroller.
 

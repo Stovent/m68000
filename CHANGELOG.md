@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CPU behavior is now controlled using a trait and generic member instead of features (breaking).
 - Move the register access helper methods to the Registers struct.
 - Status Register's default function returns a SR with value 0x2700 (breaking).
+- Interrupt's exception processing sets the interrupt priority mask.
+- Interrupt level 7 is non-maskable.
 
 ### Removed
 - M68000 core does not store the extra cycles count anymore (breaking).

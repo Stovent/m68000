@@ -85,19 +85,33 @@ const fn get_vector_priority(vector: u8) -> u8 {
         4 => 4, // Illegal.
         8 => 5, // Privilege.
         // Even though Reset has the highest priority, it is given a high number.
-        // The point is to make the reset vector be processed first, and the reset processing clears all the pending exceptions.
+        // The point is to make the reset vector be processed first,
+        // and the reset processing clears all the pending exceptions.
         _ => u8::MAX, // Reset and the other vectors.
     }
 }
 
+const fn is_interrupt(vector: u8) -> bool {
+    vector >= Vector::Level1Interrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
+    vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8
+}
+
 /// M68000 exception, with a vector number and a priority.
 ///
-/// This struct implements `From<u8>` and `From<Vector>`, to create an exception from the raw vector number or from the nammed vector, respectively.
+/// This struct implements `From<u8>` and `From<Vector>`, to create an
+/// exception from the raw vector number or from the nammed vector, respectively.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Exception {
     pub vector: u8,
     /// Lower means higher priority.
     priority: u8,
+}
+
+impl Exception {
+    #[inline]
+    pub const fn is_interrupt(&self) -> bool {
+        is_interrupt(self.vector)
+    }
 }
 
 impl From<u8> for Exception {
@@ -137,8 +151,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub fn exception(&mut self, ex: Exception) {
         if ex.vector == Vector::ResetSspPc as u8 ||
            ex.vector == Vector::Trace as u8 ||
-           ex.vector >= Vector::Level1Interrupt as u8 && ex.vector <= Vector::Level7Interrupt as u8 ||
-           ex.vector >= Vector::Level1OnChipInterrupt as u8 && ex.vector <= Vector::Level7OnChipInterrupt as u8 {
+           ex.is_interrupt() {
             self.stop = false;
         }
 
@@ -160,11 +173,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
         // Extract the exceptions to process and keep the masked interrupts.
         let exceptions: BTreeSet<_> = self.exceptions.drain_filter(|ex| {
-            if ex.vector >= Vector::Level1Interrupt as u8 && ex.vector <= Vector::Level7Interrupt as u8 ||
-               ex.vector >= Vector::Level1OnChipInterrupt as u8 && ex.vector <= Vector::Level7OnChipInterrupt as u8 {
+            if ex.is_interrupt() {
                 // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
+                // MC68000UM 6.3.2 Level 7 interrupts cannot be inhibited by the interrupt priority mask.
                 let level = ex.vector & 0x7;
-                if level <= self.regs.sr.interrupt_mask {
+                if level != 7 && level <= self.regs.sr.interrupt_mask {
                     return false;
                 }
             }
@@ -190,8 +203,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                             panic!("An access error occured during access error processing (at {:#X})", self.regs.pc);
                         }
 
-                        if exception.vector >= Vector::Level1Interrupt as u8 && exception.vector <= Vector::Level7Interrupt as u8 ||
-                           exception.vector >= Vector::Level1OnChipInterrupt as u8 && exception.vector <= Vector::Level7OnChipInterrupt as u8 {
+                        if exception.is_interrupt() {
                             self.exception(Exception::from(Vector::SpuriousInterrupt));
                         } else {
                             self.exception(Exception::from(e));
@@ -222,6 +234,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let sr = self.regs.sr.into();
         self.regs.sr.t = false;
         self.regs.sr.s = true;
+        if is_interrupt(vector) {
+            self.regs.sr.interrupt_mask = vector & 7; // MC68000UM 6.3.2.
+        }
 
         match CPU::STACK_FORMAT {
             StackFormat::MC68000 => {
