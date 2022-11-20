@@ -7,7 +7,9 @@
 use crate::utils::bits;
 
 /// M68000 status register.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+///
+/// [StatusRegister::default] returns a Status Register set to 0x2700 (supervisor bit set, interrupt mask to 7).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "ffi", repr(C))]
 pub struct StatusRegister {
     /// Trace
@@ -29,6 +31,9 @@ pub struct StatusRegister {
 }
 
 impl StatusRegister {
+    /// The default raw value of 0x2700 (supervisor bit set, interrupt mask to 7).
+    pub const DEFAULT: u16 = 0x2700;
+
     const fn t(&self) -> bool {
         true
     }
@@ -94,20 +99,29 @@ impl StatusRegister {
     }
 
     const CONDITIONS: [fn(&Self) -> bool; 16] = [
-        Self::t, Self::f, Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
+        Self::t,  Self::f,  Self::hi, Self::ls, Self::cc, Self::cs, Self::ne, Self::eq,
         Self::vc, Self::vs, Self::pl, Self::mi, Self::ge, Self::lt, Self::gt, Self::le,
     ];
 
+    /// Tests the given condition from the raw bits of conditional instructions.
     pub fn condition(&self, cc: u8) -> bool {
         Self::CONDITIONS[cc as usize](self)
     }
 
+    /// Sets the CCR bits to the one's of the given status register. Supervisor bits are unchanged.
     pub fn set_ccr(&mut self, sr: u16) {
         self.x = bits(sr, 4, 4) != 0;
         self.n = bits(sr, 3, 3) != 0;
         self.z = bits(sr, 2, 2) != 0;
         self.v = bits(sr, 1, 1) != 0;
         self.c = bits(sr, 0, 0) != 0;
+    }
+}
+
+impl Default for StatusRegister {
+    /// Returns a Status Register set to 0x2700 (supervisor bit set, interrupt mask to 7).
+    fn default() -> Self {
+        StatusRegister::from(StatusRegister::DEFAULT)
     }
 }
 
@@ -126,16 +140,16 @@ impl From<u16> for StatusRegister {
     }
 }
 
-impl Into<u16> for StatusRegister {
-    fn into(self) -> u16 {
-        (self.t as u16) << 15 |
-        (self.s as u16) << 13 |
-        (self.interrupt_mask as u16) << 8 |
-        (self.x as u16) << 4 |
-        (self.n as u16) << 3 |
-        (self.z as u16) << 2 |
-        (self.v as u16) << 1 |
-        (self.c as u16)
+impl From<StatusRegister> for u16 {
+    fn from(sr: StatusRegister) -> u16 {
+        (sr.t as u16) << 15 |
+        (sr.s as u16) << 13 |
+        (sr.interrupt_mask as u16) << 8 |
+        (sr.x as u16) << 4 |
+        (sr.n as u16) << 3 |
+        (sr.z as u16) << 2 |
+        (sr.v as u16) << 1 |
+        (sr.c as u16)
     }
 }
 

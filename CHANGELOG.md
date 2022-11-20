@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Separate the C interface from the main crate.
 - CPU behavior is now controlled using a trait and generic member instead of features (breaking).
 - Move the register access helper methods to the Registers struct.
+- Status Register's default function returns a SR with value 0x2700 (breaking).
 
 ### Removed
 - M68000 core does not store the extra cycles count anymore (breaking).
