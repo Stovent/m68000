@@ -25,7 +25,7 @@
 //! - Exception stack format
 //!
 //! m68000 provides CPU details for the following CPUs:
-//! * MC68000 (as described in the M68000 8-/16-/32-Bit Microprocessors User’s Manual, Ninth Edition)
+//! * MC68000 (as described in the M68000 8-/16-/32-Bit Microprocessors User's Manual, Ninth Edition)
 //! * SCC68070 microcontroller
 //!
 //! # How to use
@@ -90,6 +90,8 @@
 //!
 //! The crate `m68000-ffi` in the repo is a collection of structures and functions that allows using m68000's
 //! interpreter and disassembler in other languages through a C interface.
+//!
+//! See the `CINTERFACE.md` file in the repo for more information.
 //!
 //! ## TODO:
 //! - Let memory access return extra read or write cycles for accuracy.

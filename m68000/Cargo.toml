@@ -12,3 +12,6 @@ categories = ["compilers", "emulators"]
 [features]
 default = []
 ffi = []
+
+[lib]
+crate-type = ["lib", "staticlib"]

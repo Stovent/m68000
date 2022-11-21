@@ -1,9 +1,9 @@
 language = "C"
-include_guard = "M68000_H"
+include_guard = "M68000_FFI_H"
 
 include_version = false
-sys_includes = ["stdbool.h", "stdint.h"]
-includes = []
+sys_includes = ["stdint.h"]
+includes = ["m68000.h"]
 no_includes = true
 cpp_compat = true
 
@@ -17,8 +17,8 @@ style = "both"
 
 usize_is_size_t = true
 
-[export]
-include = ["AddressingMode", "BriefExtensionWord", "Direction", "Instruction", "Operands", "Registers", "Size", "StatusRegister", "Vector"]
+[defines]
+"doc" = "DOC"
 
 [fn]
 args = "horizontal"
