@@ -67,7 +67,7 @@ fn main() {
 
 # FFI and C interface
 
-See [CINTERFACE.md](https://github.com/Stovent/CeDImu/blob/master/CINTERFACE.md).
+See [CINTERFACE.md](https://github.com/Stovent/m68000/blob/master/CINTERFACE.md).
 
 # License
 

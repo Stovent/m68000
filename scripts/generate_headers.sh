@@ -1,9 +1,9 @@
 #!/bin/sh
 
 lib_expanded='m68000/lib-expanded.rs'
-lib_header='m68000.h'
+lib_header='include/m68000/m68000.h'
 ffi_expanded='m68000-ffi/lib-expanded.rs'
-ffi_header='m68000-ffi.h'
+ffi_header='include/m68000/m68000-ffi.h'
 
 cargo +nightly expand --lib --manifest-path ./m68000/Cargo.toml --features="ffi" > $lib_expanded
 cargo +nightly expand --lib --manifest-path ./m68000-ffi/Cargo.toml > $ffi_expanded

@@ -4,11 +4,11 @@
 !Cargo.toml
 !CHANGELOG.md
 !CINTERFACE.md
-!generate_headers.ps1
-!generate_headers.sh
 !LICENSE
 !README.md
 
 !.github/
+!include/
 !m68000/
 !m68000-ffi/
+!scripts/

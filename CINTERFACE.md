@@ -24,7 +24,7 @@ cargo build --lib --release --features="ffi"
 cargo +nightly-x86_64-pc-windows-gnu build --lib --release --features="ffi"
 ```
 
-Then, include the given header files `m68000.h` and `m68000-ffi.h` in your project.
+Then, add the `include/` folder in your header directories search path, and include the given header files `m68000/m68000.h` and `m68000/m68000-ffi.h` in your project.
 
 If you want to generate the header files from scratch, install [cargo-expand](https://github.com/dtolnay/cargo-expand) with the following command `cargo install cargo-expand`, then generate the header files using the `generate_headers.ps1` script on Windows or `generate_headers.sh` on Linux.
 
@@ -62,13 +62,13 @@ GetSetResult getByte(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult){
+        return (GetSetResult) {
             .data = memory[addr],
             .exception = 0,
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult){
+    return (GetSetResult) {
         .data = 0,
         .exception = 2,
     };
@@ -78,14 +78,14 @@ GetSetResult getWord(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult){
+        return (GetSetResult) {
             .data = (uint16_t)memory[addr] << 8
                 | (uint16_t)memory[addr + 1],
             .exception = 0,
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult){
+    return (GetSetResult) {
         .data = 0,
         .exception = 2,
     };
@@ -95,7 +95,7 @@ GetSetResult getLong(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult){
+        return (GetSetResult) {
             .data = (uint32_t)memory[addr] << 24
                 | (uint32_t)memory[addr + 1] << 16
                 | (uint32_t)memory[addr + 2] << 8
@@ -104,7 +104,7 @@ GetSetResult getLong(uint32_t addr, void* user_data)
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult){
+    return (GetSetResult) {
         .data = 0,
         .exception = 2,
     };
