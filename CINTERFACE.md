@@ -44,9 +44,9 @@ Each function name starts with the library name `m68000_`, then the CPU type `mc
 The complete documentation for the functions and structures can be found in the `m68000-ffi/lib.rs` file.
 See the C example below for a basic start.
 
-Include the generated header file in your project, and define your memory access callback functions. These functions will be passed to the core through a M68000Callbacks struct.
+Include the generated header file in your project, and define your memory access callback functions. These functions will be passed to the core through a m68000_callbacks_t struct.
 
-The returned values are in a GetSetResult struct. Set `GetSetResult.exception` to 0 and set `GetSetResult.data` to the value to be returned on success. Set `GetSetResult.exception` to 2 (Access Error vector) if an Access Error occurs.
+The returned values are in a m68000_memory_result_t struct. Set `m68000_memory_result_t.exception` to 0 and set `m68000_memory_result_t.data` to the value to be returned on success. Set `m68000_memory_result_t.exception` to 2 (Access Error vector) if an Access Error occurs.
 
 ## C example
 
@@ -58,44 +58,44 @@ The returned values are in a GetSetResult struct. Set `GetSetResult.exception` t
 
 #define MEMSIZE (1 << 20) // 1 MB.
 
-GetSetResult getByte(uint32_t addr, void* user_data)
+m68000_memory_result_t getByte(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult) {
+        return (m68000_memory_result_t) {
             .data = memory[addr],
             .exception = 0,
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult) {
+    return (m68000_memory_result_t) {
         .data = 0,
         .exception = 2,
     };
 }
 
-GetSetResult getWord(uint32_t addr, void* user_data)
+m68000_memory_result_t getWord(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult) {
+        return (m68000_memory_result_t) {
             .data = (uint16_t)memory[addr] << 8
                 | (uint16_t)memory[addr + 1],
             .exception = 0,
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult) {
+    return (m68000_memory_result_t) {
         .data = 0,
         .exception = 2,
     };
 }
 
-GetSetResult getLong(uint32_t addr, void* user_data)
+m68000_memory_result_t getLong(uint32_t addr, void* user_data)
 {
     const uint8_t* memory = user_data;
     if(addr < MEMSIZE)
-        return (GetSetResult) {
+        return (m68000_memory_result_t) {
             .data = (uint32_t)memory[addr] << 24
                 | (uint32_t)memory[addr + 1] << 16
                 | (uint32_t)memory[addr + 2] << 8
@@ -104,16 +104,16 @@ GetSetResult getLong(uint32_t addr, void* user_data)
         };
 
     // If out of range, return an Access (bus) error.
-    return (GetSetResult) {
+    return (m68000_memory_result_t) {
         .data = 0,
         .exception = 2,
     };
 }
 
-GetSetResult setByte(uint32_t addr, uint8_t data, void* user_data)
+m68000_memory_result_t setByte(uint32_t addr, uint8_t data, void* user_data)
 {
     uint8_t* memory = user_data;
-    GetSetResult res = {
+    m68000_memory_result_t res = {
         .data = 0,
         .exception = 0,
     };
@@ -126,10 +126,10 @@ GetSetResult setByte(uint32_t addr, uint8_t data, void* user_data)
     return res;
 }
 
-GetSetResult setWord(uint32_t addr, uint16_t data, void* user_data)
+m68000_memory_result_t setWord(uint32_t addr, uint16_t data, void* user_data)
 {
     uint8_t* memory = user_data;
-    GetSetResult res = {
+    m68000_memory_result_t res = {
         .data = 0,
         .exception = 0,
     };
@@ -145,10 +145,10 @@ GetSetResult setWord(uint32_t addr, uint16_t data, void* user_data)
     return res;
 }
 
-GetSetResult setLong(uint32_t addr, uint32_t data, void* user_data)
+m68000_memory_result_t setLong(uint32_t addr, uint32_t data, void* user_data)
 {
     uint8_t* memory = user_data;
-    GetSetResult res = {
+    m68000_memory_result_t res = {
         .data = 0,
         .exception = 0,
     };
@@ -173,7 +173,7 @@ int main()
     uint8_t* memory = malloc(MEMSIZE);
     // Check if malloc is successful, then load your program in memory here.
     // Next create the memory callback structure:
-    M68000Callbacks callbacks = {
+    m68000_callbacks_t callbacks = {
         .get_byte = getByte,
         .get_word = getWord,
         .get_long = getLong,

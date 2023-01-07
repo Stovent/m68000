@@ -12,7 +12,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the instruction at the current Program Counter and advances it to the next instruction.
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
-    pub fn get_next_instruction(&mut self, memory: &mut impl MemoryAccess) -> Result<Instruction, u8> {
+    fn get_next_instruction(&mut self, memory: &mut impl MemoryAccess) -> Result<Instruction, u8> {
         let mut iter = memory.iter_u16(self.regs.pc);
         let (instruction, len) = Instruction::from_memory(&mut iter)?;
         self.regs.pc += len as u32;

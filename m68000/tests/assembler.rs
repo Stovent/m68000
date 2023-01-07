@@ -377,7 +377,13 @@ fn register_direction_size_effective_address(asm: fn(u8, Direction, Size, AM) ->
     for reg in 0..10 {
         for dir in ALL_DIRECTIONS {
             for size in [Byte, Word, Long] {
-                let bew = BEW::new(true, 7 - reg, true, -16);
+                let bew = if reg <= 7 {
+                    BEW::new(true, 7 - reg, true, -16)
+                } else {
+                    catch_unwind(|| BEW::new(true, reg, true, -16)).unwrap_err();
+                    BEW::new(true, 2, true, -16)
+                };
+
                 if reg <= 7 &&
                    dirs.contains(&dir) {
                     let opcode = opcode |
@@ -428,7 +434,13 @@ fn register_direction_size_effective_address(asm: fn(u8, Direction, Size, AM) ->
 fn register_size_effective_address(asm: fn(u8, Size, AM) -> Vec<u16>, opcode: u16) {
     for reg in 0..10 {
         for size in [Byte, Word, Long] {
-            let bew = BEW::new(true, 7 - reg, true, -16);
+            let bew = if reg <= 7 {
+                BEW::new(true, reg, true, -16)
+            } else {
+                catch_unwind(|| BEW::new(true, 7 - reg, true, -16)).unwrap_err();
+                BEW::new(true, 1, true, -16)
+            };
+
             if reg <= 7 &&
                (size == Word || size == Long) {
                 let opcode = opcode | 0x00C0 |
@@ -464,10 +476,16 @@ fn register_size_effective_address(asm: fn(u8, Size, AM) -> Vec<u16>, opcode: u1
 fn direction_effective_address(asm: fn(Direction, AM) -> Vec<u16>, opcode: u16) {
     for dir in ALL_DIRECTIONS {
         for reg in 0..10 {
+            let bew = if reg <= 7 {
+                BEW::new(true, 7 - reg, true, -16)
+            } else {
+                catch_unwind(|| BEW::new(true, reg, true, -16)).unwrap_err();
+                BEW::new(true, 2, true, -16)
+            };
+
             if reg <= 7 &&
                (dir == Left || dir == Right) {
                 let opcode = opcode | if dir == Left { 1 << 8 } else { 0 };
-                let bew = BEW::new(true, 7 - reg, true, -16);
 
                 assert_eq!(asm(dir, AM::Ari(reg)).as_slice(), &assemble_am(opcode, AM::Ari(reg)));
                 assert_eq!(asm(dir, AM::Ariwpo(reg)).as_slice(), &assemble_am(opcode, AM::Ariwpo(reg)));
@@ -477,8 +495,6 @@ fn direction_effective_address(asm: fn(Direction, AM) -> Vec<u16>, opcode: u16) 
                 assert_eq!(asm(dir, AM::AbsShort(0x4321)).as_slice(), &assemble_am(opcode, AM::AbsShort(0x4321)));
                 assert_eq!(asm(dir, AM::AbsLong(0x76543210)).as_slice(), &assemble_am(opcode, AM::AbsLong(0x76543210)));
             } else {
-                let bew = BEW::new(true, 7 - reg, true, -16);
-
                 catch_unwind(|| asm(dir, AM::Ari(reg))).unwrap_err();
                 catch_unwind(|| asm(dir, AM::Ariwpo(reg))).unwrap_err();
                 catch_unwind(|| asm(dir, AM::Ariwpr(reg))).unwrap_err();

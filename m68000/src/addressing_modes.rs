@@ -73,9 +73,9 @@ impl AddressingMode {
                         Self::Immediate(low as u32)
                     }
                 },
-                _ => panic!("[AddressingMode::new] Wrong register {}", reg),
+                _ => panic!("[AddressingMode::new] Wrong register {reg}"),
             },
-            _ => panic!("[AddressingMode::new] Wrong mode {}", mode),
+            _ => panic!("[AddressingMode::new] Wrong mode {mode}"),
         }
     }
 
@@ -101,9 +101,9 @@ impl AddressingMode {
                         Self::Immediate(m68000.get_next_word(memory).unwrap() as u32)
                     }
                 },
-                _ => panic!("[AddressingMode::new_fast] Wrong register {}", reg),
+                _ => panic!("[AddressingMode::new_fast] Wrong register {reg}"),
             },
-            _ => panic!("[AddressingMode::new_fast] Wrong mode {}", mode),
+            _ => panic!("[AddressingMode::new_fast] Wrong mode {mode}"),
         }
     }
 
@@ -181,8 +181,8 @@ impl AddressingMode {
     ///
     /// Set `long` to true if the immediate operand is long, false for byte and word sizes.
     ///
-    /// Left contains the mode and register encoded as in the low 6 bits of the opcode.
-    /// Right contains the extension words.
+    /// Left tuple contains the mode and register encoded as in the low 6 bits of the opcode.
+    /// Right tuple contains the extension words.
     pub fn assemble(self, long: bool) -> (u16, Box<[u16]>) {
         match self {
             AddressingMode::Drd(reg) => (reg as u16, Box::new([])),
@@ -210,8 +210,8 @@ impl AddressingMode {
     ///
     /// Set `long` to true if the immediate operand is long, false for byte and word sizes.
     ///
-    /// Left contains the mode and register encoded as in the destination (bits 6 to 11).
-    /// Right contains the extension words.
+    /// Left tuple contains the mode and register encoded as in the destination (bits 6 to 11).
+    /// Right tuple contains the extension words.
     pub fn assemble_move_dst(self) -> (u16, Box<[u16]>) {
         match self {
             AddressingMode::Drd(reg) => ((reg as u16) << 9, Box::new([])),
@@ -229,7 +229,8 @@ impl AddressingMode {
 
     /// Verifies that `self` is one of the given modes.
     ///
-    /// `regs` are the valid Mode 7 registers.
+    /// `modes` contains the list of valid addressing modes.
+    /// `regs` contains the valid register values for Mode 7, if is in `modes`.
     pub fn verify(self, modes: &[u8], regs: &[u8]) -> bool {
         match self {
             AddressingMode::Drd(reg) => reg <= 7 && modes.contains(&0),
@@ -252,18 +253,28 @@ impl std::fmt::Display for AddressingMode {
     /// Disassembles the addressing mode.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AddressingMode::Drd(reg) => write!(f, "D{}", reg),
-            AddressingMode::Ard(reg) => write!(f, "A{}", reg),
-            AddressingMode::Ari(reg) => write!(f, "(A{})", reg),
-            AddressingMode::Ariwpo(reg) => write!(f, "(A{})+", reg),
-            AddressingMode::Ariwpr(reg) => write!(f, "-(A{})", reg),
-            AddressingMode::Ariwd(reg, disp) => write!(f, "({}, A{})", disp, reg),
-            AddressingMode::Ariwi8(reg, bew) => write!(f, "({}, A{}, {})", bew.disp(), reg, bew),
-            AddressingMode::AbsShort(addr) => write!(f, "({:#X}).W", addr),
-            AddressingMode::AbsLong(addr) => write!(f, "({:#X}).L", addr),
-            AddressingMode::Pciwd(_, disp) => write!(f, "({}, PC)", disp),
-            AddressingMode::Pciwi8(_, bew) => write!(f, "({}, PC, {})", bew.disp(), bew),
-            AddressingMode::Immediate(imm) => write!(f, "#{}", imm),
+            AddressingMode::Drd(reg) => write!(f, "D{reg}"),
+            AddressingMode::Ard(reg) => write!(f, "A{reg}"),
+            AddressingMode::Ari(reg) => write!(f, "(A{reg})"),
+            AddressingMode::Ariwpo(reg) => write!(f, "(A{reg})+"),
+            AddressingMode::Ariwpr(reg) => write!(f, "-(A{reg})"),
+            AddressingMode::Ariwd(reg, disp) => write!(f, "({disp}, A{reg})"),
+            AddressingMode::Ariwi8(reg, bew) => write!(f, "({}, A{reg}, {bew})", bew.disp()),
+            AddressingMode::AbsShort(addr) => write!(f, "({addr:#X}).W"),
+            AddressingMode::AbsLong(addr) => write!(f, "({addr:#X}).L"),
+            AddressingMode::Pciwd(_, disp) => write!(f, "({disp}, PC)"),
+            AddressingMode::Pciwi8(_, bew) => write!(f, "({}, PC, {bew})", bew.disp()),
+            AddressingMode::Immediate(imm) => write!(f, "#{imm}"),
+        }
+    }
+}
+
+impl std::fmt::LowerHex for AddressingMode {
+    /// Same as Display but with the mode 7 immediate value written in lower hex format.
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AddressingMode::Immediate(imm) => write!(f, "#{imm:#x}"),
+            _ => std::fmt::Display::fmt(self, f),
         }
     }
 }
@@ -272,7 +283,7 @@ impl std::fmt::UpperHex for AddressingMode {
     /// Same as Display but with the mode 7 immediate value written in upper hex format.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            AddressingMode::Immediate(imm) => write!(f, "#{:#X}", imm),
+            AddressingMode::Immediate(imm) => write!(f, "#{imm:#X}"),
             _ => std::fmt::Display::fmt(self, f),
         }
     }
@@ -292,12 +303,13 @@ impl BriefExtensionWord {
     /// Creates a new brief extension word, to be used when using the assembler.
     ///
     /// - `address`: true if the index register is an address register, false for a data register.
-    /// - `reg`: the register number.
+    /// - `reg`: the register number (must be <= 7).
     /// - `long`: true if long size, false for word size.
     /// - `disp:`: the associated displacement value.
     pub const fn new(address: bool, reg: u8, long: bool, disp: i8) -> Self {
+        assert!(reg <= 7, "Invalid register.");
         let a = (address as u16) << 15;
-        let r = (reg as u16 & 0x7) << 12;
+        let r = (reg as u16) << 12;
         let s = (long as u16) << 11;
         let d = disp as u8 as u16;
         Self(a | r | s | d)
@@ -310,7 +322,7 @@ impl std::fmt::Display for BriefExtensionWord {
         let x = if self.0 & 0x8000 != 0 { "A" } else { "D" };
         let reg = bits(self.0, 12, 14);
         let size = if self.0 & 0x0800 != 0 { "L" } else { "W" };
-        write!(f, "{}{}.{}", x, reg, size)
+        write!(f, "{x}{reg}.{size}")
     }
 }
 

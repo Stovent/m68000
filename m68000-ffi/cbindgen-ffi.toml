@@ -17,9 +17,6 @@ style = "both"
 
 usize_is_size_t = true
 
-[defines]
-"doc" = "DOC"
-
 [fn]
 args = "horizontal"
 sort_by = "None"
