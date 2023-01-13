@@ -160,8 +160,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Resets the CPU by fetching the reset vectors.
     fn reset(&mut self, memory: &mut impl MemoryAccess) -> usize {
-        self.regs.ssp = memory.get_long(0).expect("An exception occured when reading initial SSP.");
-        self.regs.pc  = memory.get_long(4).expect("An exception occured when reading initial PC.");
+        self.regs.ssp.0 = memory.get_long(0).expect("An exception occured when reading initial SSP.");
+        self.regs.pc.0  = memory.get_long(4).expect("An exception occured when reading initial PC.");
         self.regs.sr.t = false;
         self.regs.sr.s = true;
         self.regs.sr.interrupt_mask = 7;
@@ -240,7 +240,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         match CPU::STACK_FORMAT {
             StackFormat::MC68000 => {
-                self.push_long(memory, self.regs.pc)?;
+                self.push_long(memory, self.regs.pc.0)?;
                 self.push_word(memory, sr)?;
 
                 if vector == 2 || vector == 3 { // TODO: Long format.
@@ -268,12 +268,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     self.push_word(memory, vector as u16 * 4)?;
                 }
 
-                self.push_long(memory, self.regs.pc)?;
+                self.push_long(memory, self.regs.pc.0)?;
                 self.push_word(memory, sr)?;
             },
         }
 
-        self.regs.pc = memory.get_long(vector as u32 * 4).ok_or(ACCESS_ERROR)?;
+        self.regs.pc.0 = memory.get_long(vector as u32 * 4).ok_or(ACCESS_ERROR)?;
 
         Ok(CPU::vector_execution_time(vector))
     }

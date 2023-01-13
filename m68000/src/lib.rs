@@ -32,13 +32,6 @@
 //!
 //! m68000 requires a nightly compiler as it uses the `btree_drain_filter` and `bigint_helper_methods` features of the std.
 //!
-//! To behave properly, overflow checks MUST be disabled for this crate by adding the following lines in your `Cargo.toml`:
-//!
-//! ```toml
-//! [profile.dev.package.m68000]
-//! overflow-checks = false
-//! ```
-//!
 //! First, since the memory map is application-dependant, it is the user's responsibility to define it by implementing
 //! the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
 //!
@@ -123,23 +116,24 @@ pub use memory_access::MemoryAccess;
 use status_register::StatusRegister;
 
 use std::collections::BTreeSet;
+use std::num::Wrapping;
 
 /// M68000 registers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "ffi", repr(C))]
 pub struct Registers {
     /// Data registers.
-    pub d: [u32; 8],
+    pub d: [Wrapping<u32>; 8],
     /// Address registers.
-    pub a: [u32; 7],
+    pub a: [Wrapping<u32>; 7],
     /// User Stack Pointer.
-    pub usp: u32,
+    pub usp: Wrapping<u32>,
     /// System Stack Pointer.
-    pub ssp: u32,
+    pub ssp: Wrapping<u32>,
     /// Status Register.
     pub sr: StatusRegister,
     /// Program Counter.
-    pub pc: u32,
+    pub pc: Wrapping<u32>,
 }
 
 impl Registers {
@@ -160,14 +154,14 @@ impl Registers {
     /// Returns an address register.
     pub const fn a(&self, reg: u8) -> u32 {
         if reg < 7 {
-            self.a[reg as usize]
+            self.a[reg as usize].0
         } else {
             self.sp()
         }
     }
 
     /// Returns a mutable reference to an address register.
-    pub fn a_mut(&mut self, reg: u8) -> &mut u32 {
+    pub fn a_mut(&mut self, reg: u8) -> &mut Wrapping<u32> {
         if reg < 7 {
             &mut self.a[reg as usize]
         } else {
@@ -178,14 +172,14 @@ impl Registers {
     /// Returns the stack pointer, SSP if in supervisor mode, USP if in user mode.
     pub const fn sp(&self) -> u32 {
         if self.sr.s {
-            self.ssp
+            self.ssp.0
         } else {
-            self.usp
+            self.usp.0
         }
     }
 
     /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
-    pub fn sp_mut(&mut self) -> &mut u32 {
+    pub fn sp_mut(&mut self) -> &mut Wrapping<u32> {
         if self.sr.s {
             &mut self.ssp
         } else {
@@ -215,6 +209,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an
     /// interpreter method will first fetch the reset vectors, then will execute the first instruction.
+    ///
+    /// The returned core already has a Status Register set to 0x2700 (supervisor bit set, interrupt level 7).
     pub fn new() -> Self {
         let mut cpu = Self::new_no_reset();
 
@@ -224,16 +220,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     /// [Self::new] but without the initial reset, so you can initialize the core as you want.
+    ///
+    /// The returned core already has a Status Register set to 0x2700 (supervisor bit set, interrupt level 7).
     pub fn new_no_reset() -> Self {
         Self {
-            regs: Registers {
-                d: [0; 8],
-                a: [0; 7],
-                usp: 0,
-                ssp: 0,
-                sr: StatusRegister::default(),
-                pc: 0,
-            },
+            regs: Registers::default(),
 
             current_opcode: 0xFFFF,
             stop: false,

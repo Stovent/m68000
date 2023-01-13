@@ -4,11 +4,5 @@ members = [
     "m68000-ffi",
 ]
 
-[profile.dev]
-overflow-checks = false
-
 [profile.release]
 lto = true
-
-[profile.test]
-overflow-checks = false

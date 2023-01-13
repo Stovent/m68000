@@ -92,8 +92,8 @@ impl AddressingMode {
             7 => match reg {
                 0 => Self::AbsShort(m68000.get_next_word(memory).unwrap()),
                 1 => Self::AbsLong(m68000.get_next_long(memory).unwrap()),
-                2 => Self::Pciwd(m68000.regs.pc, m68000.get_next_word(memory).unwrap() as i16),
-                3 => Self::Pciwi8(m68000.regs.pc, BriefExtensionWord(m68000.get_next_word(memory).unwrap())),
+                2 => Self::Pciwd(m68000.regs.pc.0, m68000.get_next_word(memory).unwrap() as i16),
+                3 => Self::Pciwi8(m68000.regs.pc.0, BriefExtensionWord(m68000.get_next_word(memory).unwrap())),
                 4 => {
                     if size.unwrap().is_long() {
                         Self::Immediate(m68000.get_next_long(memory).unwrap())
@@ -368,11 +368,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 },
                 AddressingMode::Ariwd(reg, disp)  => {
                     *exec_time += CPU::EA_ARIWD;
-                    Some(self.regs.a(reg) + disp as u32)
+                    Some(self.regs.a(reg).wrapping_add(disp as u32))
                 },
                 AddressingMode::Ariwi8(reg, bew) => {
                     *exec_time += CPU::EA_ARIWI8;
-                    Some(self.regs.a(reg) + bew.disp() as u32 + self.get_index_register(bew))
+                    Some(self.regs.a(reg).wrapping_add(bew.disp() as u32).wrapping_add(self.get_index_register(bew)))
                 },
                 AddressingMode::AbsShort(addr) => {
                     *exec_time += CPU::EA_ABSSHORT;
@@ -384,11 +384,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 },
                 AddressingMode::Pciwd(pc, disp) => {
                     *exec_time += CPU::EA_PCIWD;
-                    Some(pc + disp as u32)
+                    Some(pc.wrapping_add(disp as u32))
                 },
                 AddressingMode::Pciwi8(pc, bew) => {
                     *exec_time += CPU::EA_PCIWI8;
-                    Some(pc + bew.disp() as u32 + self.get_index_register(bew))
+                    Some(pc.wrapping_add(bew.disp() as u32).wrapping_add(self.get_index_register(bew)))
                 },
                 _ => None,
             };
@@ -408,9 +408,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
             }
         } else { // Data register
             if bew.0 & 0x0800 != 0 { // Long
-                self.regs.d[reg as usize]
+                self.regs.d[reg as usize].0
             } else { // Word
-                self.regs.d[reg as usize] as i16 as u32
+                self.regs.d[reg as usize].0 as i16 as u32
             }
         }
     }
@@ -418,7 +418,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Address Register Indirect With POstincrement
     pub(super) fn ariwpo(&mut self, reg: u8, size: Size) -> u32 {
         let areg = self.regs.a_mut(reg);
-        let addr = *areg;
+        let addr = areg.0;
         *areg += if reg == 7 { size.as_word_long() } else { size } as u32;
         addr
     }
@@ -427,6 +427,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn ariwpr(&mut self, reg: u8, size: Size) -> u32 {
         let areg = self.regs.a_mut(reg);
         *areg -= if reg == 7 { size.as_word_long() } else { size } as u32;
-        *areg
+        areg.0
     }
 }

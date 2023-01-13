@@ -13,7 +13,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
     fn get_next_instruction(&mut self, memory: &mut impl MemoryAccess) -> Result<Instruction, u8> {
-        let mut iter = memory.iter_u16(self.regs.pc);
+        let mut iter = memory.iter_u16(self.regs.pc.0);
         let (instruction, len) = Instruction::from_memory(&mut iter)?;
         self.regs.pc += len as u32;
         Ok(instruction)
@@ -139,7 +139,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (condition, displacement) = inst.operands.condition_displacement();
-        self.execute_bcc(inst.pc + 2, condition, displacement)
+        self.execute_bcc(inst.pc.wrapping_add(2), condition, displacement)
     }
 
     fn instruction_bchg(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
@@ -154,7 +154,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bra(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
-        self.execute_bra(inst.pc + 2, disp)
+        self.execute_bra(inst.pc.wrapping_add(2), disp)
     }
 
     fn instruction_bset(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
@@ -164,7 +164,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bsr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
-        self.execute_bsr(memory, inst.pc + 2, disp)
+        self.execute_bsr(memory, inst.pc.wrapping_add(2), disp)
     }
 
     fn instruction_btst(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
@@ -206,7 +206,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_dbcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
         let (cc, reg, disp) = inst.operands.condition_register_displacement();
-        self.execute_dbcc(inst.pc + 2, cc, reg, disp)
+        self.execute_dbcc(inst.pc.wrapping_add(2), cc, reg, disp)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the

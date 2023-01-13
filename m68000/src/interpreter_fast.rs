@@ -185,7 +185,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bcc(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let pc = self.regs.pc;
+        let pc = self.regs.pc.0;
         let (condition, displacement) = self.condition_displacement(memory);
         self.execute_bcc(pc, condition, displacement)
     }
@@ -201,7 +201,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bra(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let pc = self.regs.pc;
+        let pc = self.regs.pc.0;
         let disp = self.displacement(memory);
         self.execute_bra(pc, disp)
     }
@@ -212,7 +212,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bsr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let pc = self.regs.pc;
+        let pc = self.regs.pc.0;
         let disp = self.displacement(memory);
         self.execute_bsr(memory, pc, disp)
     }
@@ -255,7 +255,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_dbcc(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let pc = self.regs.pc;
+        let pc = self.regs.pc.0;
         let (cc, reg, disp) = self.condition_register_displacement(memory);
         self.execute_dbcc(pc, cc, reg, disp)
     }

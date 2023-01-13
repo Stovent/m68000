@@ -39,7 +39,7 @@ pub trait MemoryAccess {
     /// The default implementation is doing 2 calls to [Self::get_word] with the high and low words.
     #[must_use]
     fn get_long(&mut self, addr: u32) -> Option<u32> {
-        Some((self.get_word(addr)? as u32) << 16 | self.get_word(addr + 2)? as u32)
+        Some((self.get_word(addr)? as u32) << 16 | self.get_word(addr.wrapping_add(2))? as u32)
     }
 
     /// Stores the given 8-bits value at the given address.
@@ -56,7 +56,7 @@ pub trait MemoryAccess {
     #[must_use]
     fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
         self.set_word(addr, (value >> 16) as u16)?;
-        self.set_word(addr + 2, value as u16)
+        self.set_word(addr.wrapping_add(2), value as u16)
     }
 
     /// Not meant to be overridden. Returns a [MemoryIter] starting at the given address that will be used to decode instructions.
@@ -83,7 +83,7 @@ impl Iterator for MemoryIter<'_> {
     fn next(&mut self) -> Option<Self::Item> {
         if self.next_addr.is_even() {
             let data = self.memory.get_word(self.next_addr);
-            self.next_addr += 2;
+            self.next_addr = self.next_addr.wrapping_add(2);
             Some(data.ok_or(ACCESS_ERROR))
         } else {
             Some(Err(ADDRESS_ERROR))
@@ -95,7 +95,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn get_byte(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u8> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u8),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 as u8),
             AddressingMode::Immediate(imm) => {
                 *exec_time += CPU::EA_IMMEDIATE;
                 Ok(imm as u8)
@@ -107,7 +107,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn get_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u16> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] as u16),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 as u16),
             AddressingMode::Ard(reg) => Ok(self.regs.a(reg) as u16),
             AddressingMode::Immediate(imm) => {
                 *exec_time += CPU::EA_IMMEDIATE;
@@ -123,7 +123,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn get_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u32> {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize]),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0),
             AddressingMode::Ard(reg) => Ok(self.regs.a(reg)),
             AddressingMode::Immediate(imm) => {
                 *exec_time += CPU::EA_IMMEDIATE + 4;
@@ -150,7 +150,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn set_word(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u16) -> SetResult {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d_word(reg, value)),
-            AddressingMode::Ard(reg) => Ok(*self.regs.a_mut(reg) = value as i16 as u32),
+            AddressingMode::Ard(reg) => Ok(self.regs.a_mut(reg).0 = value as i16 as u32),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
                 memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
@@ -161,8 +161,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     #[must_use]
     pub(super) fn set_long(&mut self, memory: &mut impl MemoryAccess, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u32) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize] = value),
-            AddressingMode::Ard(reg) => Ok(*self.regs.a_mut(reg) = value),
+            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 = value),
+            AddressingMode::Ard(reg) => Ok(self.regs.a_mut(reg).0 = value),
             _ => {
                 let addr = self.get_effective_address(ea, exec_time);
                 let r = memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR);
@@ -179,7 +179,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn get_next_word(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        let data = memory.get_word(self.regs.pc.even()?).ok_or(ACCESS_ERROR);
+        let data = memory.get_word(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR);
         self.regs.pc += 2;
         data
     }
@@ -189,7 +189,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Please note that this function advances the program counter so be careful when using it.
     #[must_use]
     pub fn get_next_long(&mut self, memory: &mut impl MemoryAccess) -> GetResult<u32> {
-        let data = memory.get_long(self.regs.pc.even()?).ok_or(ACCESS_ERROR);
+        let data = memory.get_long(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR);
         self.regs.pc += 4;
         data
     }
@@ -200,7 +200,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// where the trap ID is the immediate next word after the TRAP instruction.
     #[must_use]
     pub fn peek_next_word(&self, memory: &mut impl MemoryAccess) -> GetResult<u16> {
-        memory.get_word(self.regs.pc.even()?).ok_or(ACCESS_ERROR)
+        memory.get_word(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR)
     }
 
     /// Pops the 16-bits value from the stack.

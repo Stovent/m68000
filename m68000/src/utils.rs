@@ -7,6 +7,8 @@
 use crate::exception::ADDRESS_ERROR;
 use crate::instruction::Size;
 
+use std::num::Wrapping;
+
 /// Returns bits [beg, end] inclusive, starting at 0.
 #[inline(always)]
 pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
@@ -24,6 +26,22 @@ impl IsEven for u32 {
     #[inline(always)]
     fn is_even(self) -> bool {
         self & 1 == 0
+    }
+
+    #[inline(always)]
+    fn even(self) -> Result<Self, u8> {
+        if self.is_even() {
+            Ok(self)
+        } else {
+            Err(ADDRESS_ERROR)
+        }
+    }
+}
+
+impl IsEven for Wrapping<u32> {
+    #[inline(always)]
+    fn is_even(self) -> bool {
+        self.0 & 1 == 0
     }
 
     #[inline(always)]

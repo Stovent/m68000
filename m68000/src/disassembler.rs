@@ -94,7 +94,7 @@ pub fn disassemble_asr(inst: &Instruction) -> String {
 
 pub fn disassemble_bcc(inst: &Instruction) -> String {
     let (cc, disp) = inst.operands.condition_displacement();
-    format!("B{} {} <{:#X}>", disassemble_conditional_test(cc), disp, inst.pc + 2 + disp as i32 as u32)
+    format!("B{} {} <{:#X}>", disassemble_conditional_test(cc), disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
 }
 
 pub fn disassemble_bchg(inst: &Instruction) -> String {
@@ -117,7 +117,7 @@ pub fn disassemble_bclr(inst: &Instruction) -> String {
 
 pub fn disassemble_bra(inst: &Instruction) -> String {
     let disp = inst.operands.displacement();
-    format!("BRA {} <{:#X}>", disp, inst.pc + 2 + disp as i32 as u32)
+    format!("BRA {} <{:#X}>", disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
 }
 
 pub fn disassemble_bset(inst: &Instruction) -> String {
@@ -131,7 +131,7 @@ pub fn disassemble_bset(inst: &Instruction) -> String {
 
 pub fn disassemble_bsr(inst: &Instruction) -> String {
     let disp = inst.operands.displacement();
-    format!("BSR {} <{:#X}>", disp, inst.pc + 2 + disp as i32 as u32)
+    format!("BSR {} <{:#X}>", disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
 }
 
 pub fn disassemble_btst(inst: &Instruction) -> String {
@@ -175,7 +175,7 @@ pub fn disassemble_cmpm(inst: &Instruction) -> String {
 
 pub fn disassemble_dbcc(inst: &Instruction) -> String {
     let (cc, r, disp) = inst.operands.condition_register_displacement();
-    format!("DB{} D{}, {} <{:#X}>", disassemble_conditional_test(cc), r, disp, inst.pc + 2 + disp as i32 as u32)
+    format!("DB{} D{}, {} <{:#X}>", disassemble_conditional_test(cc), r, disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
 }
 
 pub fn disassemble_divs(inst: &Instruction) -> String {
