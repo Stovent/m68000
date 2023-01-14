@@ -42,6 +42,7 @@ pub fn disassemble_addi(inst: &Instruction) -> String {
 
 pub fn disassemble_addq(inst: &Instruction) -> String {
     let (d, s, am) = inst.operands.data_size_effective_address();
+    let d = if d == 0 { 8 } else { d };
     format!("ADDQ.{} #{}, {}", s, d, am)
 }
 
@@ -88,6 +89,7 @@ pub fn disassemble_asr(inst: &Instruction) -> String {
     if mode == 1 {
         format!("AS{}.{} D{}, D{}", d, s, rot, reg)
     } else {
+        let rot = if rot == 0 { 8 } else { rot };
         format!("AS{}.{} #{}, D{}", d, s, rot, reg)
     }
 }
@@ -262,6 +264,7 @@ pub fn disassemble_lsr(inst: &Instruction) -> String {
     if mode == 1 {
         format!("LS{}.{} D{}, D{}", d, s, rot, reg)
     } else {
+        let rot = if rot == 0 { 8 } else { rot };
         format!("LS{}.{} #{}, D{}", d, s, rot, reg)
     }
 }
@@ -401,6 +404,7 @@ pub fn disassemble_ror(inst: &Instruction) -> String {
     if mode == 1 {
         format!("RO{}.{} D{}, D{}", d, s, rot, reg)
     } else {
+        let rot = if rot == 0 { 8 } else { rot };
         format!("RO{}.{} #{}, D{}", d, s, rot, reg)
     }
 }
@@ -415,6 +419,7 @@ pub fn disassemble_roxr(inst: &Instruction) -> String {
     if mode == 1 {
         format!("ROX{}.{} D{}, D{}", d, s, rot, reg)
     } else {
+        let rot = if rot == 0 { 8 } else { rot };
         format!("ROX{}.{} #{}, D{}", d, s, rot, reg)
     }
 }
@@ -471,6 +476,7 @@ pub fn disassemble_subi(inst: &Instruction) -> String {
 
 pub fn disassemble_subq(inst: &Instruction) -> String {
     let (d, s, am) = inst.operands.data_size_effective_address();
+    let d = if d == 0 { 8 } else { d };
     format!("SUBQ.{} #{}, {}", s, d, am)
 }
 

@@ -228,6 +228,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_addq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+        let imm = if imm == 0 { 8 } else { imm };
+
         if am.is_ard() {
             *self.regs.a_mut(am.register().unwrap()) += imm as u32;
             return Ok(if size.is_long() { CPU::ADDQ_REG_L } else { CPU::ADDQ_REG_BW });
@@ -2277,6 +2279,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_subq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+        let imm = if imm == 0 { 8 } else { imm };
+
         if am.is_ard() {
             *self.regs.a_mut(am.register().unwrap()) -= imm as u32;
             return Ok(if size.is_long() { CPU::SUBQ_REG_L } else { CPU::SUBQ_AREG_BW });
