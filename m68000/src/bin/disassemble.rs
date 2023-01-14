@@ -82,15 +82,16 @@ fn main() {
     infile.read_to_end(&mut memory.data).unwrap();
 
     let mut i = beg;
+    let mut iter = memory.iter_u16(i as u32);
     while i < end {
-        let (inst, len) = Instruction::from_memory(&mut memory.iter_u16(i as u32)).unwrap();
+        let inst = Instruction::from_memory(&mut iter).unwrap();
 
         let disassemble = IsaEntry::ISA_ENTRY[DECODER[inst.opcode as usize] as usize].disassemble;
         if let Some(outfile) = outfile.borrow_mut() {
-            writeln!(outfile, "{:#X} {}", i - 2, disassemble(&inst)).unwrap();
+            writeln!(outfile, "{:#X} {}", i, disassemble(&inst)).unwrap();
         } else {
-            println!("{:#X} {}", i - 2, disassemble(&inst));
+            println!("{:#X} {}", i, disassemble(&inst));
         }
-        i += 2 + len;
+        i = iter.next_addr as usize;
     }
 }

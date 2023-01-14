@@ -230,4 +230,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let addr = self.ariwpr(7, Size::Long);
         memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR)
     }
+
+    /// Creates a new memory iterator starting at the current Program Counter.
+    pub(super) fn iter_from_pc<'a>(&self, memory: &'a mut dyn MemoryAccess) -> MemoryIter<'a> {
+        MemoryIter {
+            memory,
+            next_addr: self.regs.pc.0
+        }
+    }
 }

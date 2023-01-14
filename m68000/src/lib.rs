@@ -106,7 +106,6 @@ mod interpreter_disassembler;
 mod interpreter_fast;
 pub mod isa;
 pub mod memory_access;
-mod operands_fast;
 pub mod status_register;
 pub mod utils;
 

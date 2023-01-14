@@ -5,7 +5,7 @@
 //! Addressing mode-related structs, enums and functions.
 
 use crate::{CpuDetails, M68000};
-use crate::memory_access::{MemoryAccess, MemoryIter};
+use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
 use crate::utils::bits;
 
@@ -44,8 +44,8 @@ pub enum AddressingMode {
 }
 
 impl AddressingMode {
-    /// New addressing mode.
-    pub fn new(mode: u16, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    /// New addressing mode from memory iterator.
+    pub fn from_memory(mode: u16, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
         match mode {
             0 => Self::Drd(reg),
             1 => Self::Ard(reg),
@@ -73,37 +73,9 @@ impl AddressingMode {
                         Self::Immediate(low as u32)
                     }
                 },
-                _ => panic!("[AddressingMode::new] Wrong register {reg}"),
+                _ => panic!("[AddressingMode::from_memory] Wrong register {reg}"),
             },
-            _ => panic!("[AddressingMode::new] Wrong mode {mode}"),
-        }
-    }
-
-    /// Fast new addressing mode.
-    pub fn new_fast<CPU: CpuDetails>(mode: u16, reg: u8, size: Option<Size>, m68000: &mut M68000<CPU>, memory: &mut impl MemoryAccess) -> Self {
-        match mode {
-            0 => Self::Drd(reg),
-            1 => Self::Ard(reg),
-            2 => Self::Ari(reg),
-            3 => Self::Ariwpo(reg),
-            4 => Self::Ariwpr(reg),
-            5 => Self::Ariwd(reg, m68000.get_next_word(memory).unwrap() as i16),
-            6 => Self::Ariwi8(reg, BriefExtensionWord(m68000.get_next_word(memory).unwrap())),
-            7 => match reg {
-                0 => Self::AbsShort(m68000.get_next_word(memory).unwrap()),
-                1 => Self::AbsLong(m68000.get_next_long(memory).unwrap()),
-                2 => Self::Pciwd(m68000.regs.pc.0, m68000.get_next_word(memory).unwrap() as i16),
-                3 => Self::Pciwi8(m68000.regs.pc.0, BriefExtensionWord(m68000.get_next_word(memory).unwrap())),
-                4 => {
-                    if size.unwrap().is_long() {
-                        Self::Immediate(m68000.get_next_long(memory).unwrap())
-                    } else {
-                        Self::Immediate(m68000.get_next_word(memory).unwrap() as u32)
-                    }
-                },
-                _ => panic!("[AddressingMode::new_fast] Wrong register {reg}"),
-            },
-            _ => panic!("[AddressingMode::new_fast] Wrong mode {mode}"),
+            _ => panic!("[AddressingMode::from_memory] Wrong mode {mode}"),
         }
     }
 

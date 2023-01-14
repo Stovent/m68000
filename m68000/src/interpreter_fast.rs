@@ -4,6 +4,7 @@
 
 use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::exception::{Exception, Vector};
+use crate::instruction::*;
 use crate::interpreter::InterpreterResult;
 use crate::isa::Isa;
 
@@ -125,182 +126,238 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_abcd(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rx, _, mode, ry) = self.register_size_mode_register();
+        let (rx, _, mode, ry) = register_size_mode_register(self.current_opcode);
         self.execute_abcd(memory, rx, mode, ry)
     }
 
     fn fast_add(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, dir, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, dir, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_add(memory, reg, dir, size, am)
     }
 
     fn fast_adda(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, size, am) = self.register_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, size, am) = register_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_adda(memory, reg, size, am)
     }
 
     fn fast_addi(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_addi(memory, size, am, imm)
     }
 
     fn fast_addq(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (imm, size, am) = self.data_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (imm, size, am) = data_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_addq(memory, imm, size, am)
     }
 
     fn fast_addx(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rx, size, mode, ry) = self.register_size_mode_register();
+        let (rx, size, mode, ry) = register_size_mode_register(self.current_opcode);
         self.execute_addx(memory, rx, size, mode, ry)
     }
 
     fn fast_and(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, dir, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, dir, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_and(memory, reg, dir, size, am)
     }
 
     fn fast_andi(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_andi(memory, size, am, imm)
     }
 
     fn fast_andiccr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_andiccr(imm)
     }
 
     fn fast_andisr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_andisr(imm)
     }
 
     fn fast_asm(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, am) = self.direction_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (dir, am) = direction_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_asm(memory, dir, am)
     }
 
     fn fast_asr(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = self.rotation_direction_size_mode_register();
+        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
         self.execute_asr(rot, dir, size, mode, reg)
     }
 
     fn fast_bcc(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
         let pc = self.regs.pc.0;
-        let (condition, displacement) = self.condition_displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (condition, displacement) = condition_displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bcc(pc, condition, displacement)
     }
 
     fn fast_bchg(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (am, count) = self.effective_address_count(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (am, count) = effective_address_count(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bchg(memory, am, count)
     }
 
     fn fast_bclr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (am, count) = self.effective_address_count(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (am, count) = effective_address_count(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bclr(memory, am, count)
     }
 
     fn fast_bra(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
         let pc = self.regs.pc.0;
-        let disp = self.displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let disp = displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bra(pc, disp)
     }
 
     fn fast_bset(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (am, count) = self.effective_address_count(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (am, count) = effective_address_count(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bset(memory, am, count)
     }
 
     fn fast_bsr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
         let pc = self.regs.pc.0;
-        let disp = self.displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let disp = displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_bsr(memory, pc, disp)
     }
 
     fn fast_btst(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (am, count) = self.effective_address_count(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (am, count) = effective_address_count(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_btst(memory, am, count)
     }
 
     /// If a CHK exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
     fn fast_chk(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_chk(memory, reg, am)
     }
 
     fn fast_clr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am) = self.size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am) = size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_clr(memory, size, am)
     }
 
     fn fast_cmp(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, _, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, _, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_cmp(memory, reg, size, am)
     }
 
     fn fast_cmpa(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, size, am) = self.register_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, size, am) = register_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_cmpa(memory, reg, size, am)
     }
 
     fn fast_cmpi(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_cmpi(memory, size, am, imm)
     }
 
     fn fast_cmpm(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (ax, size, ay) = self.register_size_register();
+        let (ax, size, ay) = register_size_register(self.current_opcode);
         self.execute_cmpm(memory, ax, size, ay)
     }
 
     fn fast_dbcc(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
         let pc = self.regs.pc.0;
-        let (cc, reg, disp) = self.condition_register_displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (cc, reg, disp) = condition_register_displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_dbcc(pc, cc, reg, disp)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
     fn fast_divs(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_divs(memory, reg, am)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
     fn fast_divu(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_divu(memory, reg, am)
     }
 
     fn fast_eor(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, _, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, _, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_eor(memory, reg, size, am)
     }
 
     fn fast_eori(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_eori(memory, size, am, imm)
     }
 
     fn fast_eoriccr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_eoriccr(imm)
     }
 
     fn fast_eorisr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_eorisr(imm)
     }
 
     fn fast_exg(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rx, mode, ry) = self.register_opmode_register();
+        let (rx, mode, ry) = register_opmode_register(self.current_opcode);
         self.execute_exg(rx, mode, ry)
     }
 
     fn fast_ext(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (mode, reg) = self.opmode_register();
+        let (mode, reg) = opmode_register(self.current_opcode);
         self.execute_ext(mode, reg)
     }
 
@@ -309,102 +366,136 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_jmp(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_jmp(am)
     }
 
     fn fast_jsr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_jsr(memory, am)
     }
 
     fn fast_lea(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_lea(reg, am)
     }
 
     fn fast_link(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, disp) = self.register_displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, disp) = register_displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_link(memory, reg, disp)
     }
 
     fn fast_lsm(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, am) = self.direction_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (dir, am) = direction_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_lsm(memory, dir, am)
     }
 
     fn fast_lsr(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = self.rotation_direction_size_mode_register();
+        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
         self.execute_lsr(rot, dir, size, mode, reg)
     }
 
     fn fast_move(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, amdst, amsrc) = self.size_effective_address_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, amdst, amsrc) = size_effective_address_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_move(memory, size, amdst, amsrc)
     }
 
     fn fast_movea(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, reg, am) = self.size_register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, reg, am) = size_register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_movea(memory, size, reg, am)
     }
 
     fn fast_moveccr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_moveccr(memory, am)
     }
 
     fn fast_movefsr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_movefsr(memory, am)
     }
 
     fn fast_movesr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_movesr(memory, am)
     }
 
     fn fast_moveusp(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, reg) = self.direction_register();
+        let (dir, reg) = direction_register(self.current_opcode);
         self.execute_moveusp(dir, reg)
     }
 
     fn fast_movem(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, size, am, list) = self.direction_size_effective_address_list(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (dir, size, am, list) = direction_size_effective_address_list(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_movem(memory, dir, size, am, list)
     }
 
     fn fast_movep(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (data, dir, size, addr, disp) = self.register_direction_size_register_displacement(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (data, dir, size, addr, disp) = register_direction_size_register_displacement(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_movep(memory, data, dir, size, addr, disp)
     }
 
     fn fast_moveq(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, data) = self.register_data();
+        let (reg, data) = register_data(self.current_opcode);
         self.execute_moveq(reg, data)
     }
 
     fn fast_muls(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_muls(memory, reg, am)
     }
 
     fn fast_mulu(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, am) = self.register_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, am) = register_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_mulu(memory, reg, am)
     }
 
     fn fast_nbcd(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_nbcd(memory, am)
     }
 
     fn fast_neg(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am) = self.size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am) = size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_neg(memory, size, am)
     }
 
     fn fast_negx(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am) = self.size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am) = size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_negx(memory, size, am)
     }
 
@@ -413,32 +504,44 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_not(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am) = self.size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am) = size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_not(memory, size, am)
     }
 
     fn fast_or(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, dir, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, dir, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_or(memory, reg, dir, size, am)
     }
 
     fn fast_ori(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_ori(memory, size, am, imm)
     }
 
     fn fast_oriccr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_oriccr(imm)
     }
 
     fn fast_orisr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_orisr(imm)
     }
 
     fn fast_pea(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_pea(memory, am)
     }
 
@@ -447,22 +550,26 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_rom(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, am) = self.direction_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (dir, am) = direction_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_rom(memory, dir, am)
     }
 
     fn fast_ror(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = self.rotation_direction_size_mode_register();
+        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
         self.execute_ror(rot, dir, size, mode, reg)
     }
 
     fn fast_roxm(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (dir, am) = self.direction_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (dir, am) = direction_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_roxm(memory, dir, am)
     }
 
     fn fast_roxr(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = self.rotation_direction_size_mode_register();
+        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
         self.execute_roxr(rot, dir, size, mode, reg)
     }
 
@@ -479,57 +586,71 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_sbcd(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (ry, _, mode, rx) = self.register_size_mode_register();
+        let (ry, _, mode, rx) = register_size_mode_register(self.current_opcode);
         self.execute_sbcd(memory, ry, mode, rx)
     }
 
     fn fast_scc(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (cc, am) = self.condition_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (cc, am) = condition_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_scc(memory, cc, am)
     }
 
     fn fast_stop(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let imm = self.immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let imm = immediate(&mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_stop(imm)
     }
 
     fn fast_sub(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, dir, size, am) = self.register_direction_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, dir, size, am) = register_direction_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_sub(memory, reg, dir, size, am)
     }
 
     fn fast_suba(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (reg, size, am) = self.register_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (reg, size, am) = register_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_suba(memory, reg, size, am)
     }
 
     fn fast_subi(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am, imm) = self.size_effective_address_immediate(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am, imm) = size_effective_address_immediate(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_subi(memory, size, am, imm)
     }
 
     fn fast_subq(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (imm, size, am) = self.data_size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (imm, size, am) = data_size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_subq(memory, imm, size, am)
     }
 
     fn fast_subx(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (ry, size, mode, rx) = self.register_size_mode_register();
+        let (ry, size, mode, rx) = register_size_mode_register(self.current_opcode);
         self.execute_subx(memory, ry, size, mode, rx)
     }
 
     fn fast_swap(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let reg = self.register();
+        let reg = register(self.current_opcode);
         self.execute_swap(reg)
     }
 
     fn fast_tas(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let am = self.effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let am = effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_tas(memory, am)
     }
 
     fn fast_trap(&mut self, _: &mut impl MemoryAccess) -> InterpreterResult {
-        let vector = self.vector();
+        let vector = vector(self.current_opcode);
         self.execute_trap(vector)
     }
 
@@ -538,12 +659,14 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_tst(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let (size, am) = self.size_effective_address(memory);
+        let mut iter = self.iter_from_pc(memory);
+        let (size, am) = size_effective_address(self.current_opcode, &mut iter);
+        self.regs.pc.0 = iter.next_addr;
         self.execute_tst(memory, size, am)
     }
 
     fn fast_unlk(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
-        let reg = self.register();
+        let reg = register(self.current_opcode);
         self.execute_unlk(memory, reg)
     }
 }
