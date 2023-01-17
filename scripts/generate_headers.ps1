@@ -11,6 +11,7 @@ cbindgen.exe --config ./m68000-ffi/cbindgen-ffi.toml --output $ffi_header $ffi_e
 
 # Add the forward declaration of the M68000<...> structs manually as they are generic and not repr(C).
 (Get-Content $lib_header -Raw) -replace "#include <stdint.h>", "#include <stdint.h>`r`n`r`ntypedef struct m68000_mc68000_s m68000_mc68000_t;`r`ntypedef struct m68000_scc68070_s m68000_scc68070_t;" | Out-File -encoding ASCII $lib_header
+(Get-Content $lib_header -Raw) -replace "Wrapping<uint32_t>", "uint32_t" | Out-File -encoding ASCII $lib_header
 
 # Avoid duplication names in enumerations as C doesn't like it.
 (Get-Content $lib_header -Raw) -replace "STOP`r`n.*\*/`r`n.*Immediate", "STOP`r`n     */`r`n    Immediate_" | Out-File -encoding ASCII $lib_header

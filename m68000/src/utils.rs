@@ -8,6 +8,7 @@ use crate::exception::ADDRESS_ERROR;
 use crate::instruction::Size;
 
 use std::num::Wrapping;
+use std::ops::{BitAnd, BitOr, BitXor};
 
 /// Returns bits [beg, end] inclusive, starting at 0.
 #[inline(always)]
@@ -101,3 +102,77 @@ impl AsArray<4> for u32 {
         [(self >> 24) as u8, (self >> 16) as u8, (self >> 8) as u8, self as u8]
     }
 }
+
+pub trait CarryingOps<S, U> : Sized + Integer {
+    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (S, bool);
+    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (U, bool);
+
+    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (S, bool);
+    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (U, bool);
+}
+
+impl CarryingOps<i8, u8> for u8 {
+    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i8, bool) {
+        (self as i8).carrying_add(rhs as i8, carry)
+    }
+
+    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u8, bool) {
+        self.carrying_add(rhs, carry)
+    }
+
+    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i8, bool) {
+        (self as i8).borrowing_sub(rhs as i8, carry)
+    }
+
+    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u8, bool) {
+        self.borrowing_sub(rhs, carry)
+    }
+}
+
+impl CarryingOps<i16, u16> for u16 {
+    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i16, bool) {
+        (self as i16).carrying_add(rhs as i16, carry)
+    }
+
+    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u16, bool) {
+        self.carrying_add(rhs, carry)
+    }
+
+    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i16, bool) {
+        (self as i16).borrowing_sub(rhs as i16, carry)
+    }
+
+    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u16, bool) {
+        self.borrowing_sub(rhs, carry)
+    }
+}
+
+impl CarryingOps<i32, u32> for u32 {
+    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i32, bool) {
+        (self as i32).carrying_add(rhs as i32, carry)
+    }
+
+    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u32, bool) {
+        self.carrying_add(rhs, carry)
+    }
+
+    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i32, bool) {
+        (self as i32).borrowing_sub(rhs as i32, carry)
+    }
+
+    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u32, bool) {
+        self.borrowing_sub(rhs, carry)
+    }
+}
+
+pub trait Integer : Copy + PartialEq + PartialOrd + BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self> {
+    const ZERO: Self;
+    const SIGN_BIT_MASK: Self;
+}
+
+impl Integer for i8 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x80; }
+impl Integer for u8 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x80; }
+impl Integer for i16 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x8000; }
+impl Integer for u16 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x8000; }
+impl Integer for i32 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x8000_0000; }
+impl Integer for u32 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x8000_0000; }

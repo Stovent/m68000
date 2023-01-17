@@ -6,7 +6,7 @@ use crate::{CpuDetails, M68000, MemoryAccess, StackFormat};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::{ACCESS_ERROR, Vector};
 use crate::instruction::{Direction, Size};
-use crate::utils::{bits, IsEven};
+use crate::utils::{bits, CarryingOps, Integer, IsEven};
 
 use std::num::Wrapping;
 
@@ -72,6 +72,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
+    fn add<UT, ST, const ADDX: bool>(&mut self, dst: UT, src: UT) -> UT
+    where
+        UT: CarryingOps<ST, UT>,
+        ST: Integer,
+    {
+        let (res, v) = src.signed_carrying_add(dst, ADDX && self.regs.sr.x);
+        let (ures, c) = src.unsigned_carrying_add(dst, ADDX && self.regs.sr.x);
+
+        self.regs.sr.x = c;
+        self.regs.sr.n = res < ST::ZERO;
+        if ADDX {
+            if res != ST::ZERO {
+                self.regs.sr.z = false;
+            }
+        } else {
+            self.regs.sr.z = res == ST::ZERO;
+        }
+        self.regs.sr.v = v;
+        self.regs.sr.c = c;
+
+        ures
+    }
+
     pub(super) fn execute_add(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
@@ -87,19 +110,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.get_byte(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u8)
                 };
 
-                let (res, v) = (src as i8).overflowing_add(dst as i8);
-                let (_, c) = src.overflowing_add(dst);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u8, i8, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
+                    self.set_byte(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d_byte(reg, res as u8);
+                    self.regs.d_byte(reg, res);
                 }
             },
             Size::Word => {
@@ -111,43 +127,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.get_word(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u16)
                 };
 
-                let (res, v) = (src as i16).overflowing_add(dst as i16);
-                let (_, c) = src.overflowing_add(dst);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u16, i16, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
+                    self.set_word(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d_word(reg, res as u16);
+                    self.regs.d_word(reg, res);
                 }
             },
             Size::Long => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = CPU::ADD_MEM_L;
-                    (self.regs.d[reg as usize].0 as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize].0, self.get_long(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { CPU::ADD_REG_L_RDIMM } else { CPU::ADD_REG_L };
-                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u32)
+                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0)
                 };
 
-                let (res, v) = (src as i32).overflowing_add(dst as i32);
-                let (_, c) = src.overflowing_add(dst);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u32, i32, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
+                    self.set_long(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d[reg as usize].0 = res as u32;
+                    self.regs.d[reg as usize].0 = res;
                 }
             },
         }
@@ -186,41 +188,26 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte =>  {
                 exec_time = if am.is_drd() { CPU::ADDI_REG_BW } else { CPU::ADDI_MEM_BW };
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i8).overflowing_add(imm as i8);
-                let (_, c) = data.overflowing_add(imm as u8);
-                self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u8, i8, false>(data, imm as u8);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::ADDI_REG_BW } else { CPU::ADDI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i16).overflowing_add(imm as i16);
-                let (_, c) = data.overflowing_add(imm as u16);
-                self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u16, i16, false>(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::ADDI_REG_L } else { CPU::ADDI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i32).overflowing_add(imm as i32);
-                let (_, c) = data.overflowing_add(imm);
-                self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u32, i32, false>(data, imm);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -243,41 +230,26 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::ADDQ_REG_BW } else { CPU::ADDQ_MEM_BW };
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i8).overflowing_add(imm as i8);
-                let (_, c) = data.overflowing_add(imm);
-                self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u8, i8, false>(data, imm);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::ADDQ_REG_BW } else { CPU::ADDQ_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i16).overflowing_add(imm as i16);
-                let (_, c) = data.overflowing_add(imm as u16);
-                self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u16, i16, false>(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::ADDQ_REG_L } else { CPU::ADDQ_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i32).overflowing_add(imm as i32);
-                let (_, c) = data.overflowing_add(imm as u32);
-                self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u32, i32, false>(data, imm as u32);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -295,22 +267,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize].0 as u8, self.regs.d[rx as usize].0 as u8)
                 };
 
-                let (res, v) = (src as i8).carrying_add(dst as i8, self.regs.sr.x);
-                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u8, i8, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_byte(self.regs.a(rx), res as u8).ok_or(ACCESS_ERROR)?;
+                    memory.set_byte(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_BW)
                 } else {
-                    self.regs.d_byte(rx, res as u8);
+                    self.regs.d_byte(rx, res);
                     Ok(CPU::ADDX_REG_BW)
                 }
             },
@@ -323,22 +286,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize].0 as u16, self.regs.d[rx as usize].0 as u16)
                 };
 
-                let (res, v) = (src as i16).carrying_add(dst as i16, self.regs.sr.x);
-                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u16, i16, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_word(self.regs.a(rx), res as u16).ok_or(ACCESS_ERROR)?;
+                    memory.set_word(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_BW)
                 } else {
-                    self.regs.d_word(rx, res as u16);
+                    self.regs.d_word(rx, res);
                     Ok(CPU::ADDX_REG_BW)
                 }
             },
@@ -351,26 +305,31 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[ry as usize].0, self.regs.d[rx as usize].0)
                 };
 
-                let (res, v) = (src as i32).carrying_add(dst as i32, self.regs.sr.x);
-                let (_, c) = src.carrying_add(dst, self.regs.sr.x);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.add::<u32, i32, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_long(self.regs.a(rx), res as u32).ok_or(ACCESS_ERROR)?;
+                    memory.set_long(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_L)
                 } else {
-                    self.regs.d[rx as usize].0 = res as u32;
+                    self.regs.d[rx as usize].0 = res;
                     Ok(CPU::ADDX_REG_L)
                 }
             },
         }
+    }
+
+    fn and<UT>(&mut self, dst: UT, src: UT) -> UT
+    where
+        UT: Integer,
+    {
+        let res = src & dst;
+
+        self.regs.sr.n = res & UT::SIGN_BIT_MASK != UT::ZERO;
+        self.regs.sr.z = res == UT::ZERO;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
+
+        res
     }
 
     pub(super) fn execute_and(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
@@ -388,10 +347,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                let res = src & dst;
-
-                self.regs.sr.n = res & SIGN_BIT_8 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.and(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res)?;
@@ -408,10 +364,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                let res = src & dst;
-
-                self.regs.sr.n = res & SIGN_BIT_16 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.and(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res)?;
@@ -428,10 +381,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0;
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                let res = src & dst;
-
-                self.regs.sr.n = res & SIGN_BIT_32 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.and(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res)?;
@@ -440,9 +390,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 }
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -763,39 +710,21 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.get_byte(memory, &mut ea, &mut exec_time)?;
                 let dst = self.regs.d[reg as usize].0 as u8;
 
-                let (res, v) = (dst as i8).overflowing_sub(src as i8);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u8, i8, false, true>(dst, src);
             },
             Size::Word => {
                 exec_time = CPU::CMP_BW;
                 let src = self.get_word(memory, &mut ea, &mut exec_time)?;
                 let dst = self.regs.d[reg as usize].0 as u16;
 
-                let (res, v) = (dst as i16).overflowing_sub(src as i16);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u16, i16, false, true>(dst, src);
             },
             Size::Long => {
                 exec_time = CPU::CMP_L;
                 let src = self.get_long(memory, &mut ea, &mut exec_time)?;
                 let dst = self.regs.d[reg as usize].0;
 
-                let (res, v) = (dst as i32).overflowing_sub(src as i32);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u32, i32, false, true>(dst, src);
             },
         }
 
@@ -813,13 +742,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             self.get_long(memory, &mut ea, &mut exec_time)?
         };
 
-        let (res, v) = (self.regs.a(reg) as i32).overflowing_sub(src as i32);
-        let (_, c) = self.regs.a(reg).overflowing_sub(src);
-
-        self.regs.sr.n = res < 0;
-        self.regs.sr.z = res == 0;
-        self.regs.sr.v = v;
-        self.regs.sr.c = c;
+        self.sub::<u32, i32, false, true>(self.regs.a(reg), src);
 
         Ok(exec_time)
     }
@@ -833,35 +756,20 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::CMPI_REG_BW } else { CPU::CMPI_MEM_BW };
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i8).overflowing_sub(imm as i8);
-                let (_, c) = data.overflowing_sub(imm as u8);
 
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u8, i8, false, true>(data, imm as u8);
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::CMPI_REG_BW } else { CPU::CMPI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i16).overflowing_sub(imm as i16);
-                let (_, c) = data.overflowing_sub(imm as u16);
 
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u16, i16, false, true>(data, imm as u16);
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::CMPI_REG_L } else { CPU::CMPI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i32).overflowing_sub(imm as i32);
-                let (_, c) = data.overflowing_sub(imm);
 
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u32, i32, false, true>(data, imm);
             },
         }
 
@@ -877,13 +785,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = memory.get_byte(addry).ok_or(ACCESS_ERROR)?;
                 let dst = memory.get_byte(addrx).ok_or(ACCESS_ERROR)?;
 
-                let (res, v) = (dst as i8).overflowing_sub(src as i8);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u8, i8, false, true>(dst, src);
 
                 Ok(CPU::CMPM_BW)
             },
@@ -891,13 +793,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = memory.get_word(addry.even()?).ok_or(ACCESS_ERROR)?;
                 let dst = memory.get_word(addrx.even()?).ok_or(ACCESS_ERROR)?;
 
-                let (res, v) = (dst as i16).overflowing_sub(src as i16);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u16, i16, false, true>(dst, src);
 
                 Ok(CPU::CMPM_BW)
             },
@@ -905,13 +801,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = memory.get_long(addry.even()?).ok_or(ACCESS_ERROR)?;
                 let dst = memory.get_long(addrx.even()?).ok_or(ACCESS_ERROR)?;
 
-                let (res, v) = (dst as i32).overflowing_sub(src as i32);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.sub::<u32, i32, false, true>(dst, src);
 
                 Ok(CPU::CMPM_L)
             },
@@ -986,6 +876,20 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
+    fn eor<UT>(&mut self, dst: UT, src: UT) -> UT
+    where
+        UT: Integer,
+    {
+        let res = src ^ dst;
+
+        self.regs.sr.n = res & UT::SIGN_BIT_MASK != UT::ZERO;
+        self.regs.sr.z = res == UT::ZERO;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
+
+        res
+    }
+
     pub(super) fn execute_eor(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
@@ -997,10 +901,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                let res = src ^ dst;
-
-                self.regs.sr.n = res & SIGN_BIT_8 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.eor(dst, src);
 
                 self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
@@ -1009,10 +910,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                let res = src ^ dst;
-
-                self.regs.sr.n = res & SIGN_BIT_16 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.eor(dst, src);
 
                 self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
@@ -1021,17 +919,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0;
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                let res = src ^ dst;
-
-                self.regs.sr.n = res & SIGN_BIT_32 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.eor(dst, src);
 
                 self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1044,32 +936,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
         match size {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::EORI_REG_BW } else { CPU::EORI_MEM_BW };
-                let data = self.get_byte(memory, &mut ea, &mut exec_time)? ^ imm as u8;
-                self.set_byte(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_8 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.eor(data, imm as u8);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::EORI_REG_BW } else { CPU::EORI_MEM_BW };
-                let data = self.get_word(memory, &mut ea, &mut exec_time)? ^ imm as u16;
-                self.set_word(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_16 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.eor(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::EORI_REG_L } else { CPU::EORI_MEM_L };
-                let data = self.get_long(memory, &mut ea, &mut exec_time)? ^ imm;
-                self.set_long(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_32 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.eor(data, imm);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1572,34 +1461,25 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         match size {
             Size::Byte => {
-                let data = 0i8.wrapping_sub(self.get_byte(memory, &mut ea, &mut exec_time)? as i8);
-                self.set_byte(memory, &mut ea, &mut exec_time, data as u8)?;
+                let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data < 0;
-                self.regs.sr.z = data == 0;
-                self.regs.sr.v = data == i8::MIN;
-                self.regs.sr.c = data != 0;
-                self.regs.sr.x = self.regs.sr.c;
+                let res = self.sub::<u8, i8, false, false>(0, data);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
-                let data = 0i16.wrapping_sub(self.get_word(memory, &mut ea, &mut exec_time)? as i16);
-                self.set_word(memory, &mut ea, &mut exec_time, data as u16)?;
+                let data = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data < 0;
-                self.regs.sr.z = data == 0;
-                self.regs.sr.v = data == i16::MIN;
-                self.regs.sr.c = data != 0;
-                self.regs.sr.x = self.regs.sr.c;
+                let res = self.sub::<u16, i16, false, false>(0, data);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
-                let data = 0i32.wrapping_sub(self.get_long(memory, &mut ea, &mut exec_time)? as i32);
-                self.set_long(memory, &mut ea, &mut exec_time, data as u32)?;
+                let data = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data < 0;
-                self.regs.sr.z = data == 0;
-                self.regs.sr.v = data == i32::MIN;
-                self.regs.sr.c = data != 0;
-                self.regs.sr.x = self.regs.sr.c;
+                let res = self.sub::<u32, i32, false, false>(0, data);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -1615,41 +1495,23 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte => {
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                let (res, v) = 0i8.borrowing_sub(data as i8, self.regs.sr.x);
-                let (_, c) = 0u8.borrowing_sub(data, self.regs.sr.x);
-                self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
+                let res = self.sub::<u8, i8, true, false>(0, data);
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                let (res, v) = 0i16.borrowing_sub(data as i16, self.regs.sr.x);
-                let (_, c) = 0u16.borrowing_sub(data, self.regs.sr.x);
-                self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
+                let res = self.sub::<u16, i16, true, false>(0, data);
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                let (res, v) = 0i32.borrowing_sub(data as i32, self.regs.sr.x);
-                let (_, c) = 0u32.borrowing_sub(data, self.regs.sr.x);
-                self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
+                let res = self.sub::<u32, i32, true, false>(0, data);
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                if res != 0 { self.regs.sr.z = false }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -1695,6 +1557,20 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
+    fn or<UT>(&mut self, dst: UT, src: UT) -> UT
+    where
+        UT: Integer,
+    {
+        let res = src | dst;
+
+        self.regs.sr.n = res & UT::SIGN_BIT_MASK != UT::ZERO;
+        self.regs.sr.z = res == UT::ZERO;
+        self.regs.sr.v = false;
+        self.regs.sr.c = false;
+
+        res
+    }
+
     pub(super) fn execute_or(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
@@ -1710,10 +1586,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u8;
                 let dst = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                let res = src | dst;
-
-                self.regs.sr.n = res & SIGN_BIT_8 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.or(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_byte(memory, &mut ea, &mut exec_time, res)?;
@@ -1730,10 +1603,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0 as u16;
                 let dst = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                let res = src | dst;
-
-                self.regs.sr.n = res & SIGN_BIT_16 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.or(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_word(memory, &mut ea, &mut exec_time, res)?;
@@ -1750,10 +1620,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let src = self.regs.d[reg as usize].0;
                 let dst = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                let res = src | dst;
-
-                self.regs.sr.n = res & SIGN_BIT_32 != 0;
-                self.regs.sr.z = res == 0;
+                let res = self.or(dst, src);
 
                 if dir == Direction::DstEa {
                     self.set_long(memory, &mut ea, &mut exec_time, res)?;
@@ -1762,9 +1629,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 }
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -1777,32 +1641,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
         match size {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::ORI_REG_BW } else { CPU::ORI_MEM_BW };
-                let data = self.get_byte(memory, &mut ea, &mut exec_time)? | imm as u8;
-                self.set_byte(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_8 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.or(data, imm as u8);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::ORI_REG_BW } else { CPU::ORI_MEM_BW };
-                let data = self.get_word(memory, &mut ea, &mut exec_time)? | imm as u16;
-                self.set_word(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_16 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.or(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::ORI_REG_L } else { CPU::ORI_MEM_L };
-                let data = self.get_long(memory, &mut ea, &mut exec_time)? | imm;
-                self.set_long(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_32 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.or(data, imm);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -2123,6 +1984,32 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::STOP)
     }
 
+    /// Performs dst - src.
+    fn sub<UT, ST, const SUBX: bool, const CMP: bool>(&mut self, dst: UT, src: UT) -> UT
+    where
+        UT: CarryingOps<ST, UT>,
+        ST: Integer,
+    {
+        let (res, v) = dst.signed_borrowing_sub(src, SUBX && self.regs.sr.x);
+        let (ures, c) = dst.unsigned_borrowing_sub(src, SUBX && self.regs.sr.x);
+
+        if !CMP {
+            self.regs.sr.x = c;
+        }
+        self.regs.sr.n = res < ST::ZERO;
+        if SUBX {
+            if res != ST::ZERO {
+                self.regs.sr.z = false;
+            }
+        } else {
+            self.regs.sr.z = res == ST::ZERO;
+        }
+        self.regs.sr.v = v;
+        self.regs.sr.c = c;
+
+        ures
+    }
+
     pub(super) fn execute_sub(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
@@ -2138,19 +2025,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.get_byte(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u8)
                 };
 
-                let (res, v) = (dst as i8).overflowing_sub(src as i8);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u8, i8, false, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
+                    self.set_byte(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d_byte(reg, res as u8);
+                    self.regs.d_byte(reg, res);
                 }
             },
             Size::Word => {
@@ -2162,43 +2042,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.get_word(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u16)
                 };
 
-                let (res, v) = (dst as i16).overflowing_sub(src as i16);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u16, i16, false, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
+                    self.set_word(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d_word(reg, res as u16);
+                    self.regs.d_word(reg, res);
                 }
             },
             Size::Long => {
                 let (src, dst) = if dir == Direction::DstEa {
                     exec_time = CPU::SUB_MEM_L;
-                    (self.regs.d[reg as usize].0 as u32, self.get_long(memory, &mut ea, &mut exec_time)?)
+                    (self.regs.d[reg as usize].0, self.get_long(memory, &mut ea, &mut exec_time)?)
                 } else {
                     exec_time = if am.is_dard() || am.is_immediate() { CPU::SUB_REG_L_RDIMM } else { CPU::SUB_REG_L };
-                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0 as u32)
+                    (self.get_long(memory, &mut ea, &mut exec_time)?, self.regs.d[reg as usize].0)
                 };
 
-                let (res, v) = (dst as i32).overflowing_sub(src as i32);
-                let (_, c) = dst.overflowing_sub(src);
-
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u32, i32, false, false>(dst, src);
 
                 if dir == Direction::DstEa {
-                    self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
+                    self.set_long(memory, &mut ea, &mut exec_time, res)?;
                 } else {
-                    self.regs.d[reg as usize].0 = res as u32;
+                    self.regs.d[reg as usize].0 = res;
                 }
             },
         }
@@ -2237,41 +2103,26 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::SUBI_REG_BW } else { CPU::SUBI_MEM_BW };
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i8).overflowing_sub(imm as i8);
-                let (_, c) = data.overflowing_sub(imm as u8);
-                self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u8, i8, false, false>(data, imm as u8);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::SUBI_REG_BW } else { CPU::SUBI_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i16).overflowing_sub(imm as i16);
-                let (_, c) = data.overflowing_sub(imm as u16);
-                self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u16, i16, false, false>(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::SUBI_REG_L } else { CPU::SUBI_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i32).overflowing_sub(imm as i32);
-                let (_, c) = data.overflowing_sub(imm);
-                self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u32, i32, false, false>(data, imm);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -2294,41 +2145,26 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::SUBQ_DREG_BW } else { CPU::SUBQ_MEM_BW };
                 let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i8).overflowing_sub(imm as i8);
-                let (_, c) = data.overflowing_sub(imm);
-                self.set_byte(memory, &mut ea, &mut exec_time, res as u8)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u8, i8, false, false>(data, imm);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::SUBQ_DREG_BW } else { CPU::SUBQ_MEM_BW };
                 let data = self.get_word(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i16).overflowing_sub(imm as i16);
-                let (_, c) = data.overflowing_sub(imm as u16);
-                self.set_word(memory, &mut ea, &mut exec_time, res as u16)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u16, i16, false, false>(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::SUBQ_REG_L } else { CPU::SUBQ_MEM_L };
                 let data = self.get_long(memory, &mut ea, &mut exec_time)?;
-                let (res, v) = (data as i32).overflowing_sub(imm as i32);
-                let (_, c) = data.overflowing_sub(imm as u32);
-                self.set_long(memory, &mut ea, &mut exec_time, res as u32)?;
 
-                self.regs.sr.x = c;
-                self.regs.sr.n = res < 0;
-                self.regs.sr.z = res == 0;
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
+                let res = self.sub::<u32, i32, false, false>(data, imm as u32);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
 
@@ -2346,22 +2182,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize].0 as u8, self.regs.d[ry as usize].0 as u8)
                 };
 
-                let (res, v) = (dst as i8).borrowing_sub(src as i8, self.regs.sr.x);
-                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
-
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
-                self.regs.sr.x = c;
+                let res = self.sub::<u8, i8, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_byte(self.regs.a(ry), res as u8).ok_or(ACCESS_ERROR)?;
+                    memory.set_byte(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_BW)
                 } else {
-                    self.regs.d_byte(ry, res as u8);
+                    self.regs.d_byte(ry, res);
                     Ok(CPU::SUBX_REG_BW)
                 }
             },
@@ -2374,22 +2201,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize].0 as u16, self.regs.d[ry as usize].0 as u16)
                 };
 
-                let (res, v) = (dst as i16).borrowing_sub(src as i16, self.regs.sr.x);
-                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
-
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
-                self.regs.sr.x = c;
+                let res = self.sub::<u16, i16, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_word(self.regs.a(ry), res as u16).ok_or(ACCESS_ERROR)?;
+                    memory.set_word(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_BW)
                 } else {
-                    self.regs.d_word(ry, res as u16);
+                    self.regs.d_word(ry, res);
                     Ok(CPU::SUBX_REG_BW)
                 }
             },
@@ -2402,22 +2220,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     (self.regs.d[rx as usize].0, self.regs.d[ry as usize].0)
                 };
 
-                let (res, v) = (dst as i32).borrowing_sub(src as i32, self.regs.sr.x);
-                let (_, c) = dst.borrowing_sub(src, self.regs.sr.x);
-
-                self.regs.sr.n = res < 0;
-                if res != 0 {
-                    self.regs.sr.z = false;
-                }
-                self.regs.sr.v = v;
-                self.regs.sr.c = c;
-                self.regs.sr.x = c;
+                let res = self.sub::<u32, i32, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_long(self.regs.a(ry), res as u32).ok_or(ACCESS_ERROR)?;
+                    memory.set_long(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_L)
                 } else {
-                    self.regs.d[ry as usize].0 = res as u32;
+                    self.regs.d[ry as usize].0 = res;
                     Ok(CPU::SUBX_REG_L)
                 }
             },
