@@ -5,6 +5,7 @@
 //! Disassembler module.
 
 use crate::instruction::{Direction, Instruction};
+use crate::isa::Isa;
 use crate::status_register::disassemble_conditional_test;
 use crate::utils::bits;
 
@@ -517,3 +518,108 @@ pub fn disassemble_unlk(inst: &Instruction) -> String {
     let r = inst.operands.register();
     format!("UNLK A{}", r)
 }
+
+/// Disassembler function Look-Up Table.
+///
+/// # Usage
+///
+/// ```
+/// use m68000::decoder::DECODER;
+/// use m68000::disassembler::DLUT;
+/// use m68000::instruction::Instruction;
+/// use m68000::memory_access::MemoryAccess;
+///
+/// let mut data: Vec<u8> = Vec::new();
+/// data.resize(4, 0); // Load the binary in data.
+/// let mut iter = data.iter_u16(0);
+/// let inst = Instruction::from_memory(&mut iter).unwrap();
+/// let disassemble = DLUT[DECODER[inst.opcode as usize] as usize];
+/// println!("{:#X} {}", inst.pc, disassemble(&inst));
+/// ```
+pub const DLUT: [fn(&Instruction) -> String; Isa::_Size as usize] = [
+    disassemble_unknown_instruction,
+    disassemble_abcd,
+    disassemble_add,
+    disassemble_adda,
+    disassemble_addi,
+    disassemble_addq,
+    disassemble_addx,
+    disassemble_and,
+    disassemble_andi,
+    disassemble_andiccr,
+    disassemble_andisr,
+    disassemble_asm,
+    disassemble_asr,
+    disassemble_bcc,
+    disassemble_bchg,
+    disassemble_bclr,
+    disassemble_bra,
+    disassemble_bset,
+    disassemble_bsr,
+    disassemble_btst,
+    disassemble_chk,
+    disassemble_clr,
+    disassemble_cmp,
+    disassemble_cmpa,
+    disassemble_cmpi,
+    disassemble_cmpm,
+    disassemble_dbcc,
+    disassemble_divs,
+    disassemble_divu,
+    disassemble_eor,
+    disassemble_eori,
+    disassemble_eoriccr,
+    disassemble_eorisr,
+    disassemble_exg,
+    disassemble_ext,
+    disassemble_illegal,
+    disassemble_jmp,
+    disassemble_jsr,
+    disassemble_lea,
+    disassemble_link,
+    disassemble_lsm,
+    disassemble_lsr,
+    disassemble_move,
+    disassemble_movea,
+    disassemble_moveccr,
+    disassemble_movefsr,
+    disassemble_movesr,
+    disassemble_moveusp,
+    disassemble_movem,
+    disassemble_movep,
+    disassemble_moveq,
+    disassemble_muls,
+    disassemble_mulu,
+    disassemble_nbcd,
+    disassemble_neg,
+    disassemble_negx,
+    disassemble_nop,
+    disassemble_not,
+    disassemble_or,
+    disassemble_ori,
+    disassemble_oriccr,
+    disassemble_orisr,
+    disassemble_pea,
+    disassemble_reset,
+    disassemble_rom,
+    disassemble_ror,
+    disassemble_roxm,
+    disassemble_roxr,
+    disassemble_rte,
+    disassemble_rtr,
+    disassemble_rts,
+    disassemble_sbcd,
+    disassemble_scc,
+    disassemble_stop,
+    disassemble_sub,
+    disassemble_suba,
+    disassemble_subi,
+    disassemble_subq,
+    disassemble_subx,
+    disassemble_swap,
+    disassemble_tas,
+    disassemble_trap,
+    disassemble_trapv,
+    disassemble_tst,
+    disassemble_unlk,
+];

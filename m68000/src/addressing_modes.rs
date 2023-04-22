@@ -4,7 +4,7 @@
 
 //! Addressing mode-related structs, enums and functions.
 
-use crate::{CpuDetails, M68000};
+use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
 use crate::utils::bits;
@@ -45,7 +45,7 @@ pub enum AddressingMode {
 
 impl AddressingMode {
     /// New addressing mode from memory iterator.
-    pub fn from_memory(mode: u16, reg: u8, size: Option<Size>, memory: &mut MemoryIter) -> Self {
+    pub fn from_memory<M: MemoryAccess + ?Sized>(mode: u16, reg: u8, size: Option<Size>, memory: &mut MemoryIter<M>) -> Self {
         match mode {
             0 => Self::Drd(reg),
             1 => Self::Ard(reg),

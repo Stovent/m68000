@@ -55,6 +55,22 @@ impl IsEven for Wrapping<u32> {
     }
 }
 
+impl IsEven for usize {
+    #[inline(always)]
+    fn is_even(self) -> bool {
+        self & 1 == 0
+    }
+
+    #[inline(always)]
+    fn even(self) -> Result<Self, u8> {
+        if self.is_even() {
+            Ok(self)
+        } else {
+            Err(ADDRESS_ERROR)
+        }
+    }
+}
+
 /// Trait that convert the first bytes of slices to their big-endian integer value.
 pub trait SliceAs {
     /// Interprets the first elements of the silce as a big-endian 32 bits integer.

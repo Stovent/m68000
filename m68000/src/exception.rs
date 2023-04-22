@@ -159,7 +159,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     /// Resets the CPU by fetching the reset vectors.
-    fn reset(&mut self, memory: &mut impl MemoryAccess) -> usize {
+    fn reset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> usize {
         self.regs.ssp.0 = memory.get_long(0).expect("An exception occured when reading initial SSP.");
         self.regs.pc.0  = memory.get_long(4).expect("An exception occured when reading initial PC.");
         self.regs.sr.t = false;
@@ -170,7 +170,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     /// Attempts to process all the pending exceptions
-    pub(super) fn process_pending_exceptions(&mut self, memory: &mut impl MemoryAccess) -> usize {
+    pub(super) fn process_pending_exceptions<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> usize {
         // Extract the exceptions to process and keep the masked interrupts.
         let exceptions: BTreeSet<_> = self.exceptions.drain_filter(|ex| {
             if ex.is_interrupt() {
@@ -230,7 +230,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// TODO: the timing may not be perfect here. If two words can be pushed but not the third, then the time taken to push
     /// the first two words is not counted.
-    fn process_exception(&mut self, memory: &mut impl MemoryAccess, vector: u8) -> InterpreterResult {
+    fn process_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, vector: u8) -> InterpreterResult {
         let sr = self.regs.sr.into();
         self.regs.sr.t = false;
         self.regs.sr.s = true;

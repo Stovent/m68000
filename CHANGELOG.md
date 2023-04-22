@@ -17,6 +17,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Interrupt's exception processing sets the interrupt priority mask.
 - Interrupt level 7 is non-maskable.
 - Use wrapping types and methods so overflow checks can be enabled.
+- Make MemoryIter generic over the underlying MemoryAccess trait object.
 
 ### Removed
 - M68000 does not store the cycles count anymore (breaking).

@@ -12,18 +12,19 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the instruction at the current Program Counter and advances it to the next instruction.
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
-    fn get_next_instruction(&mut self, memory: &mut impl MemoryAccess) -> Result<Instruction, u8> {
+    fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, u8> {
         let mut iter = self.iter_from_pc(memory);
         let instruction = Instruction::from_memory(&mut iter)?;
         self.regs.pc.0 = iter.next_addr;
         Ok(instruction)
     }
 
-    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembler string
-    /// and the cycle count necessary to execute it.
+    /// Runs the interpreter loop once and disassembles the next instruction if any.
+    ///
+    /// Returns the disassembled string and the cycle count necessary to execute it.
     ///
     /// See [Self::interpreter] for the potential caveat.
-    pub fn disassembler_interpreter<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize) {
+    pub fn disassembler_interpreter<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (String, usize) {
         let (dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
         if let Some(e) = exception {
             self.exception(Exception::from(e));
@@ -31,13 +32,15 @@ impl<CPU: CpuDetails> M68000<CPU> {
         (dis, cycles)
     }
 
-    /// Runs the interpreter loop once and disassembles the next instruction if any, returning the disassembled string,
-    /// the cycle count necessary to execute it, and the vector of the exception that occured during the execution if any.
+    /// Runs the interpreter loop once and disassembles the next instruction if any.
+    ///
+    /// Returns the disassembled string, the cycle count necessary to execute it, and the vector of the exception that
+    /// occured during the execution if any.
     ///
     /// To process the returned exception, call [M68000::exception].
     ///
     /// See [Self::interpreter_exception] for the potential caveat.
-    pub fn disassembler_interpreter_exception<M: MemoryAccess>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
+    pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
         if self.stop {
             return (String::from(""), 0, None);
         }
@@ -73,436 +76,436 @@ impl<CPU: CpuDetails> M68000<CPU> {
         (dis, cycle_count, exception)
     }
 
-    fn instruction_unknown_instruction(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_unknown_instruction<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_unknown_instruction()
     }
 
-    fn instruction_abcd(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_abcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rx, _, mode, ry) = inst.operands.register_size_mode_register();
         self.execute_abcd(memory, rx, mode, ry)
     }
 
-    fn instruction_add(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_add<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, dir, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_add(memory, reg, dir, size, am)
     }
 
-    fn instruction_adda(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_adda<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, size, am) = inst.operands.register_size_effective_address();
         self.execute_adda(memory, reg, size, am)
     }
 
-    fn instruction_addi(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_addi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_addi(memory, size, am, imm)
     }
 
-    fn instruction_addq(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_addq<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (imm, size, am) = inst.operands.data_size_effective_address();
         self.execute_addq(memory, imm, size, am)
     }
 
-    fn instruction_addx(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_addx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rx, size, mode, ry) = inst.operands.register_size_mode_register();
         self.execute_addx(memory, rx, size, mode, ry)
     }
 
-    fn instruction_and(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_and<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, dir, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_and(memory, reg, dir, size, am)
     }
 
-    fn instruction_andi(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_andi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_andi(memory, size, am, imm)
     }
 
-    fn instruction_andiccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_andiccr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_andiccr(imm)
     }
 
-    fn instruction_andisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_andisr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_andisr(imm)
     }
 
-    fn instruction_asm(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_asm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, am) = inst.operands.direction_effective_address();
         self.execute_asm(memory, dir, am)
     }
 
-    fn instruction_asr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_asr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
         self.execute_asr(rot, dir, size, mode, reg)
     }
 
-    fn instruction_bcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bcc<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (condition, displacement) = inst.operands.condition_displacement();
         self.execute_bcc(inst.pc.wrapping_add(2), condition, displacement)
     }
 
-    fn instruction_bchg(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bchg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (am, count) = inst.operands.effective_address_count();
         self.execute_bchg(memory, am, count)
     }
 
-    fn instruction_bclr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bclr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (am, count) = inst.operands.effective_address_count();
         self.execute_bclr(memory, am, count)
     }
 
-    fn instruction_bra(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bra<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
         self.execute_bra(inst.pc.wrapping_add(2), disp)
     }
 
-    fn instruction_bset(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (am, count) = inst.operands.effective_address_count();
         self.execute_bset(memory, am, count)
     }
 
-    fn instruction_bsr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
         self.execute_bsr(memory, inst.pc.wrapping_add(2), disp)
     }
 
-    fn instruction_btst(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_btst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (am, count) = inst.operands.effective_address_count();
         self.execute_btst(memory, am, count)
     }
 
     /// If a CHK exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    fn instruction_chk(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_chk<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_chk(memory, reg, am)
     }
 
-    fn instruction_clr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_clr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am) = inst.operands.size_effective_address();
         self.execute_clr(memory, size, am)
     }
 
-    fn instruction_cmp(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_cmp<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, _, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_cmp(memory, reg, size, am)
     }
 
-    fn instruction_cmpa(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_cmpa<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, size, am) = inst.operands.register_size_effective_address();
         self.execute_cmpa(memory, reg, size, am)
     }
 
-    fn instruction_cmpi(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_cmpi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_cmpi(memory, size, am, imm)
     }
 
-    fn instruction_cmpm(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_cmpm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (ax, size, ay) = inst.operands.register_size_register();
         self.execute_cmpm(memory, ax, size, ay)
     }
 
-    fn instruction_dbcc(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_dbcc<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (cc, reg, disp) = inst.operands.condition_register_displacement();
         self.execute_dbcc(inst.pc.wrapping_add(2), cc, reg, disp)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    fn instruction_divs(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_divs<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_divs(memory, reg, am)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    fn instruction_divu(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_divu<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_divu(memory, reg, am)
     }
 
-    fn instruction_eor(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_eor<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, _, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_eor(memory, reg, size, am)
     }
 
-    fn instruction_eori(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_eori<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_eori(memory, size, am, imm)
     }
 
-    fn instruction_eoriccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_eoriccr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_eoriccr(imm)
     }
 
-    fn instruction_eorisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_eorisr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_eorisr(imm)
     }
 
-    fn instruction_exg(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_exg<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rx, mode, ry) = inst.operands.register_opmode_register();
         self.execute_exg(rx, mode, ry)
     }
 
-    fn instruction_ext(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_ext<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (mode, reg) = inst.operands.opmode_register();
         self.execute_ext(mode, reg)
     }
 
-    fn instruction_illegal(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_illegal<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_illegal()
     }
 
-    fn instruction_jmp(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_jmp<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_jmp(am)
     }
 
-    fn instruction_jsr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_jsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_jsr(memory, am)
     }
 
-    fn instruction_lea(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_lea<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_lea(reg, am)
     }
 
-    fn instruction_link(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_link<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, disp) = inst.operands.register_displacement();
         self.execute_link(memory, reg, disp)
     }
 
-    fn instruction_lsm(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_lsm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, am) = inst.operands.direction_effective_address();
         self.execute_lsm(memory, dir, am)
     }
 
-    fn instruction_lsr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_lsr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
         self.execute_lsr(rot, dir, size, mode, reg)
     }
 
-    fn instruction_move(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_move<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, amdst, amsrc) = inst.operands.size_effective_address_effective_address();
         self.execute_move(memory, size, amdst, amsrc)
     }
 
-    fn instruction_movea(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_movea<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, reg, am) = inst.operands.size_register_effective_address();
         self.execute_movea(memory, size, reg, am)
     }
 
-    fn instruction_moveccr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_moveccr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_moveccr(memory, am)
     }
 
-    fn instruction_movefsr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_movefsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_movefsr(memory, am)
     }
 
-    fn instruction_movesr(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_movesr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_movesr(memory, am)
     }
 
-    fn instruction_moveusp(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_moveusp<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, reg) = inst.operands.direction_register();
         self.execute_moveusp(dir, reg)
     }
 
-    fn instruction_movem(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_movem<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, size, am, list) = inst.operands.direction_size_effective_address_list();
         self.execute_movem(memory, dir, size, am, list)
     }
 
-    fn instruction_movep(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_movep<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (data, dir, size, addr, disp) = inst.operands.register_direction_size_register_displacement();
         self.execute_movep(memory, data, dir, size, addr, disp)
     }
 
-    fn instruction_moveq(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_moveq<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, data) = inst.operands.register_data();
         self.execute_moveq(reg, data)
     }
 
-    fn instruction_muls(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_muls<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_muls(memory, reg, am)
     }
 
-    fn instruction_mulu(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_mulu<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, am) = inst.operands.register_effective_address();
         self.execute_mulu(memory, reg, am)
     }
 
-    fn instruction_nbcd(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_nbcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_nbcd(memory, am)
     }
 
-    fn instruction_neg(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_neg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am) = inst.operands.size_effective_address();
         self.execute_neg(memory, size, am)
     }
 
-    fn instruction_negx(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_negx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am) = inst.operands.size_effective_address();
         self.execute_negx(memory, size, am)
     }
 
-    fn instruction_nop(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_nop<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_nop()
     }
 
-    fn instruction_not(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_not<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am) = inst.operands.size_effective_address();
         self.execute_not(memory, size, am)
     }
 
-    fn instruction_or(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_or<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, dir, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_or(memory, reg, dir, size, am)
     }
 
-    fn instruction_ori(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_ori<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_ori(memory, size, am, imm)
     }
 
-    fn instruction_oriccr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_oriccr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_oriccr(imm)
     }
 
-    fn instruction_orisr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_orisr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_orisr(imm)
     }
 
-    fn instruction_pea(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_pea<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_pea(memory, am)
     }
 
-    fn instruction_reset(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_reset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_reset(memory)
     }
 
-    fn instruction_rom(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_rom<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, am) = inst.operands.direction_effective_address();
         self.execute_rom(memory, dir, am)
     }
 
-    fn instruction_ror(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_ror<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
         self.execute_ror(rot, dir, size, mode, reg)
     }
 
-    fn instruction_roxm(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_roxm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (dir, am) = inst.operands.direction_effective_address();
         self.execute_roxm(memory, dir, am)
     }
 
-    fn instruction_roxr(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_roxr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
         self.execute_roxr(rot, dir, size, mode, reg)
     }
 
-    fn instruction_rte(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_rte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_rte(memory)
     }
 
-    fn instruction_rtr(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_rtr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_rtr(memory)
     }
 
-    fn instruction_rts(&mut self, memory: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_rts<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_rts(memory)
     }
 
-    fn instruction_sbcd(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_sbcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (ry, _, mode, rx) = inst.operands.register_size_mode_register();
         self.execute_sbcd(memory, ry, mode, rx)
     }
 
-    fn instruction_scc(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_scc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (cc, am) = inst.operands.condition_effective_address();
         self.execute_scc(memory, cc, am)
     }
 
-    fn instruction_stop(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_stop<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let imm = inst.operands.immediate();
         self.execute_stop(imm)
     }
 
-    fn instruction_sub(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_sub<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, dir, size, am) = inst.operands.register_direction_size_effective_address();
         self.execute_sub(memory, reg, dir, size, am)
     }
 
-    fn instruction_suba(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_suba<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (reg, size, am) = inst.operands.register_size_effective_address();
         self.execute_suba(memory, reg, size, am)
     }
 
-    fn instruction_subi(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_subi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am, imm) = inst.operands.size_effective_address_immediate();
         self.execute_subi(memory, size, am, imm)
     }
 
-    fn instruction_subq(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_subq<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (imm, size, am) = inst.operands.data_size_effective_address();
         self.execute_subq(memory, imm, size, am)
     }
 
-    fn instruction_subx(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_subx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (ry, size, mode, rx) = inst.operands.register_size_mode_register();
         self.execute_subx(memory, ry, size, mode, rx)
     }
 
-    fn instruction_swap(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_swap<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let reg = inst.operands.register();
         self.execute_swap(reg)
     }
 
-    fn instruction_tas(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_tas<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let am = inst.operands.effective_address();
         self.execute_tas(memory, am)
     }
 
-    fn instruction_trap(&mut self, _: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_trap<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let vector = inst.operands.vector();
         self.execute_trap(vector)
     }
 
-    fn instruction_trapv(&mut self, _: &mut impl MemoryAccess, _: &Instruction) -> InterpreterResult {
+    fn instruction_trapv<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
         self.execute_trapv()
     }
 
-    fn instruction_tst(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_tst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let (size, am) = inst.operands.size_effective_address();
         self.execute_tst(memory, size, am)
     }
 
-    fn instruction_unlk(&mut self, memory: &mut impl MemoryAccess, inst: &Instruction) -> InterpreterResult {
+    fn instruction_unlk<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let reg = inst.operands.register();
         self.execute_unlk(memory, reg)
     }
 }
 
-struct Execute<E: CpuDetails, M: MemoryAccess> {
+struct Execute<E: CpuDetails, M: MemoryAccess + ?Sized> {
     _e: E,
     _m: M,
 }
 
-impl<E: CpuDetails, M: MemoryAccess> Execute<E, M> {
+impl<E: CpuDetails, M: MemoryAccess + ?Sized> Execute<E, M> {
     /// Function used to execute the instruction.
     const EXECUTE: [fn(&mut M68000<E>, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
         M68000::instruction_unknown_instruction,

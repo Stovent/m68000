@@ -7,37 +7,13 @@
 //! Usage: ./disassembler.exe <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]
 
 use m68000::decoder::DECODER;
+use m68000::disassembler::DLUT;
 use m68000::instruction::Instruction;
-use m68000::isa::IsaEntry;
 use m68000::memory_access::MemoryAccess;
 
 use std::borrow::BorrowMut;
 use std::fs::File;
 use std::io::{Read, Write};
-
-struct Memory {
-    data: Vec<u8>,
-}
-
-impl MemoryAccess for Memory {
-    fn get_byte(&mut self, addr: u32) -> Option<u8> {
-        Some(self.data[addr as usize])
-    }
-
-    fn get_word(&mut self, addr: u32) -> Option<u16> {
-        Some((self.data[addr as usize] as u16) << 8 | self.data[addr as usize + 1] as u16)
-    }
-
-    fn set_byte(&mut self, _: u32, _: u8) -> Option<()> {
-        Some(())
-    }
-
-    fn set_word(&mut self, _: u32, _: u16) -> Option<()> {
-        Some(())
-    }
-
-    fn reset_instruction(&mut self) {}
-}
 
 fn main() {
     let mut args = std::env::args();
@@ -76,17 +52,15 @@ fn main() {
         end = filelen
     };
 
-    let mut memory = Memory {
-        data: Vec::new(),
-    };
-    infile.read_to_end(&mut memory.data).unwrap();
+    let mut data = Vec::new();
+    infile.read_to_end(&mut data).unwrap();
 
     let mut i = beg;
-    let mut iter = memory.iter_u16(i as u32);
+    let mut iter = data.iter_u16(i as u32);
     while i < end {
         let inst = Instruction::from_memory(&mut iter).unwrap();
 
-        let disassemble = IsaEntry::ISA_ENTRY[DECODER[inst.opcode as usize] as usize].disassemble;
+        let disassemble = DLUT[DECODER[inst.opcode as usize] as usize];
         if let Some(outfile) = outfile.borrow_mut() {
             writeln!(outfile, "{:#X} {}", i, disassemble(&inst)).unwrap();
         } else {

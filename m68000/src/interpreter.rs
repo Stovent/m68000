@@ -36,7 +36,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Err(Vector::IllegalInstruction as u8)
     }
 
-    pub(super) fn execute_abcd(&mut self, memory: &mut impl MemoryAccess, rx: u8, mode: Direction, ry: u8) -> InterpreterResult {
+    pub(super) fn execute_abcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, rx: u8, mode: Direction, ry: u8) -> InterpreterResult {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(ry, Size::Byte);
             let dst_addr = self.ariwpr(rx, Size::Byte);
@@ -95,7 +95,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         ures
     }
 
-    pub(super) fn execute_add(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_add<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -157,7 +157,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_adda(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_adda<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -179,7 +179,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_addi(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_addi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -214,7 +214,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_addq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_addq<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let imm = if imm == 0 { 8 } else { imm };
 
         if am.is_ard() {
@@ -256,7 +256,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_addx(&mut self, memory: &mut impl MemoryAccess, rx: u8, size: Size, mode: Direction, ry: u8) -> InterpreterResult {
+    pub(super) fn execute_addx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, rx: u8, size: Size, mode: Direction, ry: u8) -> InterpreterResult {
         match size {
             Size::Byte => {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
@@ -332,7 +332,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         res
     }
 
-    pub(super) fn execute_and(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_and<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -394,7 +394,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_andi(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_andi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -402,32 +402,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
         match size {
             Size::Byte => {
                 exec_time = if am.is_drd() { CPU::ANDI_REG_BW } else { CPU::ANDI_MEM_BW };
-                let data = self.get_byte(memory, &mut ea, &mut exec_time)? & imm as u8;
-                self.set_byte(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_8 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.and(data, imm as u8);
+
+                self.set_byte(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Word => {
                 exec_time = if am.is_drd() { CPU::ANDI_REG_BW } else { CPU::ANDI_MEM_BW };
-                let data = self.get_word(memory, &mut ea, &mut exec_time)? & imm as u16;
-                self.set_word(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_word(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_16 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.and(data, imm as u16);
+
+                self.set_word(memory, &mut ea, &mut exec_time, res)?;
             },
             Size::Long => {
                 exec_time = if am.is_drd() { CPU::ANDI_REG_L } else { CPU::ANDI_MEM_L };
-                let data = self.get_long(memory, &mut ea, &mut exec_time)? & imm;
-                self.set_long(memory, &mut ea, &mut exec_time, data)?;
+                let data = self.get_long(memory, &mut ea, &mut exec_time)?;
 
-                self.regs.sr.n = data & SIGN_BIT_32 != 0;
-                self.regs.sr.z = data == 0;
+                let res = self.and(data, imm);
+
+                self.set_long(memory, &mut ea, &mut exec_time, res)?;
             },
         }
-
-        self.regs.sr.v = false;
-        self.regs.sr.c = false;
 
         Ok(exec_time)
     }
@@ -445,7 +442,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::ANDISR)
     }
 
-    pub(super) fn execute_asm(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_asm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, dir: Direction, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::ASM;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -545,7 +542,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    pub(super) fn execute_bchg(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode, mut count: u8) -> InterpreterResult {
+    pub(super) fn execute_bchg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCHG_DYN_REG } else { CPU::BCHG_DYN_MEM }
@@ -570,7 +567,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_bclr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode, mut count: u8) -> InterpreterResult {
+    pub(super) fn execute_bclr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCLR_DYN_REG } else { CPU::BCLR_DYN_MEM }
@@ -605,7 +602,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_bset(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode, mut count: u8) -> InterpreterResult {
+    pub(super) fn execute_bset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BSET_DYN_REG } else { CPU::BSET_DYN_MEM }
@@ -630,7 +627,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_bsr(&mut self, memory: &mut impl MemoryAccess, pc: u32, disp: i16) -> InterpreterResult {
+    pub(super) fn execute_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, pc: u32, disp: i16) -> InterpreterResult {
         self.push_long(memory, self.regs.pc.0)?;
         self.regs.pc.0 = pc.wrapping_add(disp as u32);
 
@@ -641,7 +638,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_btst(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode, mut count: u8) -> InterpreterResult {
+    pub(super) fn execute_btst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BTST_DYN_REG } else { CPU::BTST_DYN_MEM }
@@ -665,7 +662,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// If a CHK exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    pub(super) fn execute_chk(&mut self, memory: &mut impl MemoryAccess, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_chk<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = 0;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -680,7 +677,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    pub(super) fn execute_clr(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_clr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = single_operands_time(size.is_long(), am.is_drd(), CPU::CLR_REG_BW, CPU::CLR_REG_L, CPU::CLR_MEM_BW, CPU::CLR_MEM_L);
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -699,7 +696,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_cmp(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_cmp<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -731,7 +728,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_cmpa(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_cmpa<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::CMPA;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -747,7 +744,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_cmpi(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_cmpi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -776,7 +773,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_cmpm(&mut self, memory: &mut impl MemoryAccess, ax: u8, size: Size, ay: u8) -> InterpreterResult {
+    pub(super) fn execute_cmpm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ax: u8, size: Size, ay: u8) -> InterpreterResult {
         let addry = self.ariwpo(ay, size);
         let addrx = self.ariwpo(ax, size);
 
@@ -826,7 +823,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    pub(super) fn execute_divs(&mut self, memory: &mut impl MemoryAccess, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_divs<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::DIVS;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -852,7 +849,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
-    pub(super) fn execute_divu(&mut self, memory: &mut impl MemoryAccess, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_divu<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::DIVU;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -890,7 +887,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         res
     }
 
-    pub(super) fn execute_eor(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_eor<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -928,7 +925,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_eori(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_eori<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1031,7 +1028,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_jsr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_jsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut ea = EffectiveAddress::new(am, None);
 
         let mut exec_time = 0;
@@ -1068,7 +1065,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_link(&mut self, memory: &mut impl MemoryAccess, reg: u8, disp: i16) -> InterpreterResult {
+    pub(super) fn execute_link<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, disp: i16) -> InterpreterResult {
         self.push_long(memory, self.regs.a(reg))?;
         self.regs.a_mut(reg).0 = self.regs.sp();
         *self.regs.sp_mut() += disp as u32;
@@ -1076,7 +1073,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::LINK)
     }
 
-    pub(super) fn execute_lsm(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_lsm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, dir: Direction, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::LSM;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1157,7 +1154,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_move(&mut self, memory: &mut impl MemoryAccess, size: Size, amdst: AddressingMode, amsrc: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_move<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, amdst: AddressingMode, amsrc: AddressingMode) -> InterpreterResult {
         let mut exec_time = if amdst.is_ariwpr() { CPU::MOVE_DST_ARIWPR } else { CPU::MOVE_OTHER };
 
         let mut src = EffectiveAddress::new(amsrc, Some(size));
@@ -1190,7 +1187,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_movea(&mut self, memory: &mut impl MemoryAccess, size: Size, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_movea<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::MOVEA;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1204,7 +1201,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_moveccr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_moveccr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::MOVECCR;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1215,7 +1212,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_movefsr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_movefsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = if am.is_drd() { CPU::MOVEFSR_REG } else { CPU::MOVEFSR_MEM };
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1225,7 +1222,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_movesr(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_movesr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         self.check_supervisor()?;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1247,7 +1244,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::MOVEUSP)
     }
 
-    pub(super) fn execute_movem(&mut self, memory: &mut impl MemoryAccess, dir: Direction, size: Size, am: AddressingMode, mut list: u16) -> InterpreterResult {
+    pub(super) fn execute_movem<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, dir: Direction, size: Size, am: AddressingMode, mut list: u16) -> InterpreterResult {
         let count = list.count_ones() as usize;
         let mut exec_time = 0;
 
@@ -1344,7 +1341,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time + count * if size.is_long() { CPU::MOVEM_LONG } else { CPU::MOVEM_WORD })
     }
 
-    pub(super) fn execute_movep(&mut self, memory: &mut impl MemoryAccess, data: u8, dir: Direction, size: Size, addr: u8, disp: i16) -> InterpreterResult {
+    pub(super) fn execute_movep<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, data: u8, dir: Direction, size: Size, addr: u8, disp: i16) -> InterpreterResult {
         let mut shift = if size.is_word() { 8 } else { 24 };
         let mut addr = Wrapping(self.regs.a(addr).wrapping_add(disp as u32));
 
@@ -1390,7 +1387,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::MOVEQ)
     }
 
-    pub(super) fn execute_muls(&mut self, memory: &mut impl MemoryAccess, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_muls<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::MULS;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1409,7 +1406,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_mulu(&mut self, memory: &mut impl MemoryAccess, reg: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_mulu<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::MULU;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1428,7 +1425,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_nbcd(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_nbcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = if am.is_drd() { CPU::NBCD_REG } else { CPU::NBCD_MEM };
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Byte));
@@ -1454,7 +1451,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_neg(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_neg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = single_operands_time(size.is_long(), am.is_drd(), CPU::NEG_REG_BW, CPU::NEG_REG_L, CPU::NEG_MEM_BW, CPU::NEG_MEM_L);
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1486,7 +1483,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_negx(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_negx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = single_operands_time(size.is_long(), am.is_drd(), CPU::NEGX_REG_BW, CPU::NEGX_REG_L, CPU::NEGX_MEM_BW, CPU::NEGX_MEM_L);
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1522,7 +1519,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::NOP)
     }
 
-    pub(super) fn execute_not(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_not<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = single_operands_time(size.is_long(), am.is_drd(), CPU::NOT_REG_BW, CPU::NOT_REG_L, CPU::NOT_MEM_BW, CPU::NOT_MEM_L);
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1571,7 +1568,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         res
     }
 
-    pub(super) fn execute_or(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_or<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1633,7 +1630,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_ori(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_ori<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -1681,7 +1678,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::ORISR)
     }
 
-    pub(super) fn execute_pea(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_pea<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut ea = EffectiveAddress::new(am, None);
 
         let mut exec_time = 0;
@@ -1700,14 +1697,14 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_reset(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
+    pub(super) fn execute_reset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
         self.check_supervisor()?;
 
         memory.reset_instruction();
         Ok(CPU::RESET)
     }
 
-    pub(super) fn execute_rom(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_rom<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, dir: Direction, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::ROM;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1794,7 +1791,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_roxm(&mut self, memory: &mut impl MemoryAccess, dir: Direction, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_roxm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, dir: Direction, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::ROXM;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
@@ -1883,7 +1880,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_rte(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
+    pub(super) fn execute_rte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
         self.check_supervisor()?;
 
         let sr = self.pop_word(memory)?;
@@ -1907,7 +1904,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_rtr(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
+    pub(super) fn execute_rtr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
         let ccr = self.pop_word(memory)?;
         self.regs.sr &= SR_UPPER_MASK;
         self.regs.sr |= ccr & CCR_MASK;
@@ -1916,7 +1913,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::RTR)
     }
 
-    pub(super) fn execute_rts(&mut self, memory: &mut impl MemoryAccess) -> InterpreterResult {
+    pub(super) fn execute_rts<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
         self.regs.pc.0 = self.pop_long(memory)?;
 
         Ok(CPU::RTS)
@@ -1961,7 +1958,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    pub(super) fn execute_scc(&mut self, memory: &mut impl MemoryAccess, cc: u8, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_scc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, cc: u8, am: AddressingMode) -> InterpreterResult {
         let condition = self.regs.sr.condition(cc);
         let mut exec_time = single_operands_time(condition, am.is_drd(), CPU::SCC_REG_FALSE, CPU::SCC_REG_TRUE, CPU::SCC_MEM_FALSE, CPU::SCC_MEM_TRUE);
 
@@ -2010,7 +2007,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         ures
     }
 
-    pub(super) fn execute_sub(&mut self, memory: &mut impl MemoryAccess, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_sub<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, dir: Direction, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -2072,7 +2069,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_suba(&mut self, memory: &mut impl MemoryAccess, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_suba<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -2094,7 +2091,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_subi(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
+    pub(super) fn execute_subi<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode, imm: u32) -> InterpreterResult {
         let mut exec_time;
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -2129,7 +2126,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_subq(&mut self, memory: &mut impl MemoryAccess, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_subq<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, imm: u8, size: Size, am: AddressingMode) -> InterpreterResult {
         let imm = if imm == 0 { 8 } else { imm };
 
         if am.is_ard() {
@@ -2171,7 +2168,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_subx(&mut self, memory: &mut impl MemoryAccess, ry: u8, size: Size, mode: Direction, rx: u8) -> InterpreterResult {
+    pub(super) fn execute_subx<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ry: u8, size: Size, mode: Direction, rx: u8) -> InterpreterResult {
         match size {
             Size::Byte => {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
@@ -2246,7 +2243,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::SWAP)
     }
 
-    pub(super) fn execute_tas(&mut self, memory: &mut impl MemoryAccess, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_tas<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = if am.is_drd() { CPU::TAS_REG } else { CPU::TAS_MEM };
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Byte));
@@ -2276,7 +2273,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    pub(super) fn execute_tst(&mut self, memory: &mut impl MemoryAccess, size: Size, am: AddressingMode) -> InterpreterResult {
+    pub(super) fn execute_tst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, size: Size, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = single_operands_time(size.is_long(), am.is_drd(), CPU::TST_REG_BW, CPU::TST_REG_L, CPU::TST_MEM_BW, CPU::TST_MEM_L);
 
         let mut ea = EffectiveAddress::new(am, Some(size));
@@ -2305,7 +2302,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_unlk(&mut self, memory: &mut impl MemoryAccess, reg: u8) -> InterpreterResult {
+    pub(super) fn execute_unlk<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8) -> InterpreterResult {
         self.regs.sp_mut().0 = self.regs.a(reg);
         self.regs.a_mut(reg).0 = self.pop_long(memory)?;
 
