@@ -1919,7 +1919,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::RTS)
     }
 
-    pub(super) fn execute_sbcd(&mut self, memory: &mut impl MemoryAccess, ry: u8, mode: Direction, rx: u8) -> InterpreterResult {
+    pub(super) fn execute_sbcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ry: u8, mode: Direction, rx: u8) -> InterpreterResult {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(rx, Size::Byte);
             let dst_addr = self.ariwpr(ry, Size::Byte);

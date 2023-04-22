@@ -7,6 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 ### Added
 - `ffi` feature to enable `repr(C)` on some structs and enums.
+- Implement MemoryAccess trait for `[u8]`, `&[u8]`, `[u16]` and `&[u16]`.
 
 ### Changed
 - Change license from LGPL-3.0 to MPL-2.0.

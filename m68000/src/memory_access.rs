@@ -25,6 +25,9 @@ type SetResult = Result<(), u8>;
 ///
 /// For word and long accesses, the address is guaranted to be even (16-bits word aligned),
 /// as odd addresses are detected by the library and automatically trigger an Address Error.
+///
+/// The trait is implemented for `[u8]`, `&[u8]`, `[u16]` and `&[u16]`, interpreted as big-endian.
+/// A call of a `set_XXXX` method on a non-mutable slice panics.
 pub trait MemoryAccess {
     /// Returns a 8-bits integer from the given address.
     #[must_use]
@@ -236,4 +239,163 @@ impl<CPU: CpuDetails> M68000<CPU> {
     pub(super) fn iter_from_pc<'a, M: MemoryAccess + ?Sized>(&self, memory: &'a mut M) -> MemoryIter<'a, M> {
         memory.iter_u16(self.regs.pc.0)
     }
+}
+
+impl MemoryAccess for [u8] {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            Some(self[addr])
+        } else {
+            None
+        }
+    }
+
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            Some((self[addr] as u16) << 8 | self[addr.wrapping_add(1)] as u16)
+        } else {
+            None
+        }
+    }
+
+    fn set_byte(&mut self, addr: u32, data: u8) -> Option<()> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            self[addr] = data;
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    fn set_word(&mut self, addr: u32, data: u16) -> Option<()> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            self[addr] = (data >> 8) as u8;
+            self[addr.wrapping_add(1)] = data as u8;
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    fn reset_instruction(&mut self) {}
+}
+
+impl MemoryAccess for &[u8] {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            Some(self[addr])
+        } else {
+            None
+        }
+    }
+
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
+        let addr = addr as usize;
+        if addr < self.len() {
+            Some((self[addr] as u16) << 8 | self[addr.wrapping_add(1)] as u16)
+        } else {
+            None
+        }
+    }
+
+    fn set_byte(&mut self, _: u32, _: u8) -> Option<()> {
+        panic!("Can't write in non-mutable buffer");
+    }
+
+    fn set_word(&mut self, _: u32, _: u16) -> Option<()> {
+        panic!("Can't write in non-mutable buffer");
+    }
+
+    fn reset_instruction(&mut self) {}
+}
+
+impl MemoryAccess for [u16] {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        let a = addr as usize >> 1;
+        if a < self.len() {
+            if addr.is_even() {
+                Some((self[a] >> 8) as u8)
+            } else {
+                Some(self[a] as u8)
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
+        let addr = addr as usize >> 1;
+        if addr < self.len() {
+            Some(self[addr])
+        } else {
+            None
+        }
+    }
+
+    fn set_byte(&mut self, addr: u32, data: u8) -> Option<()> {
+        let a = addr as usize >> 1;
+        if a < self.len() {
+            if addr.is_even() {
+                self[a] &= 0x00FF;
+                self[a] |= (data as u16) << 8;
+            } else {
+                self[a] &= 0xFF00;
+                self[a] |= data as u16;
+            }
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    fn set_word(&mut self, addr: u32, data: u16) -> Option<()> {
+        let addr = addr as usize >> 1;
+        if addr < self.len() {
+            self[addr] = data;
+            Some(())
+        } else {
+            None
+        }
+    }
+
+    fn reset_instruction(&mut self) {}
+}
+
+impl MemoryAccess for &[u16] {
+    fn get_byte(&mut self, addr: u32) -> Option<u8> {
+        let a = addr as usize >> 1;
+        if a < self.len() {
+            if addr.is_even() {
+                Some((self[a] >> 8) as u8)
+            } else {
+                Some(self[a] as u8)
+            }
+        } else {
+            None
+        }
+    }
+
+    fn get_word(&mut self, addr: u32) -> Option<u16> {
+        let addr = addr as usize >> 1;
+        if addr < self.len() {
+            Some(self[addr])
+        } else {
+            None
+        }
+    }
+
+    fn set_byte(&mut self, _: u32, _: u8) -> Option<()> {
+        panic!("Can't write in non-mutable buffer");
+    }
+
+    fn set_word(&mut self, _: u32, _: u16) -> Option<()> {
+        panic!("Can't write in non-mutable buffer");
+    }
+
+    fn reset_instruction(&mut self) {}
 }
