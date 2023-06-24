@@ -87,7 +87,7 @@
 //! See the `CINTERFACE.md` file in the repo for more information.
 //!
 //! ## Potential caveats
-//! - ABCD/NBCD/SBCD/DIVS/DIVU may not always procuce the correct output.
+//! - DIVS/DIVU may not always procuce the correct output.
 //! - DIVS/DIVU always execute using their maximum execution time.
 //! - Long exception stack frame is not implemented.
 //!

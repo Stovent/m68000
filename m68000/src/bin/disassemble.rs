@@ -4,7 +4,7 @@
 
 //! Little program to disassemble the given binary file for the specified range.
 //!
-//! Usage: ./disassembler.exe <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]
+//! Usage: `./disassembler.exe <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]`
 
 use m68000::decoder::DECODER;
 use m68000::disassembler::DLUT;

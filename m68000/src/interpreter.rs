@@ -40,34 +40,37 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(ry, Size::Byte);
             let dst_addr = self.ariwpr(rx, Size::Byte);
-            (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)? as u16, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)? as u16)
+            (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)?, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)?)
         } else {
-            (self.regs.d[ry as usize].0 as u8 as u16, self.regs.d[rx as usize].0 as u8 as u16)
+            (self.regs.d[ry as usize].0 as u8, self.regs.d[rx as usize].0 as u8)
         };
-        let src = src + self.regs.sr.x as u16;
-        let bin_res = src + dst;
 
-        let mut res = (src & 0x0F) + (dst & 0x0F);
-        if res >= 0x0A {
-            res += 0x06;
+        // https://en.wikipedia.org/wiki/Intel_BCD_opcode
+        // https://github.com/dbalsom/martypc/blob/main/src/cpu_808x/bcd.rs
+        let adjust = ((src & 0x0F) + (dst & 0x0F) + self.regs.sr.x as u8) > 0x0F;
+        let (bin_res, mut c) = src.carrying_add(dst, self.regs.sr.x);
+        let mut res = bin_res;
+
+        if (bin_res & 0x0F) > 0x09 || adjust {
+            res = res.wrapping_add(0x06);
         }
 
-        res += (src & 0xF0) + (dst & 0xF0);
-        if res >= 0xA0 {
-            res += 0x60;
+        if bin_res > 0x99 || c {
+            res = res.wrapping_add(0x60);
+            c = true;
         }
 
+        self.regs.sr.x = c;
         self.regs.sr.n = res & 0x80 != 0;
         if res != 0 { self.regs.sr.z = false; }
-        self.regs.sr.v = src > (0x79 - dst) && bin_res < 0x80;
-        self.regs.sr.c = res >= 0x0100;
-        self.regs.sr.x = self.regs.sr.c;
+        self.regs.sr.v = res >= 0x80 && bin_res < 0x80;
+        self.regs.sr.c = c;
 
         if mode == Direction::MemoryToMemory {
-            memory.set_byte(self.regs.a(rx), res as u8).ok_or(ACCESS_ERROR)?;
+            memory.set_byte(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
             Ok(CPU::ABCD_MEM)
         } else {
-            self.regs.d_byte(rx, res as u8);
+            self.regs.d_byte(rx, res);
             Ok(CPU::ABCD_REG)
         }
     }
@@ -1430,21 +1433,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Byte));
 
-        let data = self.get_byte(memory, &mut ea, &mut exec_time)?;
+        let src = self.get_byte(memory, &mut ea, &mut exec_time)?;
 
-        let mut res = 0 - data - self.regs.sr.x as u8;
-        if res != 0 {
-            res -= 0x60;
-        }
-        if (res & 0x0F) != 0 {
-            res -= 0x06;
-        }
-
-        self.regs.sr.n = res & 0x80 != 0;
-        if res != 0 { self.regs.sr.z = false; }
-        self.regs.sr.v = res != 0 && (res & 0x80) == 0 && data <= 0x80;
-        self.regs.sr.c = res != 0;
-        self.regs.sr.x = self.regs.sr.c;
+        let res = self.sbcd(0, src);
 
         self.set_byte(memory, &mut ea, &mut exec_time, res)?;
 
@@ -1919,6 +1910,31 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(CPU::RTS)
     }
 
+    // https://en.wikipedia.org/wiki/Intel_BCD_opcode
+    // https://github.com/dbalsom/martypc/blob/main/src/cpu_808x/bcd.rs
+    // Intel 64 and IA-32 Architectures - INSTRUCTION SET REFERENCE, A-L -
+    fn sbcd(&mut self, dst: u8, src: u8) -> u8 {
+        let adjust = (dst & 0x0F) < ((src & 0x0F) + self.regs.sr.x as u8);
+        let (bin_res, b) = dst.borrowing_sub(src, self.regs.sr.x);
+        let mut res = bin_res;
+
+        if bin_res & 0x0F > 0x09 || adjust {
+            res = res.wrapping_sub(0x06);
+        }
+
+        if bin_res > 0x99 || b {
+            res = res.wrapping_sub(0x60);
+        }
+
+        self.regs.sr.x = b;
+        self.regs.sr.n = res & 0x80 != 0;
+        if res != 0 { self.regs.sr.z = false; }
+        self.regs.sr.v = res < 0x80 && bin_res >= 0x80;
+        self.regs.sr.c = b;
+
+        res
+    }
+
     pub(super) fn execute_sbcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ry: u8, mode: Direction, rx: u8) -> InterpreterResult {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(rx, Size::Byte);
@@ -1927,27 +1943,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
         } else {
             (self.regs.d[rx as usize].0 as u8, self.regs.d[ry as usize].0 as u8)
         };
-        let src = src + self.regs.sr.x as u8;
 
-        let bin_res = dst as u16 - src as u16;
-
-        let mut res = (dst & 0x0F) - (src & 0x0F);
-        if res >= 0x0A {
-            res -= 0x06;
-        }
-
-        res += (dst & 0xF0) - (src & 0xF0);
-        if res >= 0xA0 || bin_res > 0x99 {
-            res -= 0x60;
-        }
-
-        res &= 0x00FF;
-
-        self.regs.sr.n = res & 0x80 != 0;
-        if res != 0 { self.regs.sr.z = false; }
-        self.regs.sr.v = res < 0x80 && bin_res > 0x99;
-        self.regs.sr.c = src > dst;
-        self.regs.sr.x = self.regs.sr.c;
+        let res = self.sbcd(dst, src);
 
         if mode == Direction::MemoryToMemory {
             memory.set_byte(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
