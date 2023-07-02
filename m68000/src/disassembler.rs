@@ -232,7 +232,7 @@ pub fn disassemble_ext(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_illegal(_: &Instruction) -> String {
-    format!("ILLEGAL")
+    "ILLEGAL".to_string()
 }
 
 pub fn disassemble_jmp(inst: &Instruction) -> String {
@@ -354,7 +354,7 @@ pub fn disassemble_negx(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_nop(_: &Instruction) -> String {
-    format!("NOP")
+    "NOP".to_string()
 }
 
 pub fn disassemble_not(inst: &Instruction) -> String {
@@ -392,7 +392,7 @@ pub fn disassemble_pea(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_reset(_: &Instruction) -> String {
-    format!("RESET")
+    "RESET".to_owned()
 }
 
 pub fn disassemble_rom(inst: &Instruction) -> String {
@@ -426,15 +426,15 @@ pub fn disassemble_roxr(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_rte(_: &Instruction) -> String {
-    format!("RTE")
+    "RTE".to_string()
 }
 
 pub fn disassemble_rtr(_: &Instruction) -> String {
-    format!("RTR")
+    "RTR".to_string()
 }
 
 pub fn disassemble_rts(_: &Instruction) -> String {
-    format!("RTS")
+    "RTS".to_string()
 }
 
 pub fn disassemble_sbcd(inst: &Instruction) -> String {
@@ -506,7 +506,7 @@ pub fn disassemble_trap(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_trapv(_: &Instruction) -> String {
-    format!("TRAPV")
+    "TRAPV".to_string()
 }
 
 pub fn disassemble_tst(inst: &Instruction) -> String {

@@ -69,7 +69,7 @@ impl AddressingMode {
                         let low = memory.next().unwrap().expect("An Access Error occured in Immediate low.") as u32;
                         Self::Immediate(high | low)
                     } else {
-                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate.") as u32;
+                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate.");
                         Self::Immediate(low as u32)
                     }
                 },
@@ -97,56 +97,37 @@ impl AddressingMode {
     /// Returns true if `self` is `Drd`, false otherwise.
     #[inline(always)]
     pub const fn is_drd(self) -> bool {
-        match self {
-            Self::Drd(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Drd(_))
     }
 
     /// Returns true if `self` is `Ard`, false otherwise.
     #[inline(always)]
     pub const fn is_ard(self) -> bool {
-        match self {
-            Self::Ard(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Ard(_))
     }
 
     /// Returns true if `self` is `Drd` or `Ard`, false otherwise.
     #[inline(always)]
     pub const fn is_dard(self) -> bool {
-        match self {
-            Self::Drd(_) => true,
-            Self::Ard(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Drd(_) | Self::Ard(_))
     }
 
     /// Returns true if `self` is `Ariwpo`, false otherwise.
     #[inline(always)]
     pub const fn is_ariwpo(self) -> bool {
-        match self {
-            Self::Ariwpo(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Ariwpo(_))
     }
 
     /// Returns true if `self` is `Ariwpr`, false otherwise.
     #[inline(always)]
     pub const fn is_ariwpr(self) -> bool {
-        match self {
-            Self::Ariwpr(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Ariwpr(_))
     }
 
     /// Returns true if `self` is `Immediate`, false otherwise.
     #[inline(always)]
     pub const fn is_immediate(self) -> bool {
-        match self {
-            Self::Immediate(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Immediate(_))
     }
 
     /// Assembles `self` as an opcode effective address field.

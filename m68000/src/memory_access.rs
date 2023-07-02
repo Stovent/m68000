@@ -96,7 +96,6 @@ impl<M: MemoryAccess + ?Sized> Iterator for MemoryIter<'_, M> {
 }
 
 impl<CPU: CpuDetails> M68000<CPU> {
-    #[must_use]
     pub(super) fn get_byte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u8> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 as u8),
@@ -108,7 +107,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    #[must_use]
     pub(super) fn get_word<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u16> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 as u16),
@@ -118,13 +116,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 Ok(imm as u16)
             },
             _ => {
-                let addr = self.get_effective_address(ea, exec_time);
-                memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)
+                let addr = self.get_effective_address(ea, exec_time).even()?;
+                memory.get_word(addr).ok_or(ACCESS_ERROR)
             },
         }
     }
 
-    #[must_use]
     pub(super) fn get_long<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize) -> GetResult<u32> {
         match ea.mode {
             AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0),
@@ -134,42 +131,39 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 Ok(imm)
             },
             _ => {
-                let addr = self.get_effective_address(ea, exec_time);
-                let r = memory.get_long(addr.even()?).ok_or(ACCESS_ERROR);
+                let addr = self.get_effective_address(ea, exec_time).even()?;
+                let r = memory.get_long(addr).ok_or(ACCESS_ERROR);
                 *exec_time += 4;
                 r
             },
         }
     }
 
-    #[must_use]
     pub(super) fn set_byte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u8) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d_byte(reg, value)),
+            AddressingMode::Drd(reg) => { self.regs.d_byte(reg, value); Ok(()) },
             _ => memory.set_byte(self.get_effective_address(ea, exec_time), value).ok_or(ACCESS_ERROR),
         }
     }
 
-    #[must_use]
     pub(super) fn set_word<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u16) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d_word(reg, value)),
-            AddressingMode::Ard(reg) => Ok(self.regs.a_mut(reg).0 = value as i16 as u32),
+            AddressingMode::Drd(reg) => { self.regs.d_word(reg, value); Ok(()) },
+            AddressingMode::Ard(reg) => { self.regs.a_mut(reg).0 = value as i16 as u32; Ok(()) },
             _ => {
-                let addr = self.get_effective_address(ea, exec_time);
-                memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
+                let addr = self.get_effective_address(ea, exec_time).even()?;
+                memory.set_word(addr, value).ok_or(ACCESS_ERROR)
             },
         }
     }
 
-    #[must_use]
     pub(super) fn set_long<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, ea: &mut EffectiveAddress, exec_time: &mut usize, value: u32) -> SetResult {
         match ea.mode {
-            AddressingMode::Drd(reg) => Ok(self.regs.d[reg as usize].0 = value),
-            AddressingMode::Ard(reg) => Ok(self.regs.a_mut(reg).0 = value),
+            AddressingMode::Drd(reg) => { self.regs.d[reg as usize].0 = value; Ok(()) },
+            AddressingMode::Ard(reg) => { self.regs.a_mut(reg).0 = value; Ok(()) },
             _ => {
-                let addr = self.get_effective_address(ea, exec_time);
-                let r = memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR);
+                let addr = self.get_effective_address(ea, exec_time).even()?;
+                let r = memory.set_long(addr, value).ok_or(ACCESS_ERROR);
                 *exec_time += 4;
                 r
             },
@@ -181,7 +175,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Please note that this function advances the program counter so be careful when using it.
     /// This function is public because it can be useful in some contexts such as OS-9 environments
     /// where the trap ID is the immediate next word after the TRAP instruction.
-    #[must_use]
     pub fn get_next_word<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> GetResult<u16> {
         let data = memory.get_word(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR);
         self.regs.pc += 2;
@@ -191,7 +184,6 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the long at `self.regs.pc` then advances `self.regs.pc` by 4.
     ///
     /// Please note that this function advances the program counter so be careful when using it.
-    #[must_use]
     pub fn get_next_long<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> GetResult<u32> {
         let data = memory.get_long(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR);
         self.regs.pc += 4;
@@ -202,34 +194,29 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// This function is public because it can be useful in some contexts such as OS-9 environments
     /// where the trap ID is the immediate next word after the TRAP instruction.
-    #[must_use]
     pub fn peek_next_word<M: MemoryAccess + ?Sized>(&self, memory: &mut M) -> GetResult<u16> {
         memory.get_word(self.regs.pc.even()?.0).ok_or(ACCESS_ERROR)
     }
 
     /// Pops the 16-bits value from the stack.
-    #[must_use]
     pub(super) fn pop_word<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> GetResult<u16> {
         let addr = self.ariwpo(7, Size::Word);
         memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)
     }
 
     /// Pops the 32-bits value from the stack.
-    #[must_use]
     pub(super) fn pop_long<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> GetResult<u32> {
         let addr = self.ariwpo(7, Size::Long);
         memory.get_long(addr.even()?).ok_or(ACCESS_ERROR)
     }
 
     /// Pushes the given 16-bits value on the stack.
-    #[must_use]
     pub(super) fn push_word<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, value: u16) -> SetResult {
         let addr = self.ariwpr(7, Size::Word);
         memory.set_word(addr.even()?, value).ok_or(ACCESS_ERROR)
     }
 
     /// Pushes the given 32-bits value on the stack.
-    #[must_use]
     pub(super) fn push_long<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, value: u32) -> SetResult {
         let addr = self.ariwpr(7, Size::Long);
         memory.set_long(addr.even()?, value).ok_or(ACCESS_ERROR)

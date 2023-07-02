@@ -23,7 +23,6 @@ pub(super) type InterpreterResult = Result<usize, u8>;
 // All this for only 3 instructions ?
 
 impl<CPU: CpuDetails> M68000<CPU> {
-    #[must_use]
     const fn check_supervisor(&self) -> Result<(), u8> {
         if self.regs.sr.s {
             Ok(())
@@ -480,8 +479,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let shift_count = if mode == 1 {
             (self.regs.d[rot as usize].0 % 64) as u8
+        } else if rot == 0 {
+            8
         } else {
-            if rot == 0 { 8 } else { rot }
+            rot
         };
 
         let (mut data, mask) = match size {
@@ -549,8 +550,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCHG_DYN_REG } else { CPU::BCHG_DYN_MEM }
+        } else if am.is_drd() {
+            CPU::BCHG_STA_REG
         } else {
-            if am.is_drd() { CPU::BCHG_STA_REG } else { CPU::BCHG_STA_MEM }
+            CPU::BCHG_STA_MEM
         };
 
         if am.is_drd() {
@@ -574,8 +577,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCLR_DYN_REG } else { CPU::BCLR_DYN_MEM }
+        } else if am.is_drd() {
+            CPU::BCLR_STA_REG
         } else {
-            if am.is_drd() { CPU::BCLR_STA_REG } else { CPU::BCLR_STA_MEM }
+            CPU::BCLR_STA_MEM
         };
 
         if am.is_drd() {
@@ -609,8 +614,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BSET_DYN_REG } else { CPU::BSET_DYN_MEM }
+        } else if am.is_drd() {
+            CPU::BSET_STA_REG
         } else {
-            if am.is_drd() { CPU::BSET_STA_REG } else { CPU::BSET_STA_MEM }
+            CPU::BSET_STA_MEM
         };
 
         if am.is_drd() {
@@ -645,8 +652,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BTST_DYN_REG } else { CPU::BTST_DYN_MEM }
+        } else if am.is_drd() {
+            CPU::BTST_STA_REG
         } else {
-            if am.is_drd() { CPU::BTST_STA_REG } else { CPU::BTST_STA_MEM }
+            CPU::BTST_STA_MEM
         };
 
         if am.is_drd() {
@@ -1110,8 +1119,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let shift_count = if mode == 1 {
             (self.regs.d[rot as usize].0 % 64) as u8
+        } else if rot == 0 {
+            8
         } else {
-            if rot == 0 { 8 } else { rot }
+            rot
         };
 
         let (mut data, mask) = match size {
@@ -1257,13 +1268,16 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let eareg = ea.mode.register().unwrap_or(u8::MAX);
 
         if ea.mode.is_ariwpr() {
-            let mut addr = self.regs.a(eareg);
+            let mut addr = self.regs.a(eareg).even()?; // Gap is always 2 or 4 so check for even() only once.
 
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr = addr.wrapping_sub(gap);
-                    if size.is_word() { memory.set_word(addr.even()?, self.regs.a(reg) as u16).ok_or(ACCESS_ERROR)?; }
-                        else { memory.set_long(addr.even()?, self.regs.a(reg)).ok_or(ACCESS_ERROR)?; }
+                    if size.is_word() {
+                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(ACCESS_ERROR)?;
+                    } else {
+                        memory.set_long(addr, self.regs.a(reg)).ok_or(ACCESS_ERROR)?;
+                    }
                 }
 
                 list >>= 1;
@@ -1272,8 +1286,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr = addr.wrapping_sub(gap);
-                    if size.is_word() { memory.set_word(addr.even()?, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?; }
-                        else { memory.set_long(addr.even()?, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?; }
+                    if size.is_word() {
+                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?;
+                    } else {
+                        memory.set_long(addr, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?;
+                    }
                 }
 
                 list >>= 1;
@@ -1285,17 +1302,21 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 self.regs.a(eareg)
             } else {
                 self.get_effective_address(&mut ea, &mut exec_time)
-            };
+            }
+            .even()?;
 
             for reg in 0..8 {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
-                        let value = if size.is_word() { memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)? as i16 as u32 }
-                            else { memory.get_long(addr.even()?).ok_or(ACCESS_ERROR)? };
-                        self.regs.d[reg].0 = value;
+                        self.regs.d[reg].0 = if size.is_word() {
+                            memory.get_word(addr).ok_or(ACCESS_ERROR)? as i16 as u32
+                        } else {
+                            memory.get_long(addr).ok_or(ACCESS_ERROR)?
+                        };
+                    } else if size.is_word() {
+                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        if size.is_word() { memory.set_word(addr.even()?, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?; }
-                            else { memory.set_long(addr.even()?, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?; }
+                        memory.set_long(addr, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?;
                     }
 
                     addr = addr.wrapping_add(gap);
@@ -1307,12 +1328,15 @@ impl<CPU: CpuDetails> M68000<CPU> {
             for reg in 0..8 {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
-                        let value = if size.is_word() { memory.get_word(addr.even()?).ok_or(ACCESS_ERROR)? as i16 as u32 }
-                            else { memory.get_long(addr.even()?).ok_or(ACCESS_ERROR)? };
-                        self.regs.a_mut(reg).0 = value;
+                        self.regs.a_mut(reg).0 = if size.is_word() {
+                            memory.get_word(addr).ok_or(ACCESS_ERROR)? as i16 as u32
+                        } else {
+                            memory.get_long(addr).ok_or(ACCESS_ERROR)?
+                        };
+                    } else if size.is_word() {
+                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        if size.is_word() { memory.set_word(addr.even()?, self.regs.a(reg as u8) as u16).ok_or(ACCESS_ERROR)?; }
-                            else { memory.set_long(addr.even()?, self.regs.a(reg as u8)).ok_or(ACCESS_ERROR)?; }
+                        memory.set_long(addr, self.regs.a(reg)).ok_or(ACCESS_ERROR)?;
                     }
 
                     addr = addr.wrapping_add(gap);
@@ -1731,8 +1755,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let shift_count = if mode == 1 {
             (self.regs.d[rot as usize].0 % 64) as u8
+        } else if rot == 0 {
+            8
         } else {
-            if rot == 0 { 8 } else { rot }
+            rot
         };
 
         let (mut data, mask) = match size {
@@ -1820,8 +1846,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let shift_count = if mode == 1 {
             (self.regs.d[rot as usize].0 % 64) as u8
+        } else if rot == 0 {
+            8
         } else {
-            if rot == 0 { 8 } else { rot }
+            rot
         };
 
         let (mut data, mask) = match size {
@@ -2315,11 +2343,9 @@ const fn single_operands_time(is_long: bool, in_register: bool, regbw: usize, re
         } else {
             regbw
         }
+    } else if is_long {
+        meml
     } else {
-        if is_long {
-            meml
-        } else {
-            membw
-        }
+        membw
     }
 }

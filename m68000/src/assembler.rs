@@ -167,7 +167,7 @@ fn data_size_effective_address(data: u8, bit8: u16, size: Size, am: AddressingMo
     let (eafield, eaext) = am.assemble(size.is_long());
     let opcode = 0b0101 << 12
                | (data as u16 & 7) << 9
-               | (bit8 as u16 & 1) << 8
+               | (bit8 & 1) << 8
                | Into::<u16>::into(size) << 6
                | eafield;
     vec.push(opcode);

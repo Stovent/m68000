@@ -235,10 +235,10 @@ impl From<u16> for Size {
     }
 }
 
-impl Into<u16> for Size {
+impl From<Size> for u16 {
     /// Returns `0`, `1` or `2` for [Byte](Size::Byte), [Word](Size::Word) or [Long](Size::Long) respectively.
-    fn into(self) -> u16 {
-        match self {
+    fn from(s: Size) -> Self {
+        match s {
             Size::Byte => 0,
             Size::Word => 1,
             Size::Long => 2,

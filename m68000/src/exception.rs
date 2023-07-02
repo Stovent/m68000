@@ -136,12 +136,10 @@ impl PartialOrd for Exception {
 impl Ord for Exception {
     /// For BTreeSet, compare by actual priority and not by the value itself, so higher number means less priority.
     fn cmp(&self, other: &Self) -> Ordering {
-        if self.priority < other.priority {
-            Ordering::Greater
-        } else if self.priority > other.priority {
-            Ordering::Less
-        } else {
-            Ordering::Equal
+        match self.priority.cmp(&other.priority) {
+            Ordering::Greater => Ordering::Less,
+            Ordering::Less => Ordering::Greater,
+            Ordering::Equal => Ordering::Equal,
         }
     }
 }
@@ -166,7 +164,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
         self.regs.sr.s = true;
         self.regs.sr.interrupt_mask = 7;
         self.stop = false;
-        return CPU::VECTOR_RESET;
+
+        CPU::VECTOR_RESET
     }
 
     /// Attempts to process all the pending exceptions
@@ -182,7 +181,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 }
             }
 
-            return true;
+            true
         }).collect();
 
         let mut total = 0;
@@ -263,7 +262,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     self.push_word(memory, 0)?;
                     self.push_word(memory, 0)?;
                     self.push_word(memory, 0)?;
-                    self.push_word(memory, 0xF000 | vector as u16 * 4)?;
+                    self.push_word(memory, 0xF000 | (vector as u16 * 4))?;
                 } else { // Short format
                     self.push_word(memory, vector as u16 * 4)?;
                 }
