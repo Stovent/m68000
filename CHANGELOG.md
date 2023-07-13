@@ -28,6 +28,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix ADDQ/SUBQ truncating address registers.
 - Fix immediate Shift/Rotate count of 0 not disassembled as 8.
 - Fix ABCD/NBCD/SBCD.
+- Fix DIVS/DIVU changing the destination even when an overflow occured.
 
 ## [0.1.1] - 2022-08-28
 ### Fixed

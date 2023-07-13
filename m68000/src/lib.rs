@@ -86,8 +86,8 @@
 //!
 //! See the `CINTERFACE.md` file in the repo for more information.
 //!
-//! ## Potential caveats
-//! - DIVS/DIVU may not always procuce the correct output.
+//! ## Potential issues
+//! - DIVS/DIVU may not always procuce the correct CCR flags when an overflow occured.
 //! - DIVS/DIVU always execute using their maximum execution time.
 //! - Long exception stack frame is not implemented.
 //!

@@ -835,54 +835,69 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
+    ///
+    /// https://mrjester.hapisan.com/04_MC68/Sect04Part09/Index.html
     pub(super) fn execute_divs<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::DIVS;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
+        self.regs.sr.c = false;
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16 as i32;
+        if src == 0 {
+            self.regs.sr.z = true; // From hardware tests.
+            return Err(Vector::ZeroDivide as u8);
+        }
+
         let dst = self.regs.d[reg as usize].0 as i32;
 
-        if src == 0 {
-            Err(Vector::ZeroDivide as u8)
-        } else {
-            let quot = dst / src;
-            let rem = dst % src;
+        let quot = dst.wrapping_div(src);
+        let rem = dst.wrapping_rem(src);
+
+        self.regs.sr.n = (quot as i16) < 0; // Undefined on overflow.
+        self.regs.sr.z = quot as i16 == 0; // Undefined on overflow.
+        self.regs.sr.v = quot <= i16::MIN as i32 || quot > i16::MAX as i32;
+
+        if !self.regs.sr.v {
             self.regs.d[reg as usize].0 = (rem as u16 as u32) << 16 | (quot as u16 as u32);
-
-            self.regs.sr.n = quot < 0;
-            self.regs.sr.z = quot == 0;
-            self.regs.sr.v = quot < i16::MIN as i32 || quot > i16::MAX as i32;
-            self.regs.sr.c = false;
-
-            Ok(exec_time)
         }
+
+        Ok(exec_time)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
     /// process_exception method returns the exception processing time.
+    ///
+    /// https://mrjester.hapisan.com/04_MC68/Sect04Part09/Index.html
     pub(super) fn execute_divu<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, reg: u8, am: AddressingMode) -> InterpreterResult {
         let mut exec_time = CPU::DIVU;
 
         let mut ea = EffectiveAddress::new(am, Some(Size::Word));
 
+        self.regs.sr.c = false;
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as u32;
+        if src == 0 {
+            self.regs.sr.z = true; // From hardware tests.
+            return Err(Vector::ZeroDivide as u8);
+        }
+
         let dst = self.regs.d[reg as usize].0;
 
-        if src == 0 {
-            Err(Vector::ZeroDivide as u8)
-        } else {
-            let quot = dst / src;
-            let rem = dst % src;
-            self.regs.d[reg as usize].0 = (rem as u16 as u32) << 16 | (quot as u16 as u32);
+        let quot = dst.wrapping_div(src);
+        let rem = dst.wrapping_rem(src);
 
-            self.regs.sr.n = quot & 0x0000_8000 != 0;
-            self.regs.sr.z = quot == 0;
-            self.regs.sr.v = (quot as i32) < i16::MIN as i32 || quot > i16::MAX as u32;
-            self.regs.sr.c = false;
+        self.regs.sr.n = false; // Undefined on overflow.
+        self.regs.sr.z = quot == 0; // Undefined on overflow.
+        self.regs.sr.v = quot > u16::MAX as u32;
 
-            Ok(exec_time)
+        if !self.regs.sr.v {
+            self.regs.d[reg as usize].0 = (rem << 16) | (quot & 0x0000_FFFF);
+
+            self.regs.sr.n = (quot as i16) < 0;
+            self.regs.sr.z = quot as u16 == 0;
         }
+
+        Ok(exec_time)
     }
 
     fn eor<UT>(&mut self, dst: UT, src: UT) -> UT
@@ -1422,7 +1437,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16 as i32;
         let dst = self.regs.d[reg as usize].0 as i16 as i32;
 
-        let res = src * dst;
+        let res = src.wrapping_mul(dst);
         self.regs.d[reg as usize].0 = res as u32;
 
         self.regs.sr.n = res < 0;
@@ -1441,7 +1456,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as u32;
         let dst = self.regs.d[reg as usize].0 as u16 as u32;
 
-        let res = src * dst;
+        let res = src.wrapping_mul(dst);
         self.regs.d[reg as usize].0 = res;
 
         self.regs.sr.n = res & SIGN_BIT_32 != 0;
