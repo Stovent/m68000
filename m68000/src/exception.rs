@@ -38,6 +38,8 @@ pub enum Vector {
     TrapVInstruction,
     PrivilegeViolation,
     Trace,
+    LineAEmulator,
+    LineFEmulator,
     FormatError = 14,
     UninitializedInterrupt,
     /// The spurious interrupt vector is taken when there is a bus error indication during interrupt processing.
