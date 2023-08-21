@@ -64,7 +64,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let exception = match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory, &instruction) {
             Ok(cycles) => {
                 cycle_count += cycles;
-                if trace {
+                if trace && !isa.is_privileged() {
                     Some(Vector::Trace as u8)
                 } else {
                     None

@@ -101,6 +101,22 @@ pub enum Isa {
     _Size,
 }
 
+impl Isa {
+    pub const fn is_privileged(self) -> bool {
+        match self {
+            Self::Andisr => true,
+            Self::Eorisr => true,
+            Self::Movesr => true,
+            Self::Moveusp => true,
+            Self::Orisr => true,
+            Self::Reset => true,
+            Self::Rte => true,
+            Self::Stop => true,
+            _ => false,
+        }
+    }
+}
+
 impl From<u16> for Isa {
     /// Returns the instruction represented by the given opcode.
     fn from(opcode: u16) -> Self {

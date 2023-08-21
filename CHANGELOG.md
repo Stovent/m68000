@@ -16,8 +16,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CPU behavior is now controlled using a trait and generic member instead of features (breaking).
 - Move the register access helper methods to the Registers struct.
 - Status Register's default function returns a SR with value 0x2700 (breaking).
-- Interrupt's exception processing sets the interrupt priority mask.
-- Interrupt level 7 is non-maskable.
 - Use wrapping types and methods so overflow checks can be enabled.
 - Make MemoryIter generic over the underlying MemoryAccess trait object.
 
@@ -30,6 +28,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Fix immediate Shift/Rotate count of 0 not disassembled as 8.
 - Fix ABCD/NBCD/SBCD.
 - Fix DIVS/DIVU changing the destination even when an overflow occured.
+- Interrupt's exception processing sets the interrupt priority mask.
+- Interrupt level 7 is non-maskable.
+- Privileged instructions can't trigger Trace exceptions.
 
 ## [0.1.1] - 2022-08-28
 ### Fixed
