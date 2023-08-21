@@ -102,6 +102,9 @@ pub enum Isa {
 }
 
 impl Isa {
+    /// Returns whether the instruction is privileged or not.
+    ///
+    /// Privileged instructions are not traced (MC68000UM 6.3.8 Tracing).
     pub const fn is_privileged(self) -> bool {
         match self {
             Self::Andisr => true,

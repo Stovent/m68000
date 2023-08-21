@@ -32,7 +32,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_unknown_instruction(&self) -> InterpreterResult {
-        Err(Vector::IllegalInstruction as u8)
+        Err(match self.current_opcode & 0xF000 {
+            0xA000 => Vector::LineAEmulator,
+            0xF000 => Vector::LineFEmulator,
+            _ => Vector::IllegalInstruction,
+        } as u8)
     }
 
     pub(super) fn execute_abcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, rx: u8, mode: Direction, ry: u8) -> InterpreterResult {
