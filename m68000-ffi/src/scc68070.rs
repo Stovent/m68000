@@ -6,9 +6,7 @@
 
 use crate::*;
 
-use m68000::{M68000, Registers};
 use m68000::cpu_details::Scc68070;
-use m68000::exception::{Exception, Vector};
 
 use paste::paste;
 

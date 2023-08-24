@@ -98,7 +98,8 @@
 pub mod mc68000;
 pub mod scc68070;
 
-use m68000::memory_access::MemoryAccess;
+use m68000::{M68000, MemoryAccess, Registers};
+use m68000::exception::{Exception, Vector};
 
 use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
@@ -127,6 +128,8 @@ pub struct m68000_memory_result_t {
 }
 
 /// Memory callbacks sent to the interpreter methods.
+///
+/// Every member must be a valid function pointer, no pointer checks are done when calling the callbacks.
 ///
 /// The void* argument passed on each callback is the [user_data](Self::user_data) member,
 /// and its usage is let to the user of this library. For example, this can be used to allow the usage of C++ objects,
@@ -373,9 +376,17 @@ macro_rules! cinterface {
                 }
             }
 
+            /// Returns a const pointer to the registers of the given core.
+            #[no_mangle]
+            pub extern "C" fn [<m68000_ $cpu _registers>](m68000: *const M68000<$cpu_details>) -> *const Registers {
+                unsafe {
+                    &(*m68000).regs
+                }
+            }
+
             /// Returns a mutable pointer to the registers of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _registers>](m68000: *mut M68000<$cpu_details>) -> *mut Registers {
+            pub extern "C" fn [<m68000_ $cpu _registers_mut>](m68000: *mut M68000<$cpu_details>) -> *mut Registers {
                 unsafe {
                     &mut (*m68000).regs
                 }

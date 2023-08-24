@@ -4,6 +4,9 @@
 #include <stdint.h>
 #include "m68000.h"
 
+typedef struct m68000_mc68000_s m68000_mc68000_t;
+typedef struct m68000_scc68070_s m68000_scc68070_t;
+
 /**
  * Return type of the memory callback functions.
  */
@@ -23,6 +26,8 @@ typedef struct m68000_memory_result_t
 
 /**
  * Memory callbacks sent to the interpreter methods.
+ *
+ * Every member must be a valid function pointer, no pointer checks are done when calling the callbacks.
  *
  * The void* argument passed on each callback is the [user_data](Self::user_data) member,
  * and its usage is let to the user of this library. For example, this can be used to allow the usage of C++ objects,
@@ -145,7 +150,7 @@ struct m68000_exception_result_t m68000_mc68000_disassembler_interpreter_excepti
 /**
  * Requests the CPU to process the given exception vector.
  */
-void m68000_mc68000_exception(m68000_mc68000_t *m68000, Vector vector);
+void m68000_mc68000_exception(m68000_mc68000_t *m68000, m68000_vector_t vector);
 
 /**
  * Returns the 16-bits word at the current PC value of the given core.
@@ -153,19 +158,24 @@ void m68000_mc68000_exception(m68000_mc68000_t *m68000, Vector vector);
 struct m68000_memory_result_t m68000_mc68000_peek_next_word(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory);
 
 /**
+ * Returns a const pointer to the registers of the given core.
+ */
+const m68000_registers_t *m68000_mc68000_registers(const m68000_mc68000_t *m68000);
+
+/**
  * Returns a mutable pointer to the registers of the given core.
  */
-Registers *m68000_mc68000_registers(m68000_mc68000_t *m68000);
+m68000_registers_t *m68000_mc68000_registers_mut(m68000_mc68000_t *m68000);
 
 /**
  * Returns a copy of the registers of the given core.
  */
-Registers m68000_mc68000_get_registers(const m68000_mc68000_t *m68000);
+m68000_registers_t m68000_mc68000_get_registers(const m68000_mc68000_t *m68000);
 
 /**
  * Sets the registers of the core to the given value.
  */
-void m68000_mc68000_set_registers(m68000_mc68000_t *m68000, Registers regs);
+void m68000_mc68000_set_registers(m68000_mc68000_t *m68000, m68000_registers_t regs);
 
 /**
  * Allocates a new core and returns the pointer to it.
@@ -252,7 +262,7 @@ struct m68000_exception_result_t m68000_scc68070_disassembler_interpreter_except
 /**
  * Requests the CPU to process the given exception vector.
  */
-void m68000_scc68070_exception(m68000_scc68070_t *m68000, Vector vector);
+void m68000_scc68070_exception(m68000_scc68070_t *m68000, m68000_vector_t vector);
 
 /**
  * Returns the 16-bits word at the current PC value of the given core.
@@ -260,19 +270,24 @@ void m68000_scc68070_exception(m68000_scc68070_t *m68000, Vector vector);
 struct m68000_memory_result_t m68000_scc68070_peek_next_word(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory);
 
 /**
+ * Returns a const pointer to the registers of the given core.
+ */
+const m68000_registers_t *m68000_scc68070_registers(const m68000_scc68070_t *m68000);
+
+/**
  * Returns a mutable pointer to the registers of the given core.
  */
-Registers *m68000_scc68070_registers(m68000_scc68070_t *m68000);
+m68000_registers_t *m68000_scc68070_registers_mut(m68000_scc68070_t *m68000);
 
 /**
  * Returns a copy of the registers of the given core.
  */
-Registers m68000_scc68070_get_registers(const m68000_scc68070_t *m68000);
+m68000_registers_t m68000_scc68070_get_registers(const m68000_scc68070_t *m68000);
 
 /**
  * Sets the registers of the core to the given value.
  */
-void m68000_scc68070_set_registers(m68000_scc68070_t *m68000, Registers regs);
+void m68000_scc68070_set_registers(m68000_scc68070_t *m68000, m68000_registers_t regs);
 
 #ifdef __cplusplus
 } // extern "C"

@@ -20,6 +20,17 @@ usize_is_size_t = true
 [export]
 include = ["AddressingMode", "BriefExtensionWord", "Direction", "Instruction", "Operands", "Registers", "Size", "StatusRegister", "Vector"]
 
+[export.rename]
+"AddressingMode" = "m68000_addressing_mode_t"
+"BriefExtensionWord" = "m68000_brief_extension_word_t"
+"Direction" = "m68000_direction_t"
+"Instruction" = "m68000_instruction_t"
+"Operands" = "m68000_operands_t"
+"Registers" = "m68000_registers_t"
+"Size" = "m68000_size_t"
+"StatusRegister" = "m68000_status_register_t"
+"Vector" = "m68000_vector_t"
+
 [fn]
 args = "horizontal"
 sort_by = "None"

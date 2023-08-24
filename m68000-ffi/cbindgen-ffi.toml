@@ -17,6 +17,10 @@ style = "both"
 
 usize_is_size_t = true
 
+[export.rename]
+"Registers" = "m68000_registers_t"
+"Vector" = "m68000_vector_t"
+
 [fn]
 args = "horizontal"
 sort_by = "None"

@@ -4,9 +4,6 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-typedef struct m68000_mc68000_s m68000_mc68000_t;
-typedef struct m68000_scc68070_s m68000_scc68070_t;
-
 
 
 
@@ -24,7 +21,7 @@ typedef struct m68000_scc68070_s m68000_scc68070_t;
  *
  * `RegisterToRegister` and `MemoryToMemory` are used by ABCD, ADDX, SBCD and SUBX.
  */
-typedef enum Direction
+typedef enum m68000_direction_t
 {
     /**
      * Transfert from a register to memory.
@@ -78,17 +75,17 @@ typedef enum Direction
      * Exchange Data and Address Registers (EXG only).
      */
     ExchangeDataAddress,
-} Direction;
+} m68000_direction_t;
 
 /**
  * Size of an operation.
  */
-typedef enum Size
+typedef enum m68000_size_t
 {
     Byte = 1,
     Word = 2,
     Long = 4,
-} Size;
+} m68000_size_t;
 
 /**
  * Exception vectors of the 68000.
@@ -101,7 +98,7 @@ typedef enum Size
  *
  * The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
  */
-typedef enum Vector
+typedef enum m68000_vector_t
 {
     ResetSspPc = 0,
     /**
@@ -115,6 +112,8 @@ typedef enum Vector
     TrapVInstruction,
     PrivilegeViolation,
     Trace,
+    LineAEmulator,
+    LineFEmulator,
     FormatError = 14,
     UninitializedInterrupt,
     /**
@@ -152,20 +151,20 @@ typedef enum Vector
     Level6OnChipInterrupt,
     Level7OnChipInterrupt,
     UserInterrupt,
-} Vector;
+} m68000_vector_t;
 
 /**
  * Raw Brief Extension Word.
  */
-typedef struct BriefExtensionWord
+typedef struct m68000_brief_extension_word_t
 {
     uint16_t _0;
-} BriefExtensionWord;
+} m68000_brief_extension_word_t;
 
 /**
  * Addressing modes.
  */
-typedef enum AddressingMode_Tag
+typedef enum m68000_addressing_mode_t_Tag
 {
     /**
      * Data Register Direct.
@@ -219,7 +218,7 @@ typedef enum AddressingMode_Tag
      * Immediate Data (cast this variant to the correct type when used).
      */
     Immediate,
-} AddressingMode_Tag;
+} m68000_addressing_mode_t_Tag;
 
 typedef struct Ariwd_Body
 {
@@ -230,7 +229,7 @@ typedef struct Ariwd_Body
 typedef struct Ariwi8_Body
 {
     uint8_t _0;
-    struct BriefExtensionWord _1;
+    struct m68000_brief_extension_word_t _1;
 } Ariwi8_Body;
 
 typedef struct Pciwd_Body
@@ -242,12 +241,12 @@ typedef struct Pciwd_Body
 typedef struct Pciwi8_Body
 {
     uint32_t _0;
-    struct BriefExtensionWord _1;
+    struct m68000_brief_extension_word_t _1;
 } Pciwi8_Body;
 
-typedef struct AddressingMode
+typedef struct m68000_addressing_mode_t
 {
-    AddressingMode_Tag tag;
+    m68000_addressing_mode_t_Tag tag;
     union
     {
         struct
@@ -287,12 +286,12 @@ typedef struct AddressingMode
             uint32_t immediate;
         };
     };
-} AddressingMode;
+} m68000_addressing_mode_t;
 
 /**
  * Operands of an instruction.
  */
-typedef enum Operands_Tag
+typedef enum m68000_operands_t_Tag
 {
     /**
      * ILLEGAL, NOP, RESET, RTE, RTR, RTS, TRAPV
@@ -345,7 +344,7 @@ typedef enum Operands_Tag
     /**
      * TRAP
      */
-    Vector_,
+    Vector,
     /**
      * LINK
      */
@@ -410,60 +409,60 @@ typedef enum Operands_Tag
      * ASr, LSr, ROr, ROXr
      */
     RotationDirectionSizeModeRegister,
-} Operands_Tag;
+} m68000_operands_t_Tag;
 
 typedef struct SizeEffectiveAddressImmediate_Body
 {
-    enum Size _0;
-    struct AddressingMode _1;
+    enum m68000_size_t _0;
+    struct m68000_addressing_mode_t _1;
     uint32_t _2;
 } SizeEffectiveAddressImmediate_Body;
 
 typedef struct EffectiveAddressCount_Body
 {
-    struct AddressingMode _0;
+    struct m68000_addressing_mode_t _0;
     uint8_t _1;
 } EffectiveAddressCount_Body;
 
 typedef struct SizeEffectiveAddress_Body
 {
-    enum Size _0;
-    struct AddressingMode _1;
+    enum m68000_size_t _0;
+    struct m68000_addressing_mode_t _1;
 } SizeEffectiveAddress_Body;
 
 typedef struct RegisterEffectiveAddress_Body
 {
     uint8_t _0;
-    struct AddressingMode _1;
+    struct m68000_addressing_mode_t _1;
 } RegisterEffectiveAddress_Body;
 
 typedef struct RegisterDirectionSizeRegisterDisplacement_Body
 {
     uint8_t _0;
-    enum Direction _1;
-    enum Size _2;
+    enum m68000_direction_t _1;
+    enum m68000_size_t _2;
     uint8_t _3;
     int16_t _4;
 } RegisterDirectionSizeRegisterDisplacement_Body;
 
 typedef struct SizeRegisterEffectiveAddress_Body
 {
-    enum Size _0;
+    enum m68000_size_t _0;
     uint8_t _1;
-    struct AddressingMode _2;
+    struct m68000_addressing_mode_t _2;
 } SizeRegisterEffectiveAddress_Body;
 
 typedef struct SizeEffectiveAddressEffectiveAddress_Body
 {
-    enum Size _0;
-    struct AddressingMode _1;
-    struct AddressingMode _2;
+    enum m68000_size_t _0;
+    struct m68000_addressing_mode_t _1;
+    struct m68000_addressing_mode_t _2;
 } SizeEffectiveAddressEffectiveAddress_Body;
 
 typedef struct RegisterOpmodeRegister_Body
 {
     uint8_t _0;
-    enum Direction _1;
+    enum m68000_direction_t _1;
     uint8_t _2;
 } RegisterOpmodeRegister_Body;
 
@@ -481,29 +480,29 @@ typedef struct RegisterDisplacement_Body
 
 typedef struct DirectionRegister_Body
 {
-    enum Direction _0;
+    enum m68000_direction_t _0;
     uint8_t _1;
 } DirectionRegister_Body;
 
 typedef struct DirectionSizeEffectiveAddressList_Body
 {
-    enum Direction _0;
-    enum Size _1;
-    struct AddressingMode _2;
+    enum m68000_direction_t _0;
+    enum m68000_size_t _1;
+    struct m68000_addressing_mode_t _2;
     uint16_t _3;
 } DirectionSizeEffectiveAddressList_Body;
 
 typedef struct DataSizeEffectiveAddress_Body
 {
     uint8_t _0;
-    enum Size _1;
-    struct AddressingMode _2;
+    enum m68000_size_t _1;
+    struct m68000_addressing_mode_t _2;
 } DataSizeEffectiveAddress_Body;
 
 typedef struct ConditionEffectiveAddress_Body
 {
     uint8_t _0;
-    struct AddressingMode _1;
+    struct m68000_addressing_mode_t _1;
 } ConditionEffectiveAddress_Body;
 
 typedef struct ConditionRegisterDisplacement_Body
@@ -528,51 +527,51 @@ typedef struct RegisterData_Body
 typedef struct RegisterDirectionSizeEffectiveAddress_Body
 {
     uint8_t _0;
-    enum Direction _1;
-    enum Size _2;
-    struct AddressingMode _3;
+    enum m68000_direction_t _1;
+    enum m68000_size_t _2;
+    struct m68000_addressing_mode_t _3;
 } RegisterDirectionSizeEffectiveAddress_Body;
 
 typedef struct RegisterSizeEffectiveAddress_Body
 {
     uint8_t _0;
-    enum Size _1;
-    struct AddressingMode _2;
+    enum m68000_size_t _1;
+    struct m68000_addressing_mode_t _2;
 } RegisterSizeEffectiveAddress_Body;
 
 typedef struct RegisterSizeModeRegister_Body
 {
     uint8_t _0;
-    enum Size _1;
-    enum Direction _2;
+    enum m68000_size_t _1;
+    enum m68000_direction_t _2;
     uint8_t _3;
 } RegisterSizeModeRegister_Body;
 
 typedef struct RegisterSizeRegister_Body
 {
     uint8_t _0;
-    enum Size _1;
+    enum m68000_size_t _1;
     uint8_t _2;
 } RegisterSizeRegister_Body;
 
 typedef struct DirectionEffectiveAddress_Body
 {
-    enum Direction _0;
-    struct AddressingMode _1;
+    enum m68000_direction_t _0;
+    struct m68000_addressing_mode_t _1;
 } DirectionEffectiveAddress_Body;
 
 typedef struct RotationDirectionSizeModeRegister_Body
 {
     uint8_t _0;
-    enum Direction _1;
-    enum Size _2;
+    enum m68000_direction_t _1;
+    enum m68000_size_t _2;
     uint8_t _3;
     uint8_t _4;
 } RotationDirectionSizeModeRegister_Body;
 
-typedef struct Operands
+typedef struct m68000_operands_t
 {
-    Operands_Tag tag;
+    m68000_operands_t_Tag tag;
     union
     {
         struct
@@ -583,7 +582,7 @@ typedef struct Operands
         EffectiveAddressCount_Body effective_address_count;
         struct
         {
-            struct AddressingMode effective_address;
+            struct m68000_addressing_mode_t effective_address;
         };
         SizeEffectiveAddress_Body size_effective_address;
         RegisterEffectiveAddress_Body register_effective_address;
@@ -619,12 +618,12 @@ typedef struct Operands
         DirectionEffectiveAddress_Body direction_effective_address;
         RotationDirectionSizeModeRegister_Body rotation_direction_size_mode_register;
     };
-} Operands;
+} m68000_operands_t;
 
 /**
  * M68000 instruction.
  */
-typedef struct Instruction
+typedef struct m68000_instruction_t
 {
     /**
      * The opcode itself.
@@ -637,15 +636,15 @@ typedef struct Instruction
     /**
      * The operands.
      */
-    struct Operands operands;
-} Instruction;
+    struct m68000_operands_t operands;
+} m68000_instruction_t;
 
 /**
  * M68000 status register.
  *
  * [StatusRegister::default] returns a Status Register set to 0x2700 (supervisor bit set, interrupt mask to 7).
  */
-typedef struct StatusRegister
+typedef struct m68000_status_register_t
 {
     /**
      * Trace
@@ -679,16 +678,16 @@ typedef struct StatusRegister
      * Carry
      */
     bool c;
-} StatusRegister;
+} m68000_status_register_t;
 /**
  * The default raw value of 0x2700 (supervisor bit set, interrupt mask to 7).
  */
-#define StatusRegister_DEFAULT 9984
+#define m68000_status_register_t_DEFAULT 9984
 
 /**
  * M68000 registers.
  */
-typedef struct Registers
+typedef struct m68000_registers_t
 {
     /**
      * Data registers.
@@ -709,14 +708,13 @@ typedef struct Registers
     /**
      * Status Register.
      */
-    struct StatusRegister sr;
+    struct m68000_status_register_t sr;
     /**
      * Program Counter.
      */
     uint32_t pc;
-} Registers;
+} m68000_registers_t;
 
 #endif /* M68000_H */
-
 
 
