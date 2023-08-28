@@ -245,7 +245,7 @@ impl std::fmt::UpperHex for AddressingMode {
 /// Raw Brief Extension Word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "ffi", repr(C))]
-pub struct BriefExtensionWord(u16);
+pub struct BriefExtensionWord(pub u16);
 
 impl BriefExtensionWord {
     /// Returns the displacement associated with the brief extension word.
