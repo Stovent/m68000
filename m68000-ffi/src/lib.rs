@@ -104,13 +104,35 @@ use m68000::exception::{Exception, Vector};
 use std::ffi::{c_void, CString};
 use std::os::raw::c_char;
 
-/// Return value of the `m68000_*_cycle_until_exception`, `m68000_*_loop_until_exception_stop` and
+/// Return type of the `m68000_*_cycle_until_exception`, `m68000_*_loop_until_exception_stop` and
 /// `m68000_*_interpreter_exception` functions.
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct m68000_exception_result_t {
     /// The number of cycles executed.
     pub cycles: usize,
+    /// 0 if no exception occured, the vector number that occured otherwise.
+    pub exception: u8,
+}
+
+/// Return type of the `m68000_*_disassembler_interpreter` functions.
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct m68000_disassembler_result_t {
+    /// The number of cycles executed.
+    pub cycles: usize,
+    /// The address of the instruction that has been executed if any.
+    pub pc: u32,
+}
+
+/// Return type of the `m68000_*_disassembler_interpreter_exception` functions.
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct m68000_disassembler_exception_result_t {
+    /// The number of cycles executed.
+    pub cycles: usize,
+    /// The address of the instruction that has been executed if any.
+    pub pc: u32,
     /// 0 if no exception occured, the vector number that occured otherwise.
     pub exception: u8,
 }
@@ -305,9 +327,9 @@ macro_rules! cinterface {
             /// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
             /// `len` is the maximum size of the buffer, null-charactere included.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> usize {
+            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_result_t {
                 unsafe {
-                    let (dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
+                    let (pc, dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
 
                     let cstring = CString::new(dis).expect("New CString for disassembler failed")
                         .into_bytes_with_nul();
@@ -320,7 +342,10 @@ macro_rules! cinterface {
                         *str.add(len - 1) = 0;
                     }
 
-                    cycles
+                    m68000_disassembler_result_t {
+                        cycles,
+                        pc,
+                    }
                 }
             }
 
@@ -332,9 +357,9 @@ macro_rules! cinterface {
             /// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
             /// `len` is the maximum size of the buffer.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_exception_result_t {
+            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_exception_result_t {
                 unsafe {
-                    let (dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
+                    let (pc, dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
 
                     let cstring = CString::new(dis).expect("New CString for disassembler failed")
                         .into_bytes_with_nul();
@@ -347,7 +372,11 @@ macro_rules! cinterface {
                         *str.add(len - 1) = 0;
                     }
 
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
+                    m68000_disassembler_exception_result_t {
+                        cycles,
+                        pc,
+                        exception: vector.unwrap_or(0) ,
+                    }
                 }
             }
 
@@ -359,9 +388,43 @@ macro_rules! cinterface {
                 }
             }
 
+            /// Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
+            #[no_mangle]
+            pub extern "C" fn [<m68000_ $cpu _get_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+                unsafe {
+                    match (*m68000).get_next_word(&mut *memory) {
+                        Ok(data) => m68000_memory_result_t {
+                            data: data as u32,
+                            exception: 0,
+                        },
+                        Err(vec) => m68000_memory_result_t {
+                            data: 0,
+                            exception: vec,
+                        },
+                    }
+                }
+            }
+
+            /// Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
+            #[no_mangle]
+            pub extern "C" fn [<m68000_ $cpu _get_next_long>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+                unsafe {
+                    match (*m68000).get_next_long(&mut *memory) {
+                        Ok(data) => m68000_memory_result_t {
+                            data: data,
+                            exception: 0,
+                        },
+                        Err(vec) => m68000_memory_result_t {
+                            data: 0,
+                            exception: vec,
+                        },
+                    }
+                }
+            }
+
             /// Returns the 16-bits word at the current PC value of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _peek_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+            pub extern "C" fn [<m68000_ $cpu _peek_next_word>](m68000: *const M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
                 unsafe {
                     match (*m68000).peek_next_word(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {

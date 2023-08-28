@@ -21,28 +21,30 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Runs the interpreter loop once and disassembles the next instruction if any.
     ///
-    /// Returns the disassembled string and the cycle count necessary to execute it.
+    /// Returns the address of the instruction, its disassembled string and the cycle count necessary to execute it.
+    /// The disassembled string is empty if no instruction has been executed.
     ///
     /// See [Self::interpreter] for the potential caveat.
-    pub fn disassembler_interpreter<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (String, usize) {
-        let (dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
+    pub fn disassembler_interpreter<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (u32, String, usize) {
+        let (addr, dis, cycles, exception) = self.disassembler_interpreter_exception(memory);
         if let Some(e) = exception {
             self.exception(Exception::from(e));
         }
-        (dis, cycles)
+        (addr, dis, cycles)
     }
 
     /// Runs the interpreter loop once and disassembles the next instruction if any.
     ///
-    /// Returns the disassembled string, the cycle count necessary to execute it, and the vector of the exception that
-    /// occured during the execution if any.
+    /// Returns the address of the instruction that has been executed, its disassembled string, the cycle count
+    /// necessary to execute it, and the vector of the exception that occured during the execution if any.
+    /// The disassembled string is empty if no instruction has been executed.
     ///
     /// To process the returned exception, call [M68000::exception].
     ///
     /// See [Self::interpreter_exception] for the potential caveat.
-    pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (String, usize, Option<u8>) {
+    pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (u32, String, usize, Option<u8>) {
         if self.stop {
-            return (String::from(""), 0, None);
+            return (0, String::from(""), 0, None);
         }
 
         let mut cycle_count = 0;
@@ -53,7 +55,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         let instruction = match self.get_next_instruction(memory) {
             Ok(i) => i,
-            Err(e) => return (String::from(""), cycle_count, Some(e)),
+            Err(e) => return (0, String::from(""), cycle_count, Some(e)),
         };
 
         self.current_opcode = instruction.opcode;
@@ -73,7 +75,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Err(e) => Some(e),
         };
 
-        (dis, cycle_count, exception)
+        (instruction.pc, dis, cycle_count, exception)
     }
 
     fn instruction_unknown_instruction<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
