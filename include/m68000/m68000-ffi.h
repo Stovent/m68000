@@ -46,7 +46,7 @@ typedef struct m68000_callbacks_t
 } m68000_callbacks_t;
 
 /**
- * Return value of the `m68000_*_cycle_until_exception`, `m68000_*_loop_until_exception_stop` and
+ * Return type of the `m68000_*_cycle_until_exception`, `m68000_*_loop_until_exception_stop` and
  * `m68000_*_interpreter_exception` functions.
  */
 typedef struct m68000_exception_result_t
@@ -60,6 +60,40 @@ typedef struct m68000_exception_result_t
      */
     uint8_t exception;
 } m68000_exception_result_t;
+
+/**
+ * Return type of the `m68000_*_disassembler_interpreter` functions.
+ */
+typedef struct m68000_disassembler_result_t
+{
+    /**
+     * The number of cycles executed.
+     */
+    size_t cycles;
+    /**
+     * The address of the instruction that has been executed if any.
+     */
+    uint32_t pc;
+} m68000_disassembler_result_t;
+
+/**
+ * Return type of the `m68000_*_disassembler_interpreter_exception` functions.
+ */
+typedef struct m68000_disassembler_exception_result_t
+{
+    /**
+     * The number of cycles executed.
+     */
+    size_t cycles;
+    /**
+     * The address of the instruction that has been executed if any.
+     */
+    uint32_t pc;
+    /**
+     * 0 if no exception occured, the vector number that occured otherwise.
+     */
+    uint8_t exception;
+} m68000_disassembler_exception_result_t;
 
 #ifdef __cplusplus
 extern "C" {
@@ -134,7 +168,7 @@ struct m68000_exception_result_t m68000_mc68000_interpreter_exception(m68000_mc6
  * `str` is a pointer to a C string buffer where the disassembled instruction will be written.
  * `len` is the maximum size of the buffer, null-charactere included.
  */
-size_t m68000_mc68000_disassembler_interpreter(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
+struct m68000_disassembler_result_t m68000_mc68000_disassembler_interpreter(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
 
 /**
  * Executes and disassembles the next instruction, returning the disassembled string, the cycle count necessary to execute it,
@@ -145,7 +179,7 @@ size_t m68000_mc68000_disassembler_interpreter(m68000_mc68000_t *m68000, struct 
  * `str` is a pointer to a C string buffer where the disassembled instruction will be written.
  * `len` is the maximum size of the buffer.
  */
-struct m68000_exception_result_t m68000_mc68000_disassembler_interpreter_exception(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
+struct m68000_disassembler_exception_result_t m68000_mc68000_disassembler_interpreter_exception(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
 
 /**
  * Requests the CPU to process the given exception vector.
@@ -153,9 +187,19 @@ struct m68000_exception_result_t m68000_mc68000_disassembler_interpreter_excepti
 void m68000_mc68000_exception(m68000_mc68000_t *m68000, m68000_vector_t vector);
 
 /**
+ * Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
+ */
+struct m68000_memory_result_t m68000_mc68000_get_next_word(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory);
+
+/**
+ * Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
+ */
+struct m68000_memory_result_t m68000_mc68000_get_next_long(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory);
+
+/**
  * Returns the 16-bits word at the current PC value of the given core.
  */
-struct m68000_memory_result_t m68000_mc68000_peek_next_word(m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory);
+struct m68000_memory_result_t m68000_mc68000_peek_next_word(const m68000_mc68000_t *m68000, struct m68000_callbacks_t *memory);
 
 /**
  * Returns a const pointer to the registers of the given core.
@@ -246,7 +290,7 @@ struct m68000_exception_result_t m68000_scc68070_interpreter_exception(m68000_sc
  * `str` is a pointer to a C string buffer where the disassembled instruction will be written.
  * `len` is the maximum size of the buffer, null-charactere included.
  */
-size_t m68000_scc68070_disassembler_interpreter(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
+struct m68000_disassembler_result_t m68000_scc68070_disassembler_interpreter(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
 
 /**
  * Executes and disassembles the next instruction, returning the disassembled string, the cycle count necessary to execute it,
@@ -257,7 +301,7 @@ size_t m68000_scc68070_disassembler_interpreter(m68000_scc68070_t *m68000, struc
  * `str` is a pointer to a C string buffer where the disassembled instruction will be written.
  * `len` is the maximum size of the buffer.
  */
-struct m68000_exception_result_t m68000_scc68070_disassembler_interpreter_exception(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
+struct m68000_disassembler_exception_result_t m68000_scc68070_disassembler_interpreter_exception(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory, char *str, size_t len);
 
 /**
  * Requests the CPU to process the given exception vector.
@@ -265,9 +309,19 @@ struct m68000_exception_result_t m68000_scc68070_disassembler_interpreter_except
 void m68000_scc68070_exception(m68000_scc68070_t *m68000, m68000_vector_t vector);
 
 /**
+ * Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
+ */
+struct m68000_memory_result_t m68000_scc68070_get_next_word(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory);
+
+/**
+ * Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
+ */
+struct m68000_memory_result_t m68000_scc68070_get_next_long(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory);
+
+/**
  * Returns the 16-bits word at the current PC value of the given core.
  */
-struct m68000_memory_result_t m68000_scc68070_peek_next_word(m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory);
+struct m68000_memory_result_t m68000_scc68070_peek_next_word(const m68000_scc68070_t *m68000, struct m68000_callbacks_t *memory);
 
 /**
  * Returns a const pointer to the registers of the given core.

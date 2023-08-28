@@ -4,9 +4,13 @@
 
 //! The C interface of m68000, to use it in other languages.
 //!
-//! The functions and structures defined here should not be used in a rust program.
+//! Because the M68000 struct is generic and C can't handle it, the interface exposes every functions for each kind of
+//! CPU supported in m68000 directly (see [m68000::cpu_details]).
+//! The functions names are the Rust methods names prefixed with `m68000_` and the kind of CPU
+//! (denoted with an asterisk `*` in this documentation).
 //!
-//! To use it, first allocate a new core with `m68000_*_new` or `m68000_*_new_no_reset`. When done, delete it with `m68000_*_delete`.
+//! To use it, first allocate a new core with `m68000_*_new` or `m68000_*_new_no_reset`.
+//! When done, delete it with `m68000_*_delete`.
 //!
 //! ## Memory callback
 //!
@@ -14,7 +18,8 @@
 //! Create a new [m68000_callbacks_t] structure, and assign the correct function callback as its members.
 //!
 //! Each callback returns a [m68000_memory_result_t], which indicates if the memory access is successful or not.
-//! If successful, set the `exception` member to 0 and set the `data` member to the value to be returned if read. it is not used on write.
+//! If successful, set the [exception](m68000_memory_result_t::exception) member to 0 and set the
+//! [data](m68000_memory_result_t::data) member to the value to be returned if read. `data` is not used on write.
 //! If the address is out of range, set `exception` to 2 (Access Error).
 //!
 //! ## Interpreter functions
@@ -27,8 +32,8 @@
 //! - `m68000_*_cycle` which runs the CPU for **at least** the given number of cycles.
 //! - `m68000_*_cycle_until_exception` which runs the CPU until either an exception occurs or **at least** the given number of cycles have been executed.
 //! - `m68000_*_loop_until_exception_stop` which runs the CPU indefinitely, until an exception or a STOP instruction occurs.
-//! - `m68000_*_disassembler_interpreter` which behaves like `m68000_*_interpreter` and returns the disassembled string of the instruction executed.
-//! - `m68000_*_disassembler_interpreter_exception` which behaves like `m68000_*_interpreter_exception` and returns the disassembled string of the instruction executed.
+//! - `m68000_*_disassembler_interpreter` which behaves like `m68000_*_interpreter` and returns the address and disassembled string of the instruction executed.
+//! - `m68000_*_disassembler_interpreter_exception` which behaves like `m68000_*_interpreter_exception` and returns the address and disassembled string of the instruction executed.
 //!
 //! ## Exceptions processing
 //!
@@ -36,8 +41,9 @@
 //!
 //! ## Accessing the registers
 //!
-//! There are 3 functions to read and write to the core's registers:
-//! - `m68000_*_registers` returns a mutable (non-const) pointer to the [Registers](crate::Registers).
+//! There are 4 functions to read and write to the core's registers:
+//! - `m68000_*_registers` returns a const pointer to the [Registers].
+//! - `m68000_*_registers_mut` returns a mutable (non-const) pointer to the [Registers].
 //! The location of the registers does not change during execution, so you can store the pointer for as long as the core lives.
 //! - `m68000_*_get_registers` returns a copy of the registers. Writing to it does not modify the core's registers.
 //! - `m68000_*_set_registers` sets the core's registers to the value of the given [Registers] structure.
