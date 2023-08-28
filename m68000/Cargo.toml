@@ -1,8 +1,9 @@
 [package]
 name = "m68000"
-version = "0.2.0"
+version = "0.2.1"
 authors = ["Stovent <StoventTAS@gmail.com>"]
 edition = "2021"
+readme = "../README.md"
 license = "MPL-2.0"
 description = "A Motorola 68000 interpreter, disassembler and assembler (code emitter)"
 repository = "https://github.com/Stovent/m68000"
