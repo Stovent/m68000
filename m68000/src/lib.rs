@@ -139,6 +139,14 @@ pub struct Registers {
 }
 
 impl Registers {
+    /// Creates new registers with the Status Register initialized with the given value.
+    pub fn with_sr(sr: u16) -> Self {
+        Registers {
+            sr: StatusRegister::from(sr),
+            ..Default::default()
+        }
+    }
+
     /// Sets the lower 8-bits of the given data register to the given value.
     /// The higher 24-bits remains untouched.
     pub fn d_byte(&mut self, reg: u8, value: u8) {
