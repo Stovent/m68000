@@ -254,16 +254,16 @@ impl<CPU: CpuDetails> M68000<CPU> {
             },
             StackFormat::SCC68070 => {
                 if vector == 2 || vector == 3 { // TODO: Long format.
-                    self.push_word(memory, 0)?;
-                    self.push_word(memory, 0)?;
-                    self.push_word(memory, 0)?;
-                    self.push_long(memory, 0)?;
-                    self.push_long(memory, 0)?;
-                    self.push_long(memory, 0)?;
-                    self.push_word(memory, 0)?;
-                    self.push_word(memory, 0)?;
-                    self.push_word(memory, 0)?;
-                    self.push_word(memory, 0)?;
+                    self.push_word(memory, 0)?; // Internal information
+                    self.push_word(memory, self.current_opcode)?; // IRC
+                    self.push_word(memory, self.current_opcode)?; // IR
+                    self.push_long(memory, 0)?; // DBIN
+                    self.push_long(memory, 0)?; // TPF
+                    self.push_long(memory, 0)?; // TPD
+                    self.push_word(memory, 0)?; // Internal information
+                    self.push_word(memory, 0)?; // Internal information
+                    self.push_word(memory, 0)?; // MM
+                    self.push_word(memory, 0)?; // SSW
                     self.push_word(memory, 0xF000 | (vector as u16 * 4))?;
                 } else { // Short format
                     self.push_word(memory, vector as u16 * 4)?;

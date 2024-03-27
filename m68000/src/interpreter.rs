@@ -2004,15 +2004,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     pub(super) fn execute_scc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, cc: u8, am: AddressingMode) -> InterpreterResult {
         let condition = self.regs.sr.condition(cc);
-        let mut exec_time = single_operands_time(condition, am.is_drd(), CPU::SCC_REG_FALSE, CPU::SCC_REG_TRUE, CPU::SCC_MEM_FALSE, CPU::SCC_MEM_TRUE);
 
+        let mut exec_time = single_operands_time(condition, am.is_drd(), CPU::SCC_REG_FALSE, CPU::SCC_REG_TRUE, CPU::SCC_MEM_FALSE, CPU::SCC_MEM_TRUE);
         let mut ea = EffectiveAddress::new(am, Some(Size::Byte));
 
-        if condition {
-            self.set_byte(memory, &mut ea, &mut exec_time, 0xFF)?;
-        } else {
-            self.set_byte(memory, &mut ea, &mut exec_time, 0)?;
-        }
+        let value = if condition { 0xFF } else { 0 };
+        self.set_byte(memory, &mut ea, &mut exec_time, value)?;
 
         Ok(exec_time)
     }

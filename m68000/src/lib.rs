@@ -89,7 +89,7 @@
 //! ## Potential issues
 //! - DIVS/DIVU may not always procuce the correct CCR flags when an overflow occured.
 //! - DIVS/DIVU always execute using their maximum execution time.
-//! - Long exception stack frame is not implemented.
+//! - Long exception stack frame writes the current opcode and fills the other information with 0.
 //!
 //! ## TODO
 //! - Let memory access return extra read or write cycles for accuracy.
@@ -140,9 +140,9 @@ pub struct Registers {
 
 impl Registers {
     /// Creates new registers with the Status Register initialized with the given value.
-    pub fn with_sr(sr: u16) -> Self {
+    pub fn with_sr(sr: StatusRegister) -> Self {
         Registers {
-            sr: StatusRegister::from(sr),
+            sr,
             ..Default::default()
         }
     }
