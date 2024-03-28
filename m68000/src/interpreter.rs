@@ -477,11 +477,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_asr(&mut self, rot: u8, dir: Direction, size: Size, mode: u8, reg: u8) -> InterpreterResult {
+    pub(super) fn execute_asr(&mut self, rot: u8, dir: Direction, size: Size, ir: bool, reg: u8) -> InterpreterResult {
         self.regs.sr.v = false;
         self.regs.sr.c = false;
 
-        let shift_count = if mode == 1 {
+        let shift_count = if ir {
             (self.regs.d[rot as usize].0 % 64) as u8
         } else if rot == 0 {
             8
@@ -1132,11 +1132,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_lsr(&mut self, rot: u8, dir: Direction, size: Size, mode: u8, reg: u8) -> InterpreterResult {
+    pub(super) fn execute_lsr(&mut self, rot: u8, dir: Direction, size: Size, ir: bool, reg: u8) -> InterpreterResult {
         self.regs.sr.v = false;
         self.regs.sr.c = false;
 
-        let shift_count = if mode == 1 {
+        let shift_count = if ir {
             (self.regs.d[rot as usize].0 % 64) as u8
         } else if rot == 0 {
             8
@@ -1768,11 +1768,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_ror(&mut self, rot: u8, dir: Direction, size: Size, mode: u8, reg: u8) -> InterpreterResult {
+    pub(super) fn execute_ror(&mut self, rot: u8, dir: Direction, size: Size, ir: bool, reg: u8) -> InterpreterResult {
         self.regs.sr.v = false;
         self.regs.sr.c = false;
 
-        let shift_count = if mode == 1 {
+        let shift_count = if ir {
             (self.regs.d[rot as usize].0 % 64) as u8
         } else if rot == 0 {
             8
@@ -1859,11 +1859,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_roxr(&mut self, rot: u8, dir: Direction, size: Size, mode: u8, reg: u8) -> InterpreterResult {
+    pub(super) fn execute_roxr(&mut self, rot: u8, dir: Direction, size: Size, ir: bool, reg: u8) -> InterpreterResult {
         self.regs.sr.v = false;
         self.regs.sr.c = self.regs.sr.x;
 
-        let shift_count = if mode == 1 {
+        let shift_count = if ir {
             (self.regs.d[rot as usize].0 % 64) as u8
         } else if rot == 0 {
             8

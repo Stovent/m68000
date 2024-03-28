@@ -4,7 +4,7 @@
 
 //! M68000 status register.
 
-use crate::utils::bits;
+use crate::utils::{bit, bits};
 
 /// M68000 status register.
 ///
@@ -110,11 +110,11 @@ impl StatusRegister {
 
     /// Sets the CCR bits to the one's of the given status register. Supervisor bits are unchanged.
     pub fn set_ccr(&mut self, sr: u16) {
-        self.x = bits(sr, 4, 4) != 0;
-        self.n = bits(sr, 3, 3) != 0;
-        self.z = bits(sr, 2, 2) != 0;
-        self.v = bits(sr, 1, 1) != 0;
-        self.c = bits(sr, 0, 0) != 0;
+        self.x = bit(sr, 4);
+        self.n = bit(sr, 3);
+        self.z = bit(sr, 2);
+        self.v = bit(sr, 1);
+        self.c = bit(sr, 0);
     }
 }
 
@@ -128,14 +128,14 @@ impl Default for StatusRegister {
 impl From<u16> for StatusRegister {
     fn from(sr: u16) -> Self {
         Self {
-            t: bits(sr, 15, 15) != 0,
-            s: bits(sr, 13, 13) != 0,
+            t: bit(sr, 15),
+            s: bit(sr, 13),
             interrupt_mask: bits(sr, 8, 10) as u8,
-            x: bits(sr, 4, 4) != 0,
-            n: bits(sr, 3, 3) != 0,
-            z: bits(sr, 2, 2) != 0,
-            v: bits(sr, 1, 1) != 0,
-            c: bits(sr, 0, 0) != 0,
+            x: bit(sr, 4),
+            n: bit(sr, 3),
+            z: bit(sr, 2),
+            v: bit(sr, 1),
+            c: bit(sr, 0),
         }
     }
 }
@@ -155,40 +155,40 @@ impl From<StatusRegister> for u16 {
 
 impl std::ops::BitAndAssign<u16> for StatusRegister {
     fn bitand_assign(&mut self, rhs: u16) {
-        self.t = self.t && bits(rhs, 15, 15) != 0;
-        self.s = self.s && bits(rhs, 13, 13) != 0;
+        self.t = self.t && bit(rhs, 15);
+        self.s = self.s && bit(rhs, 13);
         self.interrupt_mask &= bits(rhs, 8, 10) as u8;
-        self.x = self.x && bits(rhs, 4, 4) != 0;
-        self.n = self.n && bits(rhs, 3, 3) != 0;
-        self.z = self.z && bits(rhs, 2, 2) != 0;
-        self.v = self.v && bits(rhs, 1, 1) != 0;
-        self.c = self.c && bits(rhs, 0, 0) != 0;
+        self.x = self.x && bit(rhs, 4);
+        self.n = self.n && bit(rhs, 3);
+        self.z = self.z && bit(rhs, 2);
+        self.v = self.v && bit(rhs, 1);
+        self.c = self.c && bit(rhs, 0);
     }
 }
 
 impl std::ops::BitOrAssign<u16> for StatusRegister {
     fn bitor_assign(&mut self, rhs: u16) {
-        self.t = self.t || bits(rhs, 15, 15) != 0;
-        self.s = self.s || bits(rhs, 13, 13) != 0;
+        self.t = self.t || bit(rhs, 15);
+        self.s = self.s || bit(rhs, 13);
         self.interrupt_mask |= bits(rhs, 8, 10) as u8;
-        self.x = self.x || bits(rhs, 4, 4) != 0;
-        self.n = self.n || bits(rhs, 3, 3) != 0;
-        self.z = self.z || bits(rhs, 2, 2) != 0;
-        self.v = self.v || bits(rhs, 1, 1) != 0;
-        self.c = self.c || bits(rhs, 0, 0) != 0;
+        self.x = self.x || bit(rhs, 4);
+        self.n = self.n || bit(rhs, 3);
+        self.z = self.z || bit(rhs, 2);
+        self.v = self.v || bit(rhs, 1);
+        self.c = self.c || bit(rhs, 0);
     }
 }
 
 impl std::ops::BitXorAssign<u16> for StatusRegister {
     fn bitxor_assign(&mut self, rhs: u16) {
-        self.t = (self.t as u16 ^ bits(rhs, 15, 15)) != 0;
-        self.s = (self.s as u16 ^ bits(rhs, 13, 13)) != 0;
+        self.t = self.t != bit(rhs, 15);
+        self.s = self.s != bit(rhs, 13);
         self.interrupt_mask ^= bits(rhs, 8, 10) as u8;
-        self.x = (self.x as u16 ^ bits(rhs, 4, 4)) != 0;
-        self.n = (self.n as u16 ^ bits(rhs, 3, 3)) != 0;
-        self.z = (self.z as u16 ^ bits(rhs, 2, 2)) != 0;
-        self.v = (self.v as u16 ^ bits(rhs, 1, 1)) != 0;
-        self.c = (self.c as u16 ^ bits(rhs, 0, 0)) != 0;
+        self.x = self.x != bit(rhs, 4);
+        self.n = self.n != bit(rhs, 3);
+        self.z = self.z != bit(rhs, 2);
+        self.v = self.v != bit(rhs, 1);
+        self.c = self.c != bit(rhs, 0);
     }
 }
 

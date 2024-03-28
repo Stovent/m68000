@@ -86,8 +86,8 @@ pub fn disassemble_asm(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_asr(inst: &Instruction) -> String {
-    let (rot, d, s, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-    if mode == 1 {
+    let (rot, d, s, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+    if ir {
         format!("AS{}.{} D{}, D{}", d, s, rot, reg)
     } else {
         let rot = if rot == 0 { 8 } else { rot };
@@ -261,8 +261,8 @@ pub fn disassemble_lsm(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_lsr(inst: &Instruction) -> String {
-    let (rot, d, s, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-    if mode == 1 {
+    let (rot, d, s, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+    if ir {
         format!("LS{}.{} D{}, D{}", d, s, rot, reg)
     } else {
         let rot = if rot == 0 { 8 } else { rot };
@@ -401,8 +401,8 @@ pub fn disassemble_rom(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_ror(inst: &Instruction) -> String {
-    let (rot, d, s, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-    if mode == 1 {
+    let (rot, d, s, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+    if ir {
         format!("RO{}.{} D{}, D{}", d, s, rot, reg)
     } else {
         let rot = if rot == 0 { 8 } else { rot };
@@ -416,8 +416,8 @@ pub fn disassemble_roxm(inst: &Instruction) -> String {
 }
 
 pub fn disassemble_roxr(inst: &Instruction) -> String {
-    let (rot, d, s, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-    if mode == 1 {
+    let (rot, d, s, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+    if ir {
         format!("ROX{}.{} D{}, D{}", d, s, rot, reg)
     } else {
         let rot = if rot == 0 { 8 } else { rot };

@@ -8,9 +8,15 @@ use crate::exception::ADDRESS_ERROR;
 use crate::instruction::Size;
 
 use std::num::Wrapping;
-use std::ops::{BitAnd, BitOr, BitXor};
+use std::ops::{BitAnd, BitOr, BitXor, Shl};
 
-/// Returns bits [beg, end] inclusive, starting at 0.
+/// Checks if the given bit of the given data is set.
+#[inline(always)]
+pub const fn bit(data: u16, bit: u16) -> bool {
+    data & (1 << bit) != 0
+}
+
+/// Returns bits `[beg, end]` inclusive, starting at 0.
 #[inline(always)]
 pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
     let mask = (1 << (end + 1 - beg)) - 1;
@@ -181,14 +187,25 @@ impl CarryingOps<i32, u32> for u32 {
     }
 }
 
-pub trait Integer : Copy + PartialEq + PartialOrd + BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self> {
+pub trait Integer : Copy + PartialEq + PartialOrd +
+                    BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self> +
+                    Shl<Output = Self> {
     const ZERO: Self;
     const SIGN_BIT_MASK: Self;
 }
 
-impl Integer for i8 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x80; }
-impl Integer for u8 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x80; }
-impl Integer for i16 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x8000; }
-impl Integer for u16 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x8000; }
-impl Integer for i32 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = -0x8000_0000; }
-impl Integer for u32 { const ZERO: Self = 0; const SIGN_BIT_MASK: Self = 0x8000_0000; }
+macro_rules! impl_integer {
+    ($t:ty, $sign:expr) => {
+        impl Integer for $t {
+            const ZERO: Self = 0;
+            const SIGN_BIT_MASK: Self = $sign;
+        }
+    };
+}
+
+impl_integer!(i8, -0x80);
+impl_integer!(u8, 0x80);
+impl_integer!(i16, -0x8000);
+impl_integer!(u16, 0x8000);
+impl_integer!(i32, -0x8000_0000);
+impl_integer!(u32, 0x8000_0000);

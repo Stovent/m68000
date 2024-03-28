@@ -203,8 +203,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_asr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
-        self.execute_asr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = rotation_direction_size_mode_register(self.current_opcode);
+        self.execute_asr(rot, dir, size, ir, reg)
     }
 
     fn fast_bcc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -405,8 +405,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_lsr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
-        self.execute_lsr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = rotation_direction_size_mode_register(self.current_opcode);
+        self.execute_lsr(rot, dir, size, ir, reg)
     }
 
     fn fast_move<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -561,8 +561,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_ror<M: MemoryAccess + ?Sized>(&mut self, _: &mut M) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
-        self.execute_ror(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = rotation_direction_size_mode_register(self.current_opcode);
+        self.execute_ror(rot, dir, size, ir, reg)
     }
 
     fn fast_roxm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -573,8 +573,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_roxr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = rotation_direction_size_mode_register(self.current_opcode);
-        self.execute_roxr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = rotation_direction_size_mode_register(self.current_opcode);
+        self.execute_roxr(rot, dir, size, ir, reg)
     }
 
     fn fast_rte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {

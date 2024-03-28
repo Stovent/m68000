@@ -12,7 +12,7 @@ use crate::decoder::DECODER;
 use crate::disassembler::DLUT;
 use crate::isa::{Isa, IsaEntry};
 use crate::memory_access::{MemoryAccess, MemoryIter};
-use crate::utils::bits;
+use crate::utils::{bit, bits};
 
 /// M68000 instruction.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -149,11 +149,10 @@ impl Size {
     /// - 0 => Word
     /// - 1 => Long
     #[inline(always)]
-    pub fn from_bit(d: u16) -> Self {
+    pub fn from_bit(d: bool) -> Self {
         match d {
-            0 => Self::Word,
-            1 => Self::Long,
-            _ => panic!("[Size::from_bit] Wrong size : expected 0 or 1, got {}", d),
+            false => Self::Word,
+            true => Self::Long,
         }
     }
 
@@ -318,7 +317,7 @@ pub enum Operands {
     /// ASm, LSm, ROm, ROXm
     DirectionEffectiveAddress(Direction, AddressingMode),
     /// ASr, LSr, ROr, ROXr
-    RotationDirectionSizeModeRegister(u8, Direction, Size, u8, u8),
+    RotationDirectionSizeModeRegister(u8, Direction, Size, bool, u8),
 }
 
 /// In the returned values, the first operand is the left-most operand in the instruction word (high-order bits).
@@ -541,7 +540,7 @@ impl Operands {
     }
 
     /// ASr, LSr, ROr, ROXr
-    pub const fn rotation_direction_size_mode_register(self) -> (u8, Direction, Size, u8, u8) {
+    pub const fn rotation_direction_size_mode_register(self) -> (u8, Direction, Size, bool, u8) {
         match self {
             Self::RotationDirectionSizeModeRegister(r, d, s, m, rr) => (r, d, s, m, rr),
             _ => panic!("[Operands::rotation_direction_size_mode_register]"),
@@ -743,7 +742,7 @@ pub fn size_effective_address_immediate<M: MemoryAccess + ?Sized>(opcode: u16, m
 
 /// BCHG, BCLR, BSET, BTST
 pub fn effective_address_count<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (AddressingMode, u8) {
-    let count = if bits(opcode, 8, 8) != 0 { // dynamic bit number
+    let count = if bit(opcode, 8) { // dynamic bit number
         bits(opcode, 9, 11) as u8
     } else { // Static bit number
         memory.next().unwrap().expect("Access error occured when fetching count operand.") as u8
@@ -805,8 +804,8 @@ pub fn register_effective_address<M: MemoryAccess + ?Sized>(opcode: u16, memory:
 /// MOVEP
 pub fn register_direction_size_register_displacement<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (u8, Direction, Size, u8, i16) {
     let dreg = bits(opcode, 9, 11) as u8;
-    let dir = if bits(opcode, 7, 7) != 0 { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
-    let size = if bits(opcode, 6, 6) != 0 { Size::Long } else { Size::Word };
+    let dir = if bit(opcode, 7) { Direction::RegisterToMemory } else { Direction::MemoryToRegister };
+    let size = if bit(opcode, 6) { Size::Long } else { Size::Word };
     let areg = bits(opcode, 0, 2) as u8;
     let disp = memory.next().unwrap().expect("Access error occured when fetching displacement operand.") as i16;
 
@@ -884,7 +883,7 @@ pub fn register(opcode: u16) -> u8 {
 
 /// MOVE USP
 pub fn direction_register(opcode: u16) -> (Direction, u8) {
-    let dir = if bits(opcode, 3, 3) != 0 { Direction::UspToRegister } else { Direction::RegisterToUsp };
+    let dir = if bit(opcode, 3) { Direction::UspToRegister } else { Direction::RegisterToUsp };
     let reg = bits(opcode, 0, 2) as u8;
 
     (dir, reg)
@@ -893,8 +892,8 @@ pub fn direction_register(opcode: u16) -> (Direction, u8) {
 /// MOVEM
 pub fn direction_size_effective_address_list<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (Direction, Size, AddressingMode, u16) {
     let list = memory.next().unwrap().expect("Access error occured when fetching list operand.");
-    let dir = if bits(opcode, 10, 10) != 0 { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
-    let size = Size::from_bit(bits(opcode, 6, 6));
+    let dir = if bit(opcode, 10) { Direction::MemoryToRegister } else { Direction::RegisterToMemory };
+    let size = Size::from_bit(bit(opcode, 6));
 
     let eareg = bits(opcode, 0, 2) as u8;
     let eamode = bits(opcode, 3, 5);
@@ -964,7 +963,7 @@ pub fn register_data(opcode: u16) -> (u8, i8) {
 /// ADD, AND, CMP, EOR, OR, SUB
 pub fn register_direction_size_effective_address<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (u8, Direction, Size, AddressingMode) {
     let reg = bits(opcode, 9, 11) as u8;
-    let dir = if bits(opcode, 8, 8) != 0 { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
+    let dir = if bit(opcode, 8) { Direction::DstEa } else { Direction::DstReg }; // CMP and EOR ignores it
     let size = Size::from(bits(opcode, 6, 7));
 
     let eareg = bits(opcode, 0, 2) as u8;
@@ -977,7 +976,7 @@ pub fn register_direction_size_effective_address<M: MemoryAccess + ?Sized>(opcod
 /// ADDA, CMPA, SUBA
 pub fn register_size_effective_address<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (u8, Size, AddressingMode) {
     let reg = bits(opcode, 9, 11) as u8;
-    let size = Size::from_bit(bits(opcode, 8, 8));
+    let size = Size::from_bit(bit(opcode, 8));
 
     let eareg = bits(opcode, 0, 2) as u8;
     let eamode = bits(opcode, 3, 5);
@@ -990,7 +989,7 @@ pub fn register_size_effective_address<M: MemoryAccess + ?Sized>(opcode: u16, me
 pub fn register_size_mode_register(opcode: u16) -> (u8, Size, Direction, u8) {
     let regl = bits(opcode, 9, 11) as u8;
     let size = Size::from(bits(opcode, 6, 7));
-    let mode = if bits(opcode, 3, 3) != 0 { Direction::MemoryToMemory } else { Direction::RegisterToRegister };
+    let mode = if bit(opcode, 3) { Direction::MemoryToMemory } else { Direction::RegisterToRegister };
     let regr = bits(opcode, 0, 2) as u8;
 
     (regl, size, mode, regr)
@@ -1009,18 +1008,18 @@ pub fn register_size_register(opcode: u16) -> (u8, Size, u8) {
 pub fn direction_effective_address<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> (Direction, AddressingMode) {
     let eareg = bits(opcode, 0, 2) as u8;
     let eamode = bits(opcode, 3, 5);
-    let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
+    let dir = if bit(opcode, 8) { Direction::Left } else { Direction::Right };
     let am = AddressingMode::from_memory(eamode, eareg, Some(Size::Byte), memory);
 
     (dir, am)
 }
 
 /// ASr, LSr, ROr, ROXr
-pub fn rotation_direction_size_mode_register(opcode: u16) -> (u8, Direction, Size, u8, u8) {
+pub fn rotation_direction_size_mode_register(opcode: u16) -> (u8, Direction, Size, bool, u8) {
     let count = bits(opcode, 9, 11) as u8;
-    let dir = if bits(opcode, 8, 8) != 0 { Direction::Left } else { Direction::Right };
+    let dir = if bit(opcode, 8) { Direction::Left } else { Direction::Right };
     let size = Size::from(bits(opcode, 6, 7));
-    let mode = bits(opcode, 5, 5) as u8;
+    let mode = bit(opcode, 5);
     let reg = bits(opcode, 0, 2) as u8;
 
     (count, dir, size, mode, reg)

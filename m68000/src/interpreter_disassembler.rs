@@ -138,8 +138,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn instruction_asr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-        self.execute_asr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.execute_asr(rot, dir, size, ir, reg)
     }
 
     fn instruction_bcc<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -288,8 +288,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn instruction_lsr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-        self.execute_lsr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.execute_lsr(rot, dir, size, ir, reg)
     }
 
     fn instruction_move<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -406,8 +406,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn instruction_ror<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-        self.execute_ror(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.execute_ror(rot, dir, size, ir, reg)
     }
 
     fn instruction_roxm<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -416,8 +416,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn instruction_roxr<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
-        let (rot, dir, size, mode, reg) = inst.operands.rotation_direction_size_mode_register();
-        self.execute_roxr(rot, dir, size, mode, reg)
+        let (rot, dir, size, ir, reg) = inst.operands.rotation_direction_size_mode_register();
+        self.execute_roxr(rot, dir, size, ir, reg)
     }
 
     fn instruction_rte<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, _: &Instruction) -> InterpreterResult {

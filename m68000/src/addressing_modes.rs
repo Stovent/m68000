@@ -7,7 +7,7 @@
 use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::memory_access::MemoryIter;
 use crate::instruction::Size;
-use crate::utils::bits;
+use crate::utils::{bit, bits};
 
 /// Addressing modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -248,11 +248,6 @@ impl std::fmt::UpperHex for AddressingMode {
 pub struct BriefExtensionWord(pub u16);
 
 impl BriefExtensionWord {
-    /// Returns the displacement associated with the brief extension word.
-    pub const fn disp(self) -> i8 {
-        self.0 as i8
-    }
-
     /// Creates a new brief extension word, to be used when using the assembler.
     ///
     /// - `address`: true if the index register is an address register, false for a data register.
@@ -260,21 +255,41 @@ impl BriefExtensionWord {
     /// - `long`: true if long size, false for word size.
     /// - `disp:`: the associated displacement value.
     pub const fn new(address: bool, reg: u8, long: bool, disp: i8) -> Self {
-        assert!(reg <= 7, "Invalid register.");
+        assert!(reg <= 7, "Invalid register");
         let a = (address as u16) << 15;
         let r = (reg as u16) << 12;
         let s = (long as u16) << 11;
         let d = disp as u8 as u16;
         Self(a | r | s | d)
     }
+
+    /// Returns the displacement associated with the brief extension word.
+    pub const fn disp(self) -> i8 {
+        self.0 as i8
+    }
+
+    #[inline(always)]
+    const fn is_address_reg(self) -> bool {
+        bit(self.0, 15)
+    }
+
+    #[inline(always)]
+    const fn reg(self) -> u8 {
+        bits(self.0, 12, 14) as u8
+    }
+
+    #[inline(always)]
+    const fn is_long(self) -> bool {
+        bit(self.0, 11)
+    }
 }
 
 impl std::fmt::Display for BriefExtensionWord {
     /// Disassembles the index register field of a brief extension word.
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        let x = if self.0 & 0x8000 != 0 { "A" } else { "D" };
-        let reg = bits(self.0, 12, 14);
-        let size = if self.0 & 0x0800 != 0 { "L" } else { "W" };
+        let x = if self.is_address_reg() { "A" } else { "D" };
+        let reg = self.reg();
+        let size = if self.is_long() { "L" } else { "W" };
         write!(f, "{x}{reg}.{size}")
     }
 }
@@ -351,16 +366,17 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     const fn get_index_register(&self, bew: BriefExtensionWord) -> u32 {
-        let reg = bits(bew.0, 12, 14) as u8;
+        let reg = bew.reg();
+        let long = bew.is_long();
 
-        if bew.0 & 0x8000 != 0 { // Address register
-            if bew.0 & 0x0800 != 0 { // Long
+        if bew.is_address_reg() {
+            if long {
                 self.regs.a(reg)
             } else { // Word
                 self.regs.a(reg) as i16 as u32
             }
         } else { // Data register
-            if bew.0 & 0x0800 != 0 { // Long
+            if long {
                 self.regs.d[reg as usize].0
             } else { // Word
                 self.regs.d[reg as usize].0 as i16 as u32
