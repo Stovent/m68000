@@ -15,8 +15,6 @@
 use crate::addressing_modes::AddressingMode;
 use crate::instruction::{Direction, Size};
 
-use std::vec::Vec;
-
 /// Conditions for the conditional instructions.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Condition {
