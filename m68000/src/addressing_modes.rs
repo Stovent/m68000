@@ -295,7 +295,7 @@ impl std::fmt::Display for BriefExtensionWord {
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub(crate) struct EffectiveAddress {
+pub(super) struct EffectiveAddress {
     /// The addressing mode.
     pub mode: AddressingMode,
     /// Where this effective address points to. `None` if the address has not been calculated yet.

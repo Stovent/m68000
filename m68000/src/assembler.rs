@@ -12,6 +12,8 @@
 //! So [asm] is the arithmetic shift with the data in memory, and [asr] is the arithmetic shift with data in register.
 //! The direction is specified as a parameter in these functions.
 
+#![allow(clippy::unusual_byte_groupings)]
+
 use crate::addressing_modes::AddressingMode;
 use crate::instruction::{Direction, Size};
 

@@ -106,17 +106,8 @@ impl Isa {
     ///
     /// Privileged instructions are not traced (MC68000UM 6.3.8 Tracing).
     pub const fn is_privileged(self) -> bool {
-        match self {
-            Self::Andisr => true,
-            Self::Eorisr => true,
-            Self::Movesr => true,
-            Self::Moveusp => true,
-            Self::Orisr => true,
-            Self::Reset => true,
-            Self::Rte => true,
-            Self::Stop => true,
-            _ => false,
-        }
+        use Isa::*;
+        matches!(self, Andisr | Eorisr | Movesr | Moveusp | Orisr | Reset | Rte | Stop)
     }
 }
 

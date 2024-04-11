@@ -192,7 +192,7 @@ impl std::ops::BitXorAssign<u16> for StatusRegister {
     }
 }
 
-pub(crate) fn disassemble_conditional_test(test: u8) -> &'static str {
+pub(super) fn disassemble_conditional_test(test: u8) -> &'static str {
     match test {
         0  => "T",
         1  => "F",

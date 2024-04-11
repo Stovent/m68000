@@ -9,13 +9,19 @@
 //! I don't know if macros and const generics and such could do the job for me,
 //! so I do it with a dedicated program instead.
 
+#![allow(non_upper_case_globals)]
+
 use m68000::isa::Isa;
 
 use std::fs::File;
 use std::io::Write;
 use std::str;
 
-const FILE_BEGIN: &[u8] = b"//! Instruction decoding module.
+const FILE_BEGIN: &[u8] = b"// This Source Code Form is subject to the terms of the Mozilla Public
+// License, v. 2.0. If a copy of the MPL was not distributed with this
+// file, You can obtain one at https://mozilla.org/MPL/2.0/.
+
+//! Instruction decoding module.
 
 use crate::isa::{Isa, Isa::*};
 
@@ -45,11 +51,11 @@ fn main() {
         panic!("Failed to write: {e}")
     }
 
-    for i in 0..65536 {
+    for (i, opcode) in opcodes.iter().enumerate() {
         let str = if i % 16 == 0 {
-            format!("\n    {:7?}, ", opcodes[i])
+            format!("\n    {opcode:7?}, ")
         } else {
-            format!("{:7?}, ", opcodes[i])
+            format!("{opcode:7?}, ")
         };
 
         if let Err(e) = file.write(str.as_bytes()) {

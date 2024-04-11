@@ -108,23 +108,6 @@ impl SliceAs for &[u16] {
     }
 }
 
-/// Converts integers to their array-representation in big-endian.
-pub trait AsArray<const N: usize> {
-    fn as_array_be(self) -> [u8; N];
-}
-
-impl AsArray<2> for u16 {
-    fn as_array_be(self) -> [u8; 2] {
-        [(self >> 8) as u8, self as u8]
-    }
-}
-
-impl AsArray<4> for u32 {
-    fn as_array_be(self) -> [u8; 4] {
-        [(self >> 24) as u8, (self >> 16) as u8, (self >> 8) as u8, self as u8]
-    }
-}
-
 pub trait CarryingOps<S, U> : Sized + Integer {
     fn signed_carrying_add(self, rhs: Self, carry: bool) -> (S, bool);
     fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (U, bool);
