@@ -36,7 +36,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute, it will be executed
     /// and 6 is returned, along with the vector that occured if any.
     /// It is the caller's responsibility to handle the extra cycles.
-    pub fn cycle_until_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, cycles: usize) -> (usize, Option<u8>) {
+    pub fn cycle_until_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, cycles: usize) -> (usize, Option<Vector>) {
         let mut total = 0;
 
         while total < cycles {
@@ -55,7 +55,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// Returns the number of cycles executed and the exception that occured.
     /// If exception is None, this means the CPU has executed a STOP instruction.
-    pub fn loop_until_exception_stop<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
+    pub fn loop_until_exception_stop<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<Vector>) {
         let mut total_cycles = 0;
 
         loop {
@@ -91,7 +91,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// This method may or may not execute any instruction.
     /// For example, if an Access Error occurs during instruction fetch, the exception is returned and no instruction is executed.
-    pub fn interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
+    pub fn interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<Vector>) {
         if self.stop {
             return (0, None);
         }
@@ -114,7 +114,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Ok(cycles) => {
                 cycle_count += cycles;
                 if trace && !isa.is_privileged() {
-                    Some(Vector::Trace as u8)
+                    Some(Vector::Trace)
                 } else {
                     None
                 }

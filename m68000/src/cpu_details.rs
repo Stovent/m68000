@@ -7,6 +7,7 @@
 mod mc68000;
 mod scc68070;
 
+use crate::Vector;
 pub use mc68000::Mc68000;
 pub use scc68070::Scc68070;
 
@@ -77,7 +78,7 @@ pub trait CpuDetails : Default {
     /// The time the CPU takes to reset itself (RESET vector 0).
     const VECTOR_RESET: usize;
     /// Returns the time it takes to process the given exception vector.
-    fn vector_execution_time(vector: u8) -> usize;
+    fn vector_execution_time(vector: Vector) -> usize;
 
     /// Calculation time of the Address Register Indirect addressing mode in byte/word size.
     const EA_ARI: usize;

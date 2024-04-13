@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Vector;
 use crate::cpu_details::{CpuDetails, StackFormat};
 
 /// The CPU details of the SCC68070 microcontroller.
@@ -12,8 +13,8 @@ impl CpuDetails for Scc68070 {
     const STACK_FORMAT: StackFormat = StackFormat::SCC68070;
 
     const VECTOR_RESET: usize = 43;
-    fn vector_execution_time(vector: u8) -> usize {
-        match vector {
+    fn vector_execution_time(vector: Vector) -> usize {
+        match vector as u8 {
             2 => 158, // Access Error
             3 => 158, // Address Error
             4 => 55, // Illegal

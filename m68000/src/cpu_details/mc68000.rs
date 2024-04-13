@@ -2,6 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
+use crate::Vector;
 use crate::cpu_details::{CpuDetails, StackFormat};
 
 /// The CPU details of a MC68000 CPU as described in the M68000 8-/16-/32-Bit Microprocessors User’s Manual, Ninth Edition.
@@ -12,8 +13,8 @@ impl CpuDetails for Mc68000 {
     const STACK_FORMAT: StackFormat = StackFormat::MC68000;
 
     const VECTOR_RESET: usize = 40;
-    fn vector_execution_time(vector: u8) -> usize {
-        match vector {
+    fn vector_execution_time(vector: Vector) -> usize {
+        match vector as u8 {
             2 => 50, // Access Error
             3 => 50, // Address Error
             4 => 34, // Illegal

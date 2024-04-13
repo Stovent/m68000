@@ -4,7 +4,7 @@
 
 //! Utility traits and functions.
 
-use crate::exception::ADDRESS_ERROR;
+use crate::exception::Vector;
 use crate::instruction::Size;
 
 use std::num::Wrapping;
@@ -26,7 +26,7 @@ pub const fn bits(d: u16, beg: u16, end: u16) -> u16 {
 /// Trait to see if an integer is even or not.
 pub trait IsEven : Sized {
     fn is_even(self) -> bool;
-    fn even(self) -> Result<Self, u8>;
+    fn check_even(self) -> Result<Self, Vector>;
 }
 
 impl IsEven for u32 {
@@ -35,12 +35,11 @@ impl IsEven for u32 {
         self & 1 == 0
     }
 
-    #[inline(always)]
-    fn even(self) -> Result<Self, u8> {
+    fn check_even(self) -> Result<Self, Vector> {
         if self.is_even() {
             Ok(self)
         } else {
-            Err(ADDRESS_ERROR)
+            Err(Vector::AddressError)
         }
     }
 }
@@ -51,12 +50,11 @@ impl IsEven for Wrapping<u32> {
         self.0 & 1 == 0
     }
 
-    #[inline(always)]
-    fn even(self) -> Result<Self, u8> {
+    fn check_even(self) -> Result<Self, Vector> {
         if self.is_even() {
             Ok(self)
         } else {
-            Err(ADDRESS_ERROR)
+            Err(Vector::AddressError)
         }
     }
 }
@@ -67,12 +65,11 @@ impl IsEven for usize {
         self & 1 == 0
     }
 
-    #[inline(always)]
-    fn even(self) -> Result<Self, u8> {
+    fn check_even(self) -> Result<Self, Vector> {
         if self.is_even() {
             Ok(self)
         } else {
-            Err(ADDRESS_ERROR)
+            Err(Vector::AddressError)
         }
     }
 }
