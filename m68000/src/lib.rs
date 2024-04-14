@@ -209,7 +209,7 @@ pub struct M68000<CPU: CpuDetails> {
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
     pub stop: bool,
     /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
-    exceptions: BTreeSet<exception::Exception>,
+    exceptions: BTreeSet<Exception>,
     /// The details of the emulated CPU.
     _cpu: CPU,
 }

@@ -98,7 +98,11 @@ typedef enum m68000_size_t
  *
  * The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
  */
-typedef enum m68000_vector_t
+enum m68000_vector_t
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+
 {
     ResetSspPc = 0,
     /**
@@ -151,7 +155,10 @@ typedef enum m68000_vector_t
     Level6OnChipInterrupt,
     Level7OnChipInterrupt,
     UserInterrupt,
-} m68000_vector_t;
+};
+#ifndef __cplusplus
+typedef uint8_t m68000_vector_t;
+#endif // __cplusplus
 
 /**
  * Raw Brief Extension Word.
@@ -565,7 +572,7 @@ typedef struct RotationDirectionSizeModeRegister_Body
     uint8_t _0;
     enum m68000_direction_t _1;
     enum m68000_size_t _2;
-    uint8_t _3;
+    bool _3;
     uint8_t _4;
 } RotationDirectionSizeModeRegister_Body;
 

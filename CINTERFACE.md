@@ -9,7 +9,6 @@ By enabling the `ffi` feature, the following structs and enums are made `repr(C)
 - Registers
 - Size
 - StatusRegister
-- Vector
 
 The crate `m68000-ffi` in the repo is a collection of structures and functions that allows using m68000's
 interpreter and disassembler in other languages through a C interface.
