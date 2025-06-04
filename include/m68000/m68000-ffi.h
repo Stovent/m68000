@@ -21,7 +21,7 @@ typedef struct m68000_memory_result_t
      *
      * If used as the return value of `m68000_*_peek_next_word`, this field contains the exception vector that occured when trying to read the next word.
      */
-    m68000_vector_t exception;
+    uint8_t exception;
 } m68000_memory_result_t;
 
 /**
@@ -58,7 +58,7 @@ typedef struct m68000_exception_result_t
     /**
      * 0 if no exception occured, the vector number that occured otherwise.
      */
-    m68000_vector_t exception;
+    uint8_t exception;
 } m68000_exception_result_t;
 
 /**
@@ -92,7 +92,7 @@ typedef struct m68000_disassembler_exception_result_t
     /**
      * 0 if no exception occured, the vector number that occured otherwise.
      */
-    m68000_vector_t exception;
+    uint8_t exception;
 } m68000_disassembler_exception_result_t;
 
 #ifdef __cplusplus

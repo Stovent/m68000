@@ -118,7 +118,7 @@ pub struct m68000_exception_result_t {
     /// The number of cycles executed.
     pub cycles: usize,
     /// 0 if no exception occured, the vector number that occured otherwise.
-    pub exception: Vector,
+    pub exception: u8,
 }
 
 /// Return type of the `m68000_*_disassembler_interpreter` functions.
@@ -140,7 +140,7 @@ pub struct m68000_disassembler_exception_result_t {
     /// The address of the instruction that has been executed if any.
     pub pc: u32,
     /// 0 if no exception occured, the vector number that occured otherwise.
-    pub exception: Vector,
+    pub exception: u8,
 }
 
 /// Return type of the memory callback functions.
@@ -152,11 +152,8 @@ pub struct m68000_memory_result_t {
     /// Set to 0 if read successfully, set to 2 (Access Error) otherwise (Address errors are automatically detected by the library).
     ///
     /// If used as the return value of `m68000_*_peek_next_word`, this field contains the exception vector that occured when trying to read the next word.
-    pub exception: Vector,
+    pub exception: u8,
 }
-
-/// No exception is 0 (same as Reset).
-const NO_EXCEPTION: Vector = unsafe { Vector::from_raw(0) };
 
 /// Memory callbacks sent to the interpreter methods.
 ///
@@ -184,7 +181,7 @@ pub struct m68000_callbacks_t {
 impl MemoryAccess for m68000_callbacks_t {
     fn get_byte(&mut self, addr: u32) -> Option<u8> {
         let res = (self.get_byte)(addr, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(res.data as u8)
         } else {
             None
@@ -193,7 +190,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn get_word(&mut self, addr: u32) -> Option<u16> {
         let res = (self.get_word)(addr, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(res.data as u16)
         } else {
             None
@@ -203,7 +200,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn get_long(&mut self, addr: u32) -> Option<u32> {
         let res = (self.get_long)(addr, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(res.data)
         } else {
             None
@@ -212,7 +209,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
         let res = (self.set_byte)(addr, value, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(())
         } else {
             None
@@ -221,7 +218,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_word(&mut self, addr: u32, value: u16) -> Option<()> {
         let res = (self.set_word)(addr, value, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(())
         } else {
             None
@@ -230,7 +227,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
         let res = (self.set_long)(addr, value, self.user_data);
-        if res.exception == NO_EXCEPTION {
+        if res.exception == 0 {
             Some(())
         } else {
             None
@@ -295,7 +292,7 @@ macro_rules! cinterface {
             pub extern "C" fn [<m68000_ $cpu _cycle_until_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, cycles: usize) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).cycle_until_exception(&mut *memory, cycles);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(NO_EXCEPTION) }
+                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
                 }
             }
 
@@ -307,7 +304,7 @@ macro_rules! cinterface {
             pub extern "C" fn [<m68000_ $cpu _loop_until_exception_stop>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).loop_until_exception_stop(&mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(NO_EXCEPTION) }
+                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
                 }
             }
 
@@ -327,7 +324,7 @@ macro_rules! cinterface {
             pub extern "C" fn [<m68000_ $cpu _interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(NO_EXCEPTION) }
+                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
                 }
             }
 
@@ -384,7 +381,7 @@ macro_rules! cinterface {
                     m68000_disassembler_exception_result_t {
                         cycles,
                         pc,
-                        exception: vector.unwrap_or(NO_EXCEPTION) ,
+                        exception: vector.unwrap_or(0) ,
                     }
                 }
             }
@@ -404,7 +401,7 @@ macro_rules! cinterface {
                     match (*m68000).get_next_word(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
                             data: data as u32,
-                            exception: NO_EXCEPTION,
+                            exception: 0,
                         },
                         Err(vec) => m68000_memory_result_t {
                             data: 0,
@@ -421,7 +418,7 @@ macro_rules! cinterface {
                     match (*m68000).get_next_long(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
                             data: data,
-                            exception: NO_EXCEPTION,
+                            exception: 0,
                         },
                         Err(vec) => m68000_memory_result_t {
                             data: 0,
@@ -438,7 +435,7 @@ macro_rules! cinterface {
                     match (*m68000).peek_next_word(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
                             data: data as u32,
-                            exception: NO_EXCEPTION,
+                            exception: 0,
                         },
                         Err(vec) => m68000_memory_result_t {
                             data: 0,
