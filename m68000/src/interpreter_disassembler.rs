@@ -12,7 +12,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the instruction at the current Program Counter and advances it to the next instruction.
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
-    fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, Vector> {
+    fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, u8> {
         let mut iter = self.iter_from_pc(memory);
         let instruction = Instruction::from_memory(&mut iter)?;
         self.regs.pc.0 = iter.next_addr;
@@ -42,7 +42,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// To process the returned exception, call [M68000::exception].
     ///
     /// See [Self::interpreter_exception] for the potential caveat.
-    pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (u32, String, usize, Option<Vector>) {
+    pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (u32, String, usize, Option<u8>) {
         if self.stop {
             return (0, String::from(""), 0, None);
         }
@@ -67,7 +67,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Ok(cycles) => {
                 cycle_count += cycles;
                 if trace && !isa.is_privileged() {
-                    Some(Vector::Trace)
+                    Some(Vector::Trace as u8)
                 } else {
                     None
                 }

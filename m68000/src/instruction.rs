@@ -10,7 +10,6 @@
 use crate::addressing_modes::AddressingMode;
 use crate::decoder::DECODER;
 use crate::disassembler::DLUT;
-use crate::exception::Vector;
 use crate::isa::{Isa, IsaEntry};
 use crate::memory_access::{MemoryAccess, MemoryIter};
 use crate::utils::{bit, bits};
@@ -47,7 +46,7 @@ impl Instruction {
     ///
     /// Returns the decoded instruction.
     /// Returns Err when there was an error when reading memory (Access or Address error).
-    pub fn from_memory<M: MemoryAccess + ?Sized>(memory: &mut MemoryIter<M>) -> Result<Self, Vector> {
+    pub fn from_memory<M: MemoryAccess + ?Sized>(memory: &mut MemoryIter<M>) -> Result<Self, u8> {
         let pc = memory.next_addr;
         let opcode = memory.next().unwrap()?;
         Ok(Self::from_opcode(opcode, pc, memory))

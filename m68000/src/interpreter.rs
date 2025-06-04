@@ -4,7 +4,7 @@
 
 use crate::{CpuDetails, M68000, MemoryAccess, StackFormat};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
-use crate::exception::{Vector, Vector::AccessError};
+use crate::exception::{ACCESS_ERROR, Vector};
 use crate::instruction::{Direction, Size};
 use crate::utils::{bits, CarryingOps, Integer, IsEven};
 
@@ -17,17 +17,17 @@ pub(super) const SIGN_BIT_16: u16 = 0x8000;
 pub(super) const SIGN_BIT_32: u32 = 0x8000_0000;
 
 /// Returns the execution time on success, an exception vector on error. Alias for `Result<usize, u8>`.
-pub(super) type InterpreterResult = Result<usize, Vector>;
+pub(super) type InterpreterResult = Result<usize, u8>;
 
 // TODO: return a tuple with the current execution time and the exception that occured (CHK, DIVS, DIVU).
 // All this for only 3 instructions ?
 
 impl<CPU: CpuDetails> M68000<CPU> {
-    const fn check_supervisor(&self) -> Result<(), Vector> {
+    const fn check_supervisor(&self) -> Result<(), u8> {
         if self.regs.sr.s {
             Ok(())
         } else {
-            Err(Vector::PrivilegeViolation)
+            Err(Vector::PrivilegeViolation as u8)
         }
     }
 
@@ -36,14 +36,14 @@ impl<CPU: CpuDetails> M68000<CPU> {
             0xA000 => Vector::LineAEmulator,
             0xF000 => Vector::LineFEmulator,
             _ => Vector::IllegalInstruction,
-        })
+        } as u8)
     }
 
     pub(super) fn execute_abcd<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, rx: u8, mode: Direction, ry: u8) -> InterpreterResult {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(ry, Size::Byte);
             let dst_addr = self.ariwpr(rx, Size::Byte);
-            (memory.get_byte(src_addr).ok_or(AccessError)?, memory.get_byte(dst_addr).ok_or(AccessError)?)
+            (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)?, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)?)
         } else {
             (self.regs.d[ry as usize].0 as u8, self.regs.d[rx as usize].0 as u8)
         };
@@ -70,7 +70,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         self.regs.sr.c = c;
 
         if mode == Direction::MemoryToMemory {
-            memory.set_byte(self.regs.a(rx), res).ok_or(AccessError)?;
+            memory.set_byte(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
             Ok(CPU::ABCD_MEM)
         } else {
             self.regs.d_byte(rx, res);
@@ -268,7 +268,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(ry, size);
                     let dst_addr = self.ariwpr(rx, size);
-                    (memory.get_byte(src_addr).ok_or(AccessError)?, memory.get_byte(dst_addr).ok_or(AccessError)?)
+                    (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)?, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[ry as usize].0 as u8, self.regs.d[rx as usize].0 as u8)
                 };
@@ -276,7 +276,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.add::<u8, i8, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_byte(self.regs.a(rx), res).ok_or(AccessError)?;
+                    memory.set_byte(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_BW)
                 } else {
                     self.regs.d_byte(rx, res);
@@ -287,7 +287,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(ry, size);
                     let dst_addr = self.ariwpr(rx, size);
-                    (memory.get_word(src_addr.check_even()?).ok_or(AccessError)?, memory.get_word(dst_addr.check_even()?).ok_or(AccessError)?)
+                    (memory.get_word(src_addr.even()?).ok_or(ACCESS_ERROR)?, memory.get_word(dst_addr.even()?).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[ry as usize].0 as u16, self.regs.d[rx as usize].0 as u16)
                 };
@@ -295,7 +295,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.add::<u16, i16, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_word(self.regs.a(rx), res).ok_or(AccessError)?;
+                    memory.set_word(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_BW)
                 } else {
                     self.regs.d_word(rx, res);
@@ -306,7 +306,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(ry, size);
                     let dst_addr = self.ariwpr(rx, size);
-                    (memory.get_long(src_addr.check_even()?).ok_or(AccessError)?, memory.get_long(dst_addr.check_even()?).ok_or(AccessError)?)
+                    (memory.get_long(src_addr.even()?).ok_or(ACCESS_ERROR)?, memory.get_long(dst_addr.even()?).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[ry as usize].0, self.regs.d[rx as usize].0)
                 };
@@ -314,7 +314,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.add::<u32, i32, true>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_long(self.regs.a(rx), res).ok_or(AccessError)?;
+                    memory.set_long(self.regs.a(rx), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::ADDX_MEM_L)
                 } else {
                     self.regs.d[rx as usize].0 = res;
@@ -687,7 +687,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let data = self.regs.d[reg as usize].0 as i16;
 
         if data < 0 || data > src {
-            Err(Vector::ChkInstruction)
+            Err(Vector::ChkInstruction as u8)
         } else {
             Ok(CPU::CHK_NO_TRAP + exec_time)
         }
@@ -795,24 +795,24 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
         match size {
             Size::Byte => {
-                let src = memory.get_byte(addry).ok_or(AccessError)?;
-                let dst = memory.get_byte(addrx).ok_or(AccessError)?;
+                let src = memory.get_byte(addry).ok_or(ACCESS_ERROR)?;
+                let dst = memory.get_byte(addrx).ok_or(ACCESS_ERROR)?;
 
                 self.sub::<u8, i8, false, true>(dst, src);
 
                 Ok(CPU::CMPM_BW)
             },
             Size::Word => {
-                let src = memory.get_word(addry.check_even()?).ok_or(AccessError)?;
-                let dst = memory.get_word(addrx.check_even()?).ok_or(AccessError)?;
+                let src = memory.get_word(addry.even()?).ok_or(ACCESS_ERROR)?;
+                let dst = memory.get_word(addrx.even()?).ok_or(ACCESS_ERROR)?;
 
                 self.sub::<u16, i16, false, true>(dst, src);
 
                 Ok(CPU::CMPM_BW)
             },
             Size::Long => {
-                let src = memory.get_long(addry.check_even()?).ok_or(AccessError)?;
-                let dst = memory.get_long(addrx.check_even()?).ok_or(AccessError)?;
+                let src = memory.get_long(addry.even()?).ok_or(ACCESS_ERROR)?;
+                let dst = memory.get_long(addrx.even()?).ok_or(ACCESS_ERROR)?;
 
                 self.sub::<u32, i32, false, true>(dst, src);
 
@@ -850,7 +850,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as i16 as i32;
         if src == 0 {
             self.regs.sr.z = true; // From hardware tests.
-            return Err(Vector::ZeroDivide);
+            return Err(Vector::ZeroDivide as u8);
         }
 
         let dst = self.regs.d[reg as usize].0 as i32;
@@ -882,7 +882,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let src = self.get_word(memory, &mut ea, &mut exec_time)? as u32;
         if src == 0 {
             self.regs.sr.z = true; // From hardware tests.
-            return Err(Vector::ZeroDivide);
+            return Err(Vector::ZeroDivide as u8);
         }
 
         let dst = self.regs.d[reg as usize].0;
@@ -1038,7 +1038,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_illegal(&self) -> InterpreterResult {
-        Err(Vector::IllegalInstruction)
+        Err(Vector::IllegalInstruction as u8)
     }
 
     pub(super) fn execute_jmp(&mut self, am: AddressingMode) -> InterpreterResult {
@@ -1287,15 +1287,15 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let eareg = ea.mode.register().unwrap_or(u8::MAX);
 
         if ea.mode.is_ariwpr() {
-            let mut addr = self.regs.a(eareg).check_even()?; // Gap is always 2 or 4 so check for even() only once.
+            let mut addr = self.regs.a(eareg).even()?; // Gap is always 2 or 4 so check for even() only once.
 
             for reg in (0..8).rev() {
                 if list & 1 != 0 {
                     addr = addr.wrapping_sub(gap);
                     if size.is_word() {
-                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(AccessError)?;
+                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        memory.set_long(addr, self.regs.a(reg)).ok_or(AccessError)?;
+                        memory.set_long(addr, self.regs.a(reg)).ok_or(ACCESS_ERROR)?;
                     }
                 }
 
@@ -1306,9 +1306,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 if list & 1 != 0 {
                     addr = addr.wrapping_sub(gap);
                     if size.is_word() {
-                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(AccessError)?;
+                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        memory.set_long(addr, self.regs.d[reg].0).ok_or(AccessError)?;
+                        memory.set_long(addr, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?;
                     }
                 }
 
@@ -1322,20 +1322,20 @@ impl<CPU: CpuDetails> M68000<CPU> {
             } else {
                 self.get_effective_address(&mut ea, &mut exec_time)
             }
-            .check_even()?;
+            .even()?;
 
             for reg in 0..8 {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
                         self.regs.d[reg].0 = if size.is_word() {
-                            memory.get_word(addr).ok_or(AccessError)? as i16 as u32
+                            memory.get_word(addr).ok_or(ACCESS_ERROR)? as i16 as u32
                         } else {
-                            memory.get_long(addr).ok_or(AccessError)?
+                            memory.get_long(addr).ok_or(ACCESS_ERROR)?
                         };
                     } else if size.is_word() {
-                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(AccessError)?;
+                        memory.set_word(addr, self.regs.d[reg].0 as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        memory.set_long(addr, self.regs.d[reg].0).ok_or(AccessError)?;
+                        memory.set_long(addr, self.regs.d[reg].0).ok_or(ACCESS_ERROR)?;
                     }
 
                     addr = addr.wrapping_add(gap);
@@ -1348,14 +1348,14 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 if list & 1 != 0 {
                     if dir == Direction::MemoryToRegister {
                         self.regs.a_mut(reg).0 = if size.is_word() {
-                            memory.get_word(addr).ok_or(AccessError)? as i16 as u32
+                            memory.get_word(addr).ok_or(ACCESS_ERROR)? as i16 as u32
                         } else {
-                            memory.get_long(addr).ok_or(AccessError)?
+                            memory.get_long(addr).ok_or(ACCESS_ERROR)?
                         };
                     } else if size.is_word() {
-                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(AccessError)?;
+                        memory.set_word(addr, self.regs.a(reg) as u16).ok_or(ACCESS_ERROR)?;
                     } else {
-                        memory.set_long(addr, self.regs.a(reg)).ok_or(AccessError)?;
+                        memory.set_long(addr, self.regs.a(reg)).ok_or(ACCESS_ERROR)?;
                     }
 
                     addr = addr.wrapping_add(gap);
@@ -1394,7 +1394,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         if dir == Direction::RegisterToMemory {
             while shift >= 0 {
                 let d = (self.regs.d[data as usize].0 >> shift) as u8;
-                memory.set_byte(addr.0, d).ok_or(AccessError)?;
+                memory.set_byte(addr.0, d).ok_or(ACCESS_ERROR)?;
                 shift -= 8;
                 addr += 2;
             }
@@ -1408,7 +1408,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             if size.is_word() { self.regs.d[data as usize] &= 0xFFFF_0000 } else { self.regs.d[data as usize].0 = 0 }
 
             while shift >= 0 {
-                let d = memory.get_byte(addr.0).ok_or(AccessError)? as u32;
+                let d = memory.get_byte(addr.0).ok_or(ACCESS_ERROR)? as u32;
                 self.regs.d[data as usize] |= d << shift;
                 shift -= 8;
                 addr += 2;
@@ -1933,7 +1933,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 exec_time += 101;
                 // TODO: execution times when rerun and rerun TAS.
             } else if format & 0xF000 != 0 {
-                return Err(Vector::FormatError);
+                return Err(Vector::FormatError as u8);
             }
         }
 
@@ -1986,7 +1986,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let (src, dst) = if mode == Direction::MemoryToMemory {
             let src_addr = self.ariwpr(rx, Size::Byte);
             let dst_addr = self.ariwpr(ry, Size::Byte);
-            (memory.get_byte(src_addr).ok_or(AccessError)?, memory.get_byte(dst_addr).ok_or(AccessError)?)
+            (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)?, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)?)
         } else {
             (self.regs.d[rx as usize].0 as u8, self.regs.d[ry as usize].0 as u8)
         };
@@ -1994,7 +1994,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         let res = self.sbcd(dst, src);
 
         if mode == Direction::MemoryToMemory {
-            memory.set_byte(self.regs.a(ry), res).ok_or(AccessError)?;
+            memory.set_byte(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
             Ok(CPU::SBCD_MEM)
         } else {
             self.regs.d_byte(ry, res);
@@ -2215,7 +2215,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(rx, size);
                     let dst_addr = self.ariwpr(ry, size);
-                    (memory.get_byte(src_addr).ok_or(AccessError)?, memory.get_byte(dst_addr).ok_or(AccessError)?)
+                    (memory.get_byte(src_addr).ok_or(ACCESS_ERROR)?, memory.get_byte(dst_addr).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[rx as usize].0 as u8, self.regs.d[ry as usize].0 as u8)
                 };
@@ -2223,7 +2223,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.sub::<u8, i8, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_byte(self.regs.a(ry), res).ok_or(AccessError)?;
+                    memory.set_byte(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_BW)
                 } else {
                     self.regs.d_byte(ry, res);
@@ -2234,7 +2234,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(rx, size);
                     let dst_addr = self.ariwpr(ry, size);
-                    (memory.get_word(src_addr.check_even()?).ok_or(AccessError)?, memory.get_word(dst_addr.check_even()?).ok_or(AccessError)?)
+                    (memory.get_word(src_addr.even()?).ok_or(ACCESS_ERROR)?, memory.get_word(dst_addr.even()?).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[rx as usize].0 as u16, self.regs.d[ry as usize].0 as u16)
                 };
@@ -2242,7 +2242,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.sub::<u16, i16, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_word(self.regs.a(ry), res).ok_or(AccessError)?;
+                    memory.set_word(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_BW)
                 } else {
                     self.regs.d_word(ry, res);
@@ -2253,7 +2253,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let (src, dst) = if mode == Direction::MemoryToMemory {
                     let src_addr = self.ariwpr(rx, size);
                     let dst_addr = self.ariwpr(ry, size);
-                    (memory.get_long(src_addr.check_even()?).ok_or(AccessError)?, memory.get_long(dst_addr.check_even()?).ok_or(AccessError)?)
+                    (memory.get_long(src_addr.even()?).ok_or(ACCESS_ERROR)?, memory.get_long(dst_addr.even()?).ok_or(ACCESS_ERROR)?)
                 } else {
                     (self.regs.d[rx as usize].0, self.regs.d[ry as usize].0)
                 };
@@ -2261,7 +2261,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                 let res = self.sub::<u32, i32, true, false>(dst, src);
 
                 if mode == Direction::MemoryToMemory {
-                    memory.set_long(self.regs.a(ry), res).ok_or(AccessError)?;
+                    memory.set_long(self.regs.a(ry), res).ok_or(ACCESS_ERROR)?;
                     Ok(CPU::SUBX_MEM_L)
                 } else {
                     self.regs.d[ry as usize].0 = res;
@@ -2303,13 +2303,12 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_trap(&mut self, vector: u8) -> InterpreterResult {
-        debug_assert!(vector <= 0x0F, "Impossible TRAP vector");
-        Err(unsafe { Vector::from_raw(Vector::Trap0Instruction as u8 + vector) })
+        Err(Vector::Trap0Instruction as u8 + vector)
     }
 
     pub(super) fn execute_trapv(&self) -> InterpreterResult {
         if self.regs.sr.v {
-            Err(Vector::TrapVInstruction)
+            Err(Vector::TrapVInstruction as u8)
         } else {
             Ok(CPU::TRAPV_NO_TRAP)
         }
