@@ -172,19 +172,25 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Attempts to process all the pending exceptions
     pub(super) fn process_pending_exceptions<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> usize {
-        // Extract the exceptions to process and keep the masked interrupts.
-        let exceptions: BTreeSet<_> = self.exceptions.extract_if(.., |ex| {
+        let mut to_process = Vec::new();
+
+        for ex in &self.exceptions {
             if ex.is_interrupt() {
                 // If the interrupt is lower or equal to the interrupt mask, then it is not processed.
                 // MC68000UM 6.3.2 Level 7 interrupts cannot be inhibited by the interrupt priority mask.
                 let level = ex.vector & 0x7;
                 if level != 7 && level <= self.regs.sr.interrupt_mask {
-                    return false;
+                    continue;
                 }
             }
+            to_process.push(ex.clone()); // assuming Exception: Clone + Ord
+        }
 
-            true
-        }).collect();
+        for ex in &to_process {
+            self.exceptions.remove(ex);
+        }
+
+        let exceptions: BTreeSet<_> = to_process.into_iter().collect();
 
         let mut total = 0;
 
