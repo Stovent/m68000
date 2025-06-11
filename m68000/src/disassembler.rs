@@ -10,7 +10,7 @@ use crate::status_register::disassemble_conditional_test;
 use crate::utils::bits;
 
 pub fn disassemble_unknown_instruction(inst: &Instruction) -> String {
-    format!("Unknown instruction {:04X} at {:#X}", inst.opcode, inst.pc)
+    format!("Unknown instruction {:04X}", inst.opcode)
 }
 
 pub fn disassemble_abcd(inst: &Instruction) -> String {
@@ -97,7 +97,7 @@ pub fn disassemble_asr(inst: &Instruction) -> String {
 
 pub fn disassemble_bcc(inst: &Instruction) -> String {
     let (cc, disp) = inst.operands.condition_displacement();
-    format!("B{} {} <{:#X}>", disassemble_conditional_test(cc), disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
+    format!("B{} {}", disassemble_conditional_test(cc), disp)
 }
 
 pub fn disassemble_bchg(inst: &Instruction) -> String {
@@ -120,7 +120,7 @@ pub fn disassemble_bclr(inst: &Instruction) -> String {
 
 pub fn disassemble_bra(inst: &Instruction) -> String {
     let disp = inst.operands.displacement();
-    format!("BRA {} <{:#X}>", disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
+    format!("BRA {}", disp)
 }
 
 pub fn disassemble_bset(inst: &Instruction) -> String {
@@ -134,7 +134,7 @@ pub fn disassemble_bset(inst: &Instruction) -> String {
 
 pub fn disassemble_bsr(inst: &Instruction) -> String {
     let disp = inst.operands.displacement();
-    format!("BSR {} <{:#X}>", disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
+    format!("BSR {}", disp)
 }
 
 pub fn disassemble_btst(inst: &Instruction) -> String {
@@ -178,7 +178,7 @@ pub fn disassemble_cmpm(inst: &Instruction) -> String {
 
 pub fn disassemble_dbcc(inst: &Instruction) -> String {
     let (cc, r, disp) = inst.operands.condition_register_displacement();
-    format!("DB{} D{}, {} <{:#X}>", disassemble_conditional_test(cc), r, disp, inst.pc.wrapping_add(2).wrapping_add(disp as u32))
+    format!("DB{} D{}, {}", disassemble_conditional_test(cc), r, disp)
 }
 
 pub fn disassemble_divs(inst: &Instruction) -> String {
@@ -531,10 +531,11 @@ pub fn disassemble_unlk(inst: &Instruction) -> String {
 ///
 /// let mut data: Vec<u8> = Vec::new();
 /// data.resize(4, 0); // Load the binary in data.
-/// let mut iter = data.iter_u16(0);
+/// let pc = 0;
+/// let mut iter = data.iter_u16(pc);
 /// let inst = Instruction::from_memory(&mut iter).unwrap();
 /// let disassemble = DLUT[DECODER[inst.opcode as usize] as usize];
-/// println!("{:#X} {}", inst.pc, disassemble(&inst));
+/// println!("{pc:#X} {}", disassemble(&inst));
 /// ```
 pub const DLUT: [fn(&Instruction) -> String; Isa::_Size as usize] = [
     disassemble_unknown_instruction,

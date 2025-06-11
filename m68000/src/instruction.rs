@@ -20,8 +20,6 @@ use crate::utils::{bit, bits};
 pub struct Instruction {
     /// The opcode itself.
     pub opcode: u16,
-    /// The address of the instruction.
-    pub pc: u32,
     /// The operands.
     pub operands: Operands,
 }
@@ -30,14 +28,13 @@ impl Instruction {
     /// Decodes the given opcode.
     ///
     /// Returns the decoded instruction.
-    pub fn from_opcode<M: MemoryAccess + ?Sized>(opcode: u16, pc: u32, memory: &mut MemoryIter<M>) -> Self {
+    pub fn from_opcode<M: MemoryAccess + ?Sized>(opcode: u16, memory: &mut MemoryIter<M>) -> Self {
         let isa = Isa::from(opcode);
         let decode = IsaEntry::<M>::ISA_ENTRY[isa as usize].decode;
         let operands = decode(opcode, memory);
 
         Instruction {
             opcode,
-            pc,
             operands,
         }
     }
@@ -47,9 +44,8 @@ impl Instruction {
     /// Returns the decoded instruction.
     /// Returns Err when there was an error when reading memory (Access or Address error).
     pub fn from_memory<M: MemoryAccess + ?Sized>(memory: &mut MemoryIter<M>) -> Result<Self, u8> {
-        let pc = memory.next_addr;
         let opcode = memory.next().unwrap()?;
-        Ok(Self::from_opcode(opcode, pc, memory))
+        Ok(Self::from_opcode(opcode, memory))
     }
 
     /// Disassemble the intruction.
@@ -149,7 +145,7 @@ impl Size {
     /// - 0 => Word
     /// - 1 => Long
     #[inline(always)]
-    pub fn from_bit(d: bool) -> Self {
+    pub const fn from_bit(d: bool) -> Self {
         match d {
             false => Self::Word,
             true => Self::Long,
