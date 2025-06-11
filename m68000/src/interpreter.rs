@@ -51,7 +51,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         // https://en.wikipedia.org/wiki/Intel_BCD_opcode
         // https://github.com/dbalsom/martypc/blob/main/src/cpu_808x/bcd.rs
         let adjust = ((src & 0x0F) + (dst & 0x0F) + self.regs.sr.x as u8) > 0x0F;
-        let (bin_res, mut c) = src.carrying_add(dst, self.regs.sr.x);
+        let (bin_res, mut c) = src.carryingadd(dst, self.regs.sr.x);
         let mut res = bin_res;
 
         if (bin_res & 0x0F) > 0x09 || adjust {
@@ -1962,7 +1962,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     // Intel 64 and IA-32 Architectures - INSTRUCTION SET REFERENCE, A-L -
     fn sbcd(&mut self, dst: u8, src: u8) -> u8 {
         let adjust = (dst & 0x0F) < ((src & 0x0F) + self.regs.sr.x as u8);
-        let (bin_res, b) = dst.borrowing_sub(src, self.regs.sr.x);
+        let (bin_res, b) = dst.borrowingsub(src, self.regs.sr.x);
         let mut res = bin_res;
 
         if bin_res & 0x0F > 0x09 || adjust {

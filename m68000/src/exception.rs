@@ -172,6 +172,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     /// Attempts to process all the pending exceptions
     pub(super) fn process_pending_exceptions<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> usize {
+        // TODO: use extract_if when stable.
         let mut to_process = Vec::new();
 
         for ex in &self.exceptions {

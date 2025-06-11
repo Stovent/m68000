@@ -108,7 +108,11 @@ impl SliceAs for &[u16] {
     }
 }
 
+/// TODO: use carrying_add and borrow_sub of feature(bigint_helper_methods) when stable.
 pub trait CarryingOps<S, U> : Sized + Integer {
+    fn carryingadd(self, rhs: Self, carry: bool) -> (Self, bool);
+    fn borrowingsub(self, rhs: Self, borrow: bool) -> (Self, bool);
+
     fn signed_carrying_add(self, rhs: Self, carry: bool) -> (S, bool);
     fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (U, bool);
 
@@ -116,59 +120,80 @@ pub trait CarryingOps<S, U> : Sized + Integer {
     fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (U, bool);
 }
 
-impl CarryingOps<i8, u8> for u8 {
-    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i8, bool) {
-        (self as i8).carrying_add(rhs as i8, carry)
-    }
+macro_rules! impl_carrying_ops_signed {
+    ($t:ty, $st:ty, $ut:ty) => {
+        impl CarryingOps<$st, $ut> for $t {
+            fn carryingadd(self, rhs: Self, carry: bool) -> (Self, bool) {
+                let (a, b) = self.overflowing_add(rhs);
+                let (c, d) = a.overflowing_add(carry as $t);
+                (c, b != d)
+            }
 
-    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u8, bool) {
-        self.carrying_add(rhs, carry)
-    }
+            fn borrowingsub(self, rhs: Self, borrow: bool) -> (Self, bool) {
+                let (a, b) = self.overflowing_sub(rhs);
+                let (c, d) = a.overflowing_sub(borrow as $t);
+                (c, b != d)
+            }
 
-    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i8, bool) {
-        (self as i8).borrowing_sub(rhs as i8, carry)
-    }
+            fn signed_carrying_add(self, rhs: Self, carry: bool) -> ($st, bool) {
+                (self as $st).carryingadd(rhs as $st, carry)
+            }
 
-    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u8, bool) {
-        self.borrowing_sub(rhs, carry)
-    }
+            fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> ($ut, bool) {
+                (self as $ut).carryingadd(rhs as $ut, carry)
+            }
+
+            fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> ($st, bool) {
+                (self as $st).borrowingsub(rhs as $st, carry)
+            }
+
+            fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> ($ut, bool) {
+                (self as $ut).borrowingsub(rhs as $ut, carry)
+            }
+        }
+    };
 }
 
-impl CarryingOps<i16, u16> for u16 {
-    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i16, bool) {
-        (self as i16).carrying_add(rhs as i16, carry)
-    }
+macro_rules! impl_carrying_ops_unsigned {
+    ($t:ty, $st:ty, $ut:ty) => {
+        impl CarryingOps<$st, $ut> for $t {
+            fn carryingadd(self, rhs: Self, carry: bool) -> (Self, bool) {
+                let (a, b) = self.overflowing_add(rhs);
+                let (c, d) = a.overflowing_add(carry as $t);
+                (c, b || d)
+            }
 
-    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u16, bool) {
-        self.carrying_add(rhs, carry)
-    }
+            fn borrowingsub(self, rhs: Self, borrow: bool) -> (Self, bool) {
+                let (a, b) = self.overflowing_sub(rhs);
+                let (c, d) = a.overflowing_sub(borrow as $t);
+                (c, b || d)
+            }
 
-    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i16, bool) {
-        (self as i16).borrowing_sub(rhs as i16, carry)
-    }
+            fn signed_carrying_add(self, rhs: Self, carry: bool) -> ($st, bool) {
+                (self as $st).carryingadd(rhs as $st, carry)
+            }
 
-    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u16, bool) {
-        self.borrowing_sub(rhs, carry)
-    }
+            fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> ($ut, bool) {
+                (self as $ut).carryingadd(rhs as $ut, carry)
+            }
+
+            fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> ($st, bool) {
+                (self as $st).borrowingsub(rhs as $st, carry)
+            }
+
+            fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> ($ut, bool) {
+                (self as $ut).borrowingsub(rhs as $ut, carry)
+            }
+        }
+    };
 }
 
-impl CarryingOps<i32, u32> for u32 {
-    fn signed_carrying_add(self, rhs: Self, carry: bool) -> (i32, bool) {
-        (self as i32).carrying_add(rhs as i32, carry)
-    }
-
-    fn unsigned_carrying_add(self, rhs: Self, carry: bool) -> (u32, bool) {
-        self.carrying_add(rhs, carry)
-    }
-
-    fn signed_borrowing_sub(self, rhs: Self, carry: bool) -> (i32, bool) {
-        (self as i32).borrowing_sub(rhs as i32, carry)
-    }
-
-    fn unsigned_borrowing_sub(self, rhs: Self, carry: bool) -> (u32, bool) {
-        self.borrowing_sub(rhs, carry)
-    }
-}
+impl_carrying_ops_signed!(i8, i8, u8);
+impl_carrying_ops_unsigned!(u8, i8, u8);
+impl_carrying_ops_signed!(i16, i16, u16);
+impl_carrying_ops_unsigned!(u16, i16, u16);
+impl_carrying_ops_signed!(i32, i32, u32);
+impl_carrying_ops_unsigned!(u32, i32, u32);
 
 pub trait Integer : Copy + PartialEq + PartialOrd +
                     BitAnd<Output = Self> + BitOr<Output = Self> + BitXor<Output = Self> +

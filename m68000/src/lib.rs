@@ -94,8 +94,6 @@
 //! ## TODO
 //! - Let memory access return extra read or write cycles for accuracy.
 
-#![feature(bigint_helper_methods)]
-
 pub mod addressing_modes;
 pub mod assembler;
 pub mod decoder;
