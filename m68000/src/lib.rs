@@ -107,6 +107,7 @@ pub mod instruction;
 mod interpreter;
 mod interpreter_disassembler;
 mod interpreter_fast;
+mod interpreter_unified;
 pub mod isa;
 pub mod memory_access;
 pub mod status_register;
