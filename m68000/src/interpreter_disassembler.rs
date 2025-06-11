@@ -13,9 +13,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
     fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, u8> {
-        let mut iter = self.iter_from_pc(memory);
+        let mut iter = self.iter_from_pc(memory)?;
         let instruction = Instruction::from_memory(&mut iter)?;
-        self.regs.pc.0 = iter.next_addr;
         Ok(instruction)
     }
 
