@@ -21,8 +21,6 @@ use crate::utils::{bit, bits};
 pub struct Instruction {
     /// The opcode itself.
     pub opcode: u16, // TODO: for the cached interpreter, remove this in favor of the handler function directly?
-    /// The address of the instruction.
-    pub pc: u32,
     /// The operands.
     pub operands: Operands,
     /// The size in bytes of the instruction.
@@ -33,7 +31,6 @@ impl Instruction {
     /// An unknown instruction, usable as a default value.
     pub const UNKNOWN: Self = Self {
         opcode: 0xFFFF,
-        pc: 0,
         operands: Operands::NoOperands,
         length: 2,
     };
@@ -41,7 +38,7 @@ impl Instruction {
     /// Decodes the given opcode.
     ///
     /// Returns the decoded instruction.
-    pub fn from_opcode<M: MemoryIterator + ?Sized>(opcode: u16, pc: u32, memory: &mut M) -> Self {
+    pub fn from_opcode<M: MemoryIterator + ?Sized>(opcode: u16, memory: &mut M) -> Self {
         let isa = Isa::from(opcode);
         let start_pc = memory.next_address().wrapping_sub(2); // - 2 to add for the length of the opcode.
         let decode = IsaEntry::<M>::ISA_ENTRY[isa as usize].decode;
@@ -50,7 +47,6 @@ impl Instruction {
 
         Instruction {
             opcode,
-            pc,
             operands,
             length,
         }
@@ -61,9 +57,8 @@ impl Instruction {
     /// Returns the decoded instruction.
     /// Returns Err when there was an error when reading memory (Access or Address error).
     pub fn from_memory<M: MemoryIterator + ?Sized>(memory: &mut M) -> Result<Self, u8> {
-        let pc = memory.next_address();
         let opcode = memory.next().ok_or(ACCESS_ERROR)?;
-        Ok(Self::from_opcode(opcode, pc, memory))
+        Ok(Self::from_opcode(opcode, memory))
     }
 
     /// Disassemble the intruction.
@@ -181,7 +176,7 @@ impl Size {
     /// - 0 => Word
     /// - 1 => Long
     #[inline(always)]
-    pub fn from_bit(d: bool) -> Self {
+    pub const fn from_bit(d: bool) -> Self {
         match d {
             false => Self::Word,
             true => Self::Long,
