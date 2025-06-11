@@ -95,7 +95,6 @@
 //! - Let memory access return extra read or write cycles for accuracy.
 
 #![feature(bigint_helper_methods)]
-#![feature(btree_extract_if)]
 
 pub mod addressing_modes;
 pub mod assembler;
