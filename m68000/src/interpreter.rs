@@ -537,9 +537,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
         })
     }
 
-    pub(super) fn execute_bcc(&mut self, pc: u32, condition: u8, displacement: i16) -> InterpreterResult {
+    pub(super) fn execute_bcc(&mut self, condition: u8, displacement: i16) -> InterpreterResult {
         if self.regs.sr.condition(condition) {
-            self.regs.pc.0 = pc.wrapping_add(displacement as u32);
+            self.regs.pc = self.current_pc + Wrapping(2) + Wrapping(displacement as u32);
             Ok(CPU::BCC_BRANCH)
         } else {
             Ok(if self.current_opcode as u8 == 0 {
@@ -604,8 +604,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_bra(&mut self, pc: u32, disp: i16) -> InterpreterResult {
-        self.regs.pc.0 = pc.wrapping_add(disp as u32);
+    pub(super) fn execute_bra(&mut self, disp: i16) -> InterpreterResult {
+        self.regs.pc = self.current_pc + Wrapping(2) + Wrapping(disp as u32);
 
         Ok(if self.current_opcode as u8 == 0 {
             CPU::BRA_WORD
@@ -641,9 +641,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Ok(exec_time)
     }
 
-    pub(super) fn execute_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, pc: u32, disp: i16) -> InterpreterResult {
+    pub(super) fn execute_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, disp: i16) -> InterpreterResult {
         self.push_long(memory, self.regs.pc.0)?;
-        self.regs.pc.0 = pc.wrapping_add(disp as u32);
+        self.regs.pc = self.current_pc + Wrapping(2) + Wrapping(disp as u32);
 
         Ok(if self.current_opcode as u8 == 0 {
             CPU::BSR_WORD
@@ -821,13 +821,13 @@ impl<CPU: CpuDetails> M68000<CPU> {
         }
     }
 
-    pub(super) fn execute_dbcc(&mut self, pc: u32, cc: u8, reg: u8, disp: i16) -> InterpreterResult {
+    pub(super) fn execute_dbcc(&mut self, cc: u8, reg: u8, disp: i16) -> InterpreterResult {
         if !self.regs.sr.condition(cc) {
             let counter = (self.regs.d[reg as usize].0 as i16).wrapping_sub(1);
             self.regs.d_word(reg, counter as u16);
 
             if counter != -1 {
-                self.regs.pc.0 = pc.wrapping_add(disp as u32);
+                self.regs.pc = self.current_pc + Wrapping(2) + Wrapping(disp as u32);
                 Ok(CPU::DBCC_FALSE_BRANCH)
             } else {
                 Ok(CPU::DBCC_FALSE_NO_BRANCH)
@@ -1318,11 +1318,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
             self.regs.a_mut(eareg).0 = addr;
         } else {
             let mut addr = if ea.mode.is_ariwpo() {
-                self.regs.a(eareg)
-            } else {
-                self.get_effective_address(&mut ea, &mut exec_time)
-            }
-            .even()?;
+                    self.regs.a(eareg)
+                } else {
+                    self.get_effective_address(&mut ea, &mut exec_time)
+                } 
+                .even()?;
 
             for reg in 0..8 {
                 if list & 1 != 0 {

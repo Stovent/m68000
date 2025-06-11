@@ -102,6 +102,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             cycle_count += self.process_pending_exceptions(memory);
         }
 
+        self.current_pc = self.regs.pc;
         let opcode = match self.get_next_word(memory) {
             Ok(op) => op,
             Err(e) => return (cycle_count, Some(e)),
@@ -206,11 +207,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bcc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
-        let pc = self.regs.pc.0;
         let opcode = self.current_opcode;
         let mut iter = self.iter_from_pc(memory)?;
         let (condition, displacement) = condition_displacement(opcode, &mut iter);
-        self.execute_bcc(pc, condition, displacement)
+        self.execute_bcc(condition, displacement)
     }
 
     fn fast_bchg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -228,11 +228,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bra<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
-        let pc = self.regs.pc.0;
         let opcode = self.current_opcode;
         let mut iter = self.iter_from_pc(memory)?;
         let disp = displacement(opcode, &mut iter);
-        self.execute_bra(pc, disp)
+        self.execute_bra(disp)
     }
 
     fn fast_bset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -243,11 +242,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
-        let pc = self.regs.pc.0;
         let opcode = self.current_opcode;
         let mut iter = self.iter_from_pc(memory)?;
         let disp = displacement(opcode, &mut iter);
-        self.execute_bsr(memory, pc, disp)
+        self.execute_bsr(memory, disp)
     }
 
     fn fast_btst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
@@ -300,11 +298,10 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     fn fast_dbcc<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> InterpreterResult {
-        let pc = self.regs.pc.0;
         let opcode = self.current_opcode;
         let mut iter = self.iter_from_pc(memory)?;
         let (cc, reg, disp) = condition_register_displacement(opcode, &mut iter);
-        self.execute_dbcc(pc, cc, reg, disp)
+        self.execute_dbcc(cc, reg, disp)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the

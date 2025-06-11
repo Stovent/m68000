@@ -52,6 +52,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             cycle_count += self.process_pending_exceptions(memory);
         }
 
+        self.current_pc = self.regs.pc;
         let instruction = match self.get_next_instruction(memory) {
             Ok(i) => i,
             Err(e) => return (0, String::from(""), cycle_count, Some(e)),
@@ -74,7 +75,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
             Err(e) => Some(e),
         };
 
-        (instruction.pc, dis, cycle_count, exception)
+        (self.current_pc.0, dis, cycle_count, exception)
     }
 
     fn instruction_unknown_instruction<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {
@@ -143,7 +144,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bcc<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (condition, displacement) = inst.operands.condition_displacement();
-        self.execute_bcc(inst.pc.wrapping_add(2), condition, displacement)
+        self.execute_bcc(condition, displacement)
     }
 
     fn instruction_bchg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -158,7 +159,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bra<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
-        self.execute_bra(inst.pc.wrapping_add(2), disp)
+        self.execute_bra(disp)
     }
 
     fn instruction_bset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -168,7 +169,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_bsr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
         let disp = inst.operands.displacement();
-        self.execute_bsr(memory, inst.pc.wrapping_add(2), disp)
+        self.execute_bsr(memory, disp)
     }
 
     fn instruction_btst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, inst: &Instruction) -> InterpreterResult {
@@ -210,7 +211,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
 
     fn instruction_dbcc<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, inst: &Instruction) -> InterpreterResult {
         let (cc, reg, disp) = inst.operands.condition_register_displacement();
-        self.execute_dbcc(inst.pc.wrapping_add(2), cc, reg, disp)
+        self.execute_dbcc(cc, reg, disp)
     }
 
     /// If a zero divide exception occurs, this method returns the effective address calculation time, and the
