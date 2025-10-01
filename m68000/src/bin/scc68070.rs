@@ -80,7 +80,7 @@ fn main()
     let mut bios_file = File::open("cpudiag40.rom").expect("no cpudiag40.rom");
     match bios_file.read(&mut ram.ram[0x40_0000..]) {
         Ok(_) => (),
-        Err(e) => panic!("Failed to read from cpudiag40.rom: {}", e),
+        Err(e) => panic!("Failed to read from cpudiag40.rom: {e}"),
     }
 
     let mut scc68070 = Scc68070 {

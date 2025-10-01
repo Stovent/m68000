@@ -15,4 +15,19 @@ m68000 = { path = "../m68000", features = ["ffi"] }
 paste = "1.0"
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["lib", "staticlib"]
+
+[dev-dependencies]
+criterion = "0.7"
+
+# [[bench]]
+# name = "cpudiag_ffi"
+# harness = false
+
+[[bench]]
+name = "interpreter_ffi"
+harness = false
+
+[[bench]]
+name = "memory_ffi"
+harness = false

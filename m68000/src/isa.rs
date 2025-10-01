@@ -130,7 +130,7 @@ impl From<u16> for Isa {
 ///
 /// // Decode
 /// let decode = IsaEntry::ISA_ENTRY[isa as usize].decode;
-/// let (operands, len) = decode(opcode, memory); // Give here the memory structure.
+/// let operands = decode(opcode, memory); // Give here the memory structure.
 ///
 /// let instruction = Instruction {
 ///     opcode,

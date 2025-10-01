@@ -16,3 +16,26 @@ ffi = []
 
 [lib]
 crate-type = ["lib", "staticlib"]
+
+[dev-dependencies]
+criterion = "0.7"
+
+# [[bench]]
+# name = "cpudiag"
+# harness = false
+
+[[bench]]
+name = "instruction"
+harness = false
+
+[[bench]]
+name = "interpreter"
+harness = false
+
+[[bench]]
+name = "memory"
+harness = false
+
+[[bench]]
+name = "operands"
+harness = false
