@@ -184,7 +184,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     continue;
                 }
             }
-            to_process.push(ex.clone()); // assuming Exception: Clone + Ord
+            to_process.push(*ex);
         }
 
         for ex in &to_process {

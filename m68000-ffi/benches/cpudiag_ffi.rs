@@ -144,7 +144,9 @@ struct Scc68070 {
 
 impl Drop for Scc68070 {
     fn drop(&mut self) {
-        m68000_mc68000_delete(self.cpu);
+        unsafe {
+            m68000_mc68000_delete(self.cpu);
+        }
     }
 }
 
@@ -185,16 +187,20 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("cpudiag m68000_mc68000_interpreter", |b|
         b.iter_batched_ref(setup, |scc68070| {
-            for _ in 0..10_000_000 {
-                black_box(m68000_mc68000_interpreter(scc68070.cpu, &raw mut scc68070.callbacks));
+            unsafe {
+                for _ in 0..10_000_000 {
+                    black_box(m68000_mc68000_interpreter(scc68070.cpu, &raw mut scc68070.callbacks));
+                }
             }
         }, criterion::BatchSize::SmallInput)
     );
 
     c.bench_function("cpudiag m68000_mc68000_interpreter_exception", |b|
         b.iter_batched_ref(setup, |scc68070| {
-            for _ in 0..10_000_000 {
-                black_box(m68000_mc68000_interpreter_exception(scc68070.cpu, &raw mut scc68070.callbacks));
+            unsafe {
+                for _ in 0..10_000_000 {
+                    black_box(m68000_mc68000_interpreter_exception(scc68070.cpu, &raw mut scc68070.callbacks));
+                }
             }
         }, criterion::BatchSize::SmallInput)
     );

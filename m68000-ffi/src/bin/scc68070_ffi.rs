@@ -20,16 +20,18 @@ extern "C" fn get_byte(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
     let memory = user_data as *mut Memory68070;
 
     unsafe {
-        if (addr as usize) < (&*memory).ram.len() {
-            m68000_memory_result_t { data: (*memory).ram[addr as usize] as u32, exception: 0 }
-        } else if addr >= 0x8000_2011 && addr <= 0x8000_201B {
-            if addr == 0x8000_2013 {
-                m68000_memory_result_t { data: 0b0000_1110, exception: 0 }
-            } else {
-                m68000_memory_result_t { data: 0, exception: 0 }
-            }
-        } else {
-            m68000_memory_result_t { data: 0, exception: 2 }
+        match addr {
+            addr if (addr as usize) < (&*memory).ram.len() => {
+                m68000_memory_result_t { data: (*memory).ram[addr as usize] as u32, exception: 0 }
+            },
+            0x8000_2011..=0x8000_201B => {
+                if addr == 0x8000_2013 {
+                    m68000_memory_result_t { data: 0b0000_1110, exception: 0 }
+                } else {
+                    m68000_memory_result_t { data: 0, exception: 0 }
+                }
+            },
+            _ => m68000_memory_result_t { data: 0, exception: 2 },
         }
     }
 }
@@ -47,7 +49,7 @@ extern "C" fn get_word(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
 
         if address < (&*memory).ram.len() - 1 {
             m68000_memory_result_t {
-                data: u16::from_be_bytes((&mut *memory).ram[address..address + 2].try_into().unwrap()) as u32,
+                data: u16::from_be_bytes((&*memory).ram[address..address + 2].try_into().unwrap()) as u32,
                 exception: 0,
             }
         } else {
@@ -69,7 +71,7 @@ extern "C" fn get_long(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
 
         if address < (&*memory).ram.len() - 3 {
             m68000_memory_result_t {
-                data: u32::from_be_bytes((&mut *memory).ram[address..address + 4].try_into().unwrap()),
+                data: u32::from_be_bytes((&*memory).ram[address..address + 4].try_into().unwrap()),
                 exception: 0,
             }
         } else {
@@ -82,16 +84,18 @@ extern "C" fn set_byte(addr: u32, data: u8, user_data: *mut c_void) -> m68000_me
     let memory = user_data as *mut Memory68070;
 
     unsafe {
-        if (addr as usize) < (&mut *memory).ram.len() {
-            (*memory).ram[addr as usize] = data;
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
-            if addr == 0x8000_2019 {
-                print!("{}", data as char);
-            }
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else {
-            m68000_memory_result_t { data: 0, exception: 2 }
+        match addr {
+            addr if (addr as usize) < (&*memory).ram.len() => {
+                (*memory).ram[addr as usize] = data;
+                m68000_memory_result_t { data: 0, exception: 0 }
+            },
+            0x8000_2011..=0x8000_2019 => {
+                if addr == 0x8000_2019 {
+                    print!("{}", data as char);
+                }
+                m68000_memory_result_t { data: 0, exception: 0 }
+            },
+            _ => m68000_memory_result_t { data: 0, exception: 2 },
         }
     }
 }
@@ -100,14 +104,14 @@ extern "C" fn set_word(addr: u32, data: u16, user_data: *mut c_void) -> m68000_m
     let memory = user_data as *mut Memory68070;
 
     unsafe {
-        if (addr as usize) < (&mut *memory).ram.len() - 1 {
-            (*memory).ram[addr as usize] = (data >> 8) as u8;
-            (*memory).ram[addr as usize + 1] = data as u8;
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else {
-            m68000_memory_result_t { data: 0, exception: 2 }
+        match addr {
+            addr if (addr as usize) < (&*memory).ram.len() - 1 => {
+                (*memory).ram[addr as usize] = (data >> 8) as u8;
+                (*memory).ram[addr as usize + 1] = data as u8;
+                m68000_memory_result_t { data: 0, exception: 0 }
+            },
+            0x8000_2011..=0x8000_2019 => m68000_memory_result_t { data: 0, exception: 0 },
+            _ => m68000_memory_result_t { data: 0, exception: 2 },
         }
     }
 }
@@ -116,16 +120,16 @@ extern "C" fn set_long(addr: u32, data: u32, user_data: *mut c_void) -> m68000_m
     let memory = user_data as *mut Memory68070;
 
     unsafe {
-        if (addr as usize) < (&mut *memory).ram.len() - 3 {
-            (*memory).ram[addr as usize] = (data >> 24) as u8;
-            (*memory).ram[addr as usize + 1] = (data >> 16) as u8;
-            (*memory).ram[addr as usize + 2] = (data >> 8) as u8;
-            (*memory).ram[addr as usize + 3] = data as u8;
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
-            m68000_memory_result_t { data: 0, exception: 0 }
-        } else {
-            m68000_memory_result_t { data: 0, exception: 2 }
+        match addr {
+            addr if (addr as usize) < (&*memory).ram.len() - 3 => {
+                (*memory).ram[addr as usize] = (data >> 24) as u8;
+                (*memory).ram[addr as usize + 1] = (data >> 16) as u8;
+                (*memory).ram[addr as usize + 2] = (data >> 8) as u8;
+                (*memory).ram[addr as usize + 3] = data as u8;
+                m68000_memory_result_t { data: 0, exception: 0 }
+            },
+            0x8000_2011..=0x8000_2019 => m68000_memory_result_t { data: 0, exception: 0 },
+            _ => m68000_memory_result_t { data: 0, exception: 2 },
         }
     }
 }
@@ -142,7 +146,9 @@ struct Scc68070 {
 
 impl Drop for Scc68070 {
     fn drop(&mut self) {
-        m68000_scc68070_delete(self.cpu);
+        unsafe {
+            m68000_scc68070_delete(self.cpu);
+        }
     }
 }
 
@@ -182,7 +188,9 @@ fn main() {
     let start = std::time::Instant::now();
 
     for _ in 0..1_000_000_000 {
-        m68000_scc68070_interpreter(scc68070.cpu, &raw mut scc68070.callbacks);
+        unsafe {
+            m68000_scc68070_interpreter(scc68070.cpu, &raw mut scc68070.callbacks);
+        }
     }
 
     let delay = start.elapsed();

@@ -165,7 +165,7 @@ impl Size {
         match self {
             Self::Word => 0,
             Self::Long => 1,
-            _ => panic!("[Size::into_bit] Wrong size : expected word or long, got {}", self),
+            _ => panic!("[Size::into_bit] Wrong size : expected word or long, got {self}"),
         }
     }
 
@@ -180,7 +180,7 @@ impl Size {
             1 => Self::Byte,
             3 => Self::Word,
             2 => Self::Long,
-            _ => panic!("[Size::from_move] Wrong Size : expected 1, 3 or 2, got {}", d),
+            _ => panic!("[Size::from_move] Wrong Size : expected 1, 3 or 2, got {d}"),
         }
     }
 
@@ -229,7 +229,7 @@ impl From<u16> for Size {
             0 => Self::Byte,
             1 => Self::Word,
             2 => Self::Long,
-            _ => panic!("[Size::from<u16>] Wrong size : expected 0, 1 or 2, got {}", d),
+            _ => panic!("[Size::from<u16>] Wrong size : expected 0, 1 or 2, got {d}"),
         }
     }
 }

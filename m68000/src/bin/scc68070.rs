@@ -25,16 +25,18 @@ struct Memory68070 {
 
 impl MemoryAccess for Memory68070 {
     fn get_byte(&mut self, addr: u32) -> Option<u8> {
-        if addr >= 0x8000_2011 && addr <= 0x8000_201B {
-            if addr == 0x8000_2013 {
-                Some(0b0000_1110)
-            } else {
-                Some(0)
-            }
-        } else if (addr as usize) < self.ram.len() {
-            Some(self.ram[addr as usize])
-        } else {
-            None
+        match addr {
+            addr if (addr as usize) < self.ram.len() => {
+                Some(self.ram[addr as usize])
+            },
+            0x8000_2011..=0x8000_201B => {
+                if addr == 0x8000_2013 {
+                    Some(0b0000_1110)
+                } else {
+                    Some(0)
+                }
+            },
+            _ => None,
         }
     }
 
@@ -48,16 +50,18 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
-        if addr >= 0x8000_2011 && addr <= 0x8000_2019 {
-            if addr == 0x8000_2019 {
-                print!("{}", value as char);
-            }
-            Some(())
-        } else if (addr as usize) < self.ram.len() {
-            self.ram[addr as usize] = value;
-            Some(())
-        } else {
-            None
+        match addr {
+            addr if (addr as usize) < self.ram.len() => {
+                self.ram[addr as usize] = value;
+                Some(())
+            },
+            0x8000_2011..=0x8000_2019 => {
+                if addr == 0x8000_2019 {
+                    print!("{}", value as char);
+                }
+                Some(())
+            },
+            _ => None,
         }
     }
 

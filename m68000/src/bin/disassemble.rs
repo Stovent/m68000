@@ -21,12 +21,12 @@ fn main() {
     if args.len() < 1 || args.len() > 7 {
         println!("Disassembles the instructions in the given input binary file, starting and ending at the given locations.");
         println!("Outputs the instructions in the given output file, or on the standard output if the output file is not supplied or cannot be opened.");
-        println!("Usage: {} <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]", exec);
+        println!("Usage: {exec} <input file> [-o <output file>] [-b <beginning pos>] [-e <ending position>]");
         std::process::exit(1);
     }
 
     let inname = args.next().unwrap();
-    let mut infile = File::open(inname.clone()).unwrap_or_else(|e| panic!("Failed to open input file \"{}\": {}", inname, e));
+    let mut infile = File::open(inname.clone()).unwrap_or_else(|e| panic!("Failed to open input file \"{inname}\": {e}"));
 
     let mut outname = String::new();
     let mut beg = 0;
@@ -37,15 +37,11 @@ fn main() {
             "-o" => outname = args.next().expect("Expected output filename with parameter -o"),
             "-b" => beg = args.next().expect("Expected beginning position with parameter -b").parse().expect("Expected number for beginning position"),
             "-e" => end = args.next().expect("Expected ending position with parameter -e").parse().expect("Expected number for ending position"),
-            _ => panic!("Unknown parameter \"{}\"", arg),
+            _ => panic!("Unknown parameter \"{arg}\""),
         }
     }
 
-    let mut outfile = if let Ok(f) = File::create(outname) {
-        Some(f)
-    } else {
-        None
-    };
+    let mut outfile = File::create(outname).ok();
 
     let filelen = infile.metadata().unwrap().len() as usize;
     if end > filelen {

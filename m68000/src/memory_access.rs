@@ -65,7 +65,7 @@ pub trait MemoryAccess {
     /// Not meant to be overridden.
     /// Returns a [MemoryIter] starting at the given address that will be used to decode instructions.
     #[must_use]
-    fn iter_u16(&mut self, addr: u32) -> MemoryIter<Self> {
+    fn iter_u16(&mut self, addr: u32) -> MemoryIter<'_, Self> {
         MemoryIter { memory: self, next_addr: addr }
     }
 

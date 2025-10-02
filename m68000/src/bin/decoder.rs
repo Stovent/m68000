@@ -353,12 +353,12 @@ fn generate_opcodes(opcodes: &mut [Isa; 65536], format: &str, values: &[&[u8]], 
             let bin_str = int_to_bin_string(*value as usize, len);
             let index = if pos + len < 16 {
                 let right = str::from_utf8(&format.as_bytes()[pos + len..]).unwrap();
-                format!("{}{}{}", left, bin_str, right)
+                format!("{left}{bin_str}{right}")
             } else {
-                format!("{}{}", left, bin_str)
+                format!("{left}{bin_str}")
             };
             let index = bin_string_to_int(&index);
-            assert_eq!(opcodes[index], Isa::Unknown, "Overwriting an existing opcode: {:#X}", index);
+            assert_eq!(opcodes[index], Isa::Unknown, "Overwriting an existing opcode: {index:#X}");
             opcodes[index] = isa;
         }
     } else {
@@ -384,9 +384,9 @@ fn generate_opcodes(opcodes: &mut [Isa; 65536], format: &str, values: &[&[u8]], 
             let bin_str = int_to_bin_string(*value as usize, len);
             let index = if pos + len < 16 {
                 let right = str::from_utf8(&format.as_bytes()[pos + len..]).unwrap();
-                format!("{}{}{}", left, bin_str, right)
+                format!("{left}{bin_str}{right}")
             } else {
-                format!("{}{}", left, bin_str)
+                format!("{left}{bin_str}")
             };
             generate_opcodes(opcodes, &index, &values[1..], isa);
         }

@@ -16,7 +16,7 @@ use crate::isa::{Isa, Isa::*};
 /// let opcode = memory.get_word(instruction_address); // get the opcode
 /// let isa = DECODER[opcode as usize];
 /// ```
-pub const DECODER: [Isa; 65536] = [
+pub static DECODER: [Isa; 65536] = [
     Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown, Unknown,
     Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori,
     Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori, Ori,

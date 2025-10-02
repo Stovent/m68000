@@ -26,9 +26,9 @@
 //!
 //! There are several functions to execute instructions, see their individual documentation for more information:
 //! - `m68000_*_interpreter` is the basic one. It tries to execute the next instruction, and returns the number of cycles the instruction tool to be executed.
-//! if an exception occurs, it is added to the pending exceptions and will be processed on the next call to an interpreter function.
+//!   if an exception occurs, it is added to the pending exceptions and will be processed on the next call to an interpreter function.
 //! - `m68000_*_interpreter_exception` is like above, but if an exception occurs, it is returned instead of being processed.
-//! To process the returned exception, call `m68000_*_exception` with the vector returned.
+//!   To process the returned exception, call `m68000_*_exception` with the vector returned.
 //! - `m68000_*_cycle` which runs the CPU for **at least** the given number of cycles.
 //! - `m68000_*_cycle_until_exception` which runs the CPU until either an exception occurs or **at least** the given number of cycles have been executed.
 //! - `m68000_*_loop_until_exception_stop` which runs the CPU indefinitely, until an exception or a STOP instruction occurs.
@@ -44,7 +44,7 @@
 //! There are 4 functions to read and write to the core's registers:
 //! - `m68000_*_registers` returns a const pointer to the [Registers].
 //! - `m68000_*_registers_mut` returns a mutable (non-const) pointer to the [Registers].
-//! The location of the registers does not change during execution, so you can store the pointer for as long as the core lives.
+//!   The location of the registers does not change during execution, so you can store the pointer for as long as the core lives.
 //! - `m68000_*_get_registers` returns a copy of the registers. Writing to it does not modify the core's registers.
 //! - `m68000_*_set_registers` sets the core's registers to the value of the given [Registers] structure.
 //!
@@ -100,6 +100,8 @@
 //!     return 0;
 //! }
 //! ```
+
+#![allow(clippy::missing_safety_doc)]
 
 pub mod mc68000;
 pub mod scc68070;
@@ -261,7 +263,7 @@ macro_rules! cinterface {
 
             /// Frees the memory of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _delete>](m68000: *mut M68000<$cpu_details>) {
+            pub unsafe extern "C" fn [<m68000_ $cpu _delete>](m68000: *mut M68000<$cpu_details>) {
                 unsafe {
                     std::mem::drop(Box::from_raw(m68000));
                 }
@@ -275,7 +277,7 @@ macro_rules! cinterface {
             /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
             /// it will be executed and the 2 extra cycles will be subtracted in the next call.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _cycle>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, cycles: usize) -> usize {
+            pub unsafe extern "C" fn [<m68000_ $cpu _cycle>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, cycles: usize) -> usize {
                 unsafe {
                     (*m68000).cycle(&mut *memory, cycles)
                 }
@@ -289,7 +291,7 @@ macro_rules! cinterface {
             /// If you ask to execute 4 cycles but the next instruction takes 6 cycles to execute,
             /// it will be executed and the 2 extra cycles will be subtracted in the next call.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _cycle_until_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, cycles: usize) -> m68000_exception_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _cycle_until_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, cycles: usize) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).cycle_until_exception(&mut *memory, cycles);
                     m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
@@ -301,7 +303,7 @@ macro_rules! cinterface {
             /// Returns the number of cycles executed and the exception that occured.
             /// If exception is None, this means the CPU has executed a STOP instruction.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _loop_until_exception_stop>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _loop_until_exception_stop>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).loop_until_exception_stop(&mut *memory);
                     m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
@@ -310,7 +312,7 @@ macro_rules! cinterface {
 
             /// Executes the next instruction, returning the cycle count necessary to execute it.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> usize {
+            pub unsafe extern "C" fn [<m68000_ $cpu _interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> usize {
                 unsafe {
                     (*m68000).interpreter(&mut *memory)
                 }
@@ -321,7 +323,7 @@ macro_rules! cinterface {
             ///
             /// To process the returned exception, call `m68000_*_exception`.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
                 unsafe {
                     let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
                     m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
@@ -333,7 +335,7 @@ macro_rules! cinterface {
             /// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
             /// `len` is the maximum size of the buffer, null-charactere included.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _disassembler_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_result_t {
                 unsafe {
                     let (pc, dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
 
@@ -363,7 +365,7 @@ macro_rules! cinterface {
             /// `str` is a pointer to a C string buffer where the disassembled instruction will be written.
             /// `len` is the maximum size of the buffer.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _disassembler_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_exception_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _disassembler_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t, str: *mut c_char, len: usize) -> m68000_disassembler_exception_result_t {
                 unsafe {
                     let (pc, dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
 
@@ -388,7 +390,7 @@ macro_rules! cinterface {
 
             /// Requests the CPU to process the given exception vector.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _exception>](m68000: *mut M68000<$cpu_details>, vector: Vector) {
+            pub unsafe extern "C" fn [<m68000_ $cpu _exception>](m68000: *mut M68000<$cpu_details>, vector: Vector) {
                 unsafe {
                     (*m68000).exception(Exception::from(vector))
                 }
@@ -396,7 +398,7 @@ macro_rules! cinterface {
 
             /// Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _get_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _get_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
                 unsafe {
                     match (*m68000).get_next_word(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
@@ -413,11 +415,11 @@ macro_rules! cinterface {
 
             /// Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _get_next_long>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _get_next_long>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
                 unsafe {
                     match (*m68000).get_next_long(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
-                            data: data,
+                            data,
                             exception: 0,
                         },
                         Err(vec) => m68000_memory_result_t {
@@ -430,7 +432,7 @@ macro_rules! cinterface {
 
             /// Returns the 16-bits word at the current PC value of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _peek_next_word>](m68000: *const M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
+            pub unsafe extern "C" fn [<m68000_ $cpu _peek_next_word>](m68000: *const M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_memory_result_t {
                 unsafe {
                     match (*m68000).peek_next_word(&mut *memory) {
                         Ok(data) => m68000_memory_result_t {
@@ -447,7 +449,7 @@ macro_rules! cinterface {
 
             /// Returns a const pointer to the registers of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _registers>](m68000: *const M68000<$cpu_details>) -> *const Registers {
+            pub unsafe extern "C" fn [<m68000_ $cpu _registers>](m68000: *const M68000<$cpu_details>) -> *const Registers {
                 unsafe {
                     &(*m68000).regs
                 }
@@ -455,7 +457,7 @@ macro_rules! cinterface {
 
             /// Returns a mutable pointer to the registers of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _registers_mut>](m68000: *mut M68000<$cpu_details>) -> *mut Registers {
+            pub unsafe extern "C" fn [<m68000_ $cpu _registers_mut>](m68000: *mut M68000<$cpu_details>) -> *mut Registers {
                 unsafe {
                     &mut (*m68000).regs
                 }
@@ -463,7 +465,7 @@ macro_rules! cinterface {
 
             /// Returns a copy of the registers of the given core.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _get_registers>](m68000: *const M68000<$cpu_details>) -> Registers {
+            pub unsafe extern "C" fn [<m68000_ $cpu _get_registers>](m68000: *const M68000<$cpu_details>) -> Registers {
                 unsafe {
                     (*m68000).regs
                 }
@@ -471,7 +473,7 @@ macro_rules! cinterface {
 
             /// Sets the registers of the core to the given value.
             #[no_mangle]
-            pub extern "C" fn [<m68000_ $cpu _set_registers>](m68000: *mut M68000<$cpu_details>, regs: Registers) {
+            pub unsafe extern "C" fn [<m68000_ $cpu _set_registers>](m68000: *mut M68000<$cpu_details>, regs: Registers) {
                 unsafe {
                     (*m68000).regs = regs;
                 }

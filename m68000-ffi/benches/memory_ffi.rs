@@ -88,19 +88,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     };
     // No need to use iter_batched because this base state behaves the same after each execution.
 
-    c.bench_function("m68000_mc68000_peek_next_word", |b| b.iter(|| {
-        black_box(m68000_mc68000_peek_next_word(black_box(cpu), black_box(&raw mut memory_callbacks)));
-    }));
+    unsafe {
+        c.bench_function("m68000_mc68000_peek_next_word", |b| b.iter(|| {
+            black_box(m68000_mc68000_peek_next_word(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
 
-    c.bench_function("m68000_mc68000_get_next_word", |b| b.iter(|| {
-        black_box(m68000_mc68000_get_next_word(black_box(cpu), black_box(&raw mut memory_callbacks)));
-    }));
+        c.bench_function("m68000_mc68000_get_next_word", |b| b.iter(|| {
+            black_box(m68000_mc68000_get_next_word(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
 
-    c.bench_function("m68000_mc68000_get_next_long", |b| b.iter(|| {
-        black_box(m68000_mc68000_get_next_long(black_box(cpu), black_box(&raw mut memory_callbacks)));
-    }));
+        c.bench_function("m68000_mc68000_get_next_long", |b| b.iter(|| {
+            black_box(m68000_mc68000_get_next_long(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
 
-    m68000_mc68000_delete(cpu);
+        m68000_mc68000_delete(cpu);
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);

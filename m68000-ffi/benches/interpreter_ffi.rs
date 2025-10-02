@@ -85,18 +85,21 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         user_data: memory_ptr,
     };
-    m68000_mc68000_interpreter(cpu, &raw mut memory_callbacks); // Fetch the reset vectors on the first call.
-    // The benchmarks executes the same instruction so no need for dedicated input management.
 
-    c.bench_function("m68000_mc68000_interpreter", |b| b.iter(|| {
-        black_box(m68000_mc68000_interpreter(black_box(cpu), black_box(&raw mut memory_callbacks)));
-    }));
+    unsafe {
+        m68000_mc68000_interpreter(cpu, &raw mut memory_callbacks); // Fetch the reset vectors on the first call.
+        // The benchmarks executes the same instruction so no need for dedicated input management.
 
-    c.bench_function("m68000_mc68000_interpreter_exception", |b| b.iter(|| {
-        black_box(m68000_mc68000_interpreter_exception(black_box(cpu), black_box(&raw mut memory_callbacks)));
-    }));
+        c.bench_function("m68000_mc68000_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_interpreter(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
 
-    m68000_mc68000_delete(cpu);
+        c.bench_function("m68000_mc68000_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_interpreter_exception(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        m68000_mc68000_delete(cpu);
+    }
 }
 
 criterion_group!(benches, criterion_benchmark);

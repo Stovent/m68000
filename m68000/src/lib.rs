@@ -5,16 +5,18 @@
 //! Motorola 68000 interpreter, disassembler and assembler (code emitter).
 //!
 //! This library emulates the common user and supervisor instructions of the M68k ISA.
-//! It is configurable to behave like the given CPU type (see below), changing the instruction's execution times and exception handling.
+//! It is configurable to behave like the given CPU type (see below),
+//! changing the instruction's execution times andexception handling.
 //!
 //! This library has been designed to be used in two different contexts:
 //!
 //! - It can be used to emulate a whole CPU, and the user of this library only have to call the interpreter methods
-//! and [M68000::exception] when an interrupt or reset occurs. This is usually the case in an emulator.
-//! - It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having an
-//! operating system compiled to binary M68k. In this case, the application runs the program until an exception occurs (TRAP for
-//! syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using the C interface), so the
-//! application can implement the surrounding environment required by the M68k program in a high level language and not in M68k assembly.
+//!   and [M68000::exception] when an interrupt or reset occurs. This is usually the case in an emulator.
+//! - It can also be used as a M68k user-land interpreter to run an M68k program, but without the requirement of having
+//!   an operating system compiled to binary M68k. In this case, the application runs the program until an exception
+//!   occurs (TRAP for syscalls, zero divide, etc.) and treat the exception in Rust code (or any other language using
+//!   the C interface), so the application can implement the surrounding environment required by the M68k program in a
+//!   high level language and not in M68k assembly.
 //!
 //! # Supported CPUs
 //!
@@ -29,8 +31,6 @@
 //! * SCC68070 microcontroller
 //!
 //! # How to use
-//!
-//! m68000 requires a nightly compiler as it uses the `btree_extract_if` and `bigint_helper_methods` features of the std.
 //!
 //! First, since the memory map is application-dependant, it is the user's responsibility to define it by implementing
 //! the `MemoryAccess` trait on their memory structure, and passing it to the core on each instruction execution.
@@ -201,7 +201,9 @@ pub struct M68000<CPU: CpuDetails> {
     /// The registers of the CPU.
     pub regs: Registers,
 
-    /// The opcode of the instruction currently executing. Stored because it is an information of the long exception stack frame.
+    /// The opcode of the instruction currently executing.
+    ///
+    /// Stored because it is an information of the long exception stack frame.
     current_opcode: u16,
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
     pub stop: bool,
@@ -214,8 +216,8 @@ pub struct M68000<CPU: CpuDetails> {
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Creates a new M68000 core.
     ///
-    /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to an
-    /// interpreter method will first fetch the reset vectors, then will execute the first instruction.
+    /// The created core has a [Reset vector](crate::exception::Vector::ResetSspPc) pushed, so that the first call to
+    /// an interpreter method will first fetch the reset vectors, then will execute the first instruction.
     ///
     /// The returned core already has a Status Register set to 0x2700 (supervisor bit set, interrupt level 7).
     pub fn new() -> Self {
