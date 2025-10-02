@@ -64,7 +64,7 @@ impl MemoryAccess for Memory68070 {
 }
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let test_rom = std::fs::read("cpudiag40.rom").expect("no cpudiag40.rom");
+    let test_rom = std::fs::read("../cpudiag40.rom").expect("no cpudiag40.rom");
     let setup = || {
         let mut memory = Memory68070 {
             memory_swap: 0,
