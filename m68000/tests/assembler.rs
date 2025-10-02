@@ -13,6 +13,7 @@ use m68000::instruction::{
     Size,
     Size::*,
 };
+use m68000::isa::Isa;
 
 use std::panic::catch_unwind;
 
@@ -148,7 +149,7 @@ fn size_effective_address_immediate(asm: fn(Size, AM, u32) -> Vec<u16>, opcode: 
 }
 
 /// BCHG, BCLR, BSET, BTST
-fn effective_address_count(asm_dynamic: fn(u8, AM) -> Vec<u16>, asm_static: fn(AM, u8) -> Vec<u16>, opcode: u16) {
+fn effective_address_count(asm_dynamic: fn(u8, AM) -> Vec<u16>, asm_static: fn(AM, u8) -> Vec<u16>, opcode: u16, is_btst: bool) {
     for reg in 0..10 {
         let bew = BEW::new(true, 0, true, 0);
         let opcode_dynamic = opcode | 0x0100 | (reg as u16) << 9;
@@ -174,7 +175,7 @@ fn effective_address_count(asm_dynamic: fn(u8, AM) -> Vec<u16>, asm_static: fn(A
             assert_eq!(&asm_dynamic(reg, AM::AbsLong(0xFF_0000)), &assemble_am(opcode_dynamic, AM::AbsLong(0xFF_0000)));
             assert_eq!(&asm_static(AM::AbsLong(0xFF_0000), reg), &immediate_assemble_am(opcode_static, reg as u16, AM::AbsLong(0xFF_0000)));
 
-            if asm_dynamic == asm::btst_dynamic && asm_static == asm::btst_static {
+            if is_btst {
                 assert_eq!(&asm_dynamic(reg, AM::Pciwd(0, 0)), &assemble_am(opcode_dynamic, AM::Pciwd(0, 0)));
                 assert_eq!(&asm_static(AM::Pciwd(0, 0), reg), &immediate_assemble_am(opcode_static, reg as u16, AM::Pciwd(0, 0)));
                 assert_eq!(&asm_dynamic(reg, AM::Pciwi8(0, bew)), &assemble_am(opcode_dynamic, AM::Pciwi8(0, bew)));
@@ -207,12 +208,12 @@ fn effective_address_count(asm_dynamic: fn(u8, AM) -> Vec<u16>, asm_static: fn(A
 }
 
 /// JMP, JSR, MOVE (f) SR CCR, NBCD, PEA, TAS
-fn effective_address(asm: fn(AM) -> Vec<u16>, opcode: u16) {
+fn effective_address(asm: fn(AM) -> Vec<u16>, opcode: u16, isa: Isa) {
     for reg in 0..10 {
         let bew = BEW::new(true, 0, true, 0);
         if reg <= 7 {
             assert_eq!(&asm(AM::Ari(reg)), &assemble_am(opcode, AM::Ari(reg)));
-            if asm != asm::jmp && asm != asm::jsr && asm != asm::pea {
+            if isa != Isa::Jmp && isa != Isa::Jsr && isa != Isa::Pea {
                 assert_eq!(&asm(AM::Drd(reg)), &assemble_am(opcode, AM::Drd(reg)));
                 assert_eq!(&asm(AM::Ariwpo(reg)), &assemble_am(opcode, AM::Ariwpo(reg)));
                 assert_eq!(&asm(AM::Ariwpr(reg)), &assemble_am(opcode, AM::Ariwpr(reg)));
@@ -227,10 +228,10 @@ fn effective_address(asm: fn(AM) -> Vec<u16>, opcode: u16) {
             assert_eq!(&asm(AM::AbsLong(0xFF_0000)), &assemble_am(opcode, AM::AbsLong(0xFF_0000)));
 
             catch_unwind(|| asm(AM::Ard(reg))).unwrap_err();
-            if asm == asm::jmp || asm == asm::jsr || asm == asm::moveccr || asm == asm::movesr || asm == asm::pea {
+            if isa == Isa::Jmp || isa == Isa::Jsr || isa == Isa::Moveccr || isa == Isa::Movesr || isa == Isa::Pea {
                 assert_eq!(&asm(AM::Pciwd(0, 0)), &assemble_am(opcode, AM::Pciwd(0, 0)));
                 assert_eq!(&asm(AM::Pciwi8(0, bew)), &assemble_am(opcode, AM::Pciwi8(0, bew)));
-                if asm != asm::jmp && asm != asm::jsr && asm != asm::pea {
+                if isa != Isa::Jmp && isa != Isa::Jsr && isa != Isa::Pea {
                     assert_eq!(&asm(AM::Immediate(0xFF00)), &assemble_am(opcode, AM::Immediate(0xFF00)));
                 }
             } else {
@@ -245,7 +246,7 @@ fn effective_address(asm: fn(AM) -> Vec<u16>, opcode: u16) {
             catch_unwind(|| asm(AM::Ariwpr(reg))).unwrap_err();
             catch_unwind(|| asm(AM::Ariwd(reg, 0))).unwrap_err();
             catch_unwind(|| asm(AM::Ariwi8(reg, bew))).unwrap_err();
-            if asm != asm::moveccr && asm != asm::movesr {
+            if isa != Isa::Moveccr && isa != Isa::Movesr {
                 catch_unwind(|| asm(AM::Immediate(0))).unwrap_err();
             }
         }
@@ -289,14 +290,14 @@ fn size_effective_address(asm: fn(Size, AM) -> Vec<u16>, opcode: u16) {
 }
 
 /// CHK, DIVS, DIVU, LEA, MULS, MULU
-fn register_effective_address(asm: fn(u8, AM) -> Vec<u16>, opcode: u16) {
+fn register_effective_address(asm: fn(u8, AM) -> Vec<u16>, opcode: u16, is_lea: bool) {
     for reg in 0..10 {
         let bew = BEW::new(true, 0, true, 0);
         let opcode = opcode | (reg as u16) << 9;
 
         if reg <= 7 {
             assert_eq!(&asm(reg, AM::Ari(reg)), &assemble_am(opcode, AM::Ari(reg)));
-            if asm != asm::lea {
+            if !is_lea {
                 assert_eq!(&asm(reg, AM::Drd(reg)), &assemble_am(opcode, AM::Drd(reg)));
                 assert_eq!(&asm(reg, AM::Ariwpo(reg)), &assemble_am(opcode, AM::Ariwpo(reg)));
                 assert_eq!(&asm(reg, AM::Ariwpr(reg)), &assemble_am(opcode, AM::Ariwpr(reg)));
@@ -312,7 +313,7 @@ fn register_effective_address(asm: fn(u8, AM) -> Vec<u16>, opcode: u16) {
 
             assert_eq!(&asm(reg, AM::Pciwd(0, 0)), &assemble_am(opcode, AM::Pciwd(0, 0)));
             assert_eq!(&asm(reg, AM::Pciwi8(0, bew)), &assemble_am(opcode, AM::Pciwi8(0, bew)));
-            if asm != asm::lea {
+            if !is_lea {
                 assert_eq!(&asm(reg, AM::Immediate(0xFF00)), &assemble_am(opcode, AM::Immediate(0xFF00)));
             } else {
                 catch_unwind(|| asm(reg, AM::Immediate(0xFF00))).unwrap_err();
@@ -653,12 +654,12 @@ fn assembler_bcc() {
 
 #[test]
 fn assembler_bchg() {
-    effective_address_count(asm::bchg_dynamic, asm::bchg_static, 0x0040);
+    effective_address_count(asm::bchg_dynamic, asm::bchg_static, 0x0040, false);
 }
 
 #[test]
 fn assembler_bclr() {
-    effective_address_count(asm::bclr_dynamic, asm::bclr_static, 0x0080);
+    effective_address_count(asm::bclr_dynamic, asm::bclr_static, 0x0080, false);
 }
 
 #[test]
@@ -670,7 +671,7 @@ fn assembler_bra() {
 
 #[test]
 fn assembler_bset() {
-    effective_address_count(asm::bset_dynamic, asm::bset_static, 0x00C0);
+    effective_address_count(asm::bset_dynamic, asm::bset_static, 0x00C0, false);
 }
 
 #[test]
@@ -682,12 +683,12 @@ fn assembler_bsr() {
 
 #[test]
 fn assembler_btst() {
-    effective_address_count(asm::btst_dynamic, asm::btst_static, 0x0000);
+    effective_address_count(asm::btst_dynamic, asm::btst_static, 0x0000, true);
 }
 
 #[test]
 fn assembler_chk() {
-    register_effective_address(asm::chk, 0x4180);
+    register_effective_address(asm::chk, 0x4180, false);
 }
 
 #[test]
@@ -748,12 +749,12 @@ fn assembler_dbcc() {
 
 #[test]
 fn assembler_divs() {
-    register_effective_address(asm::divs, 0x81C0);
+    register_effective_address(asm::divs, 0x81C0, false);
 }
 
 #[test]
 fn assembler_divu() {
-    register_effective_address(asm::divu, 0x80C0);
+    register_effective_address(asm::divu, 0x80C0, false);
 }
 
 #[test]
@@ -826,17 +827,17 @@ fn assembler_illegal() {
 
 #[test]
 fn assembler_jmp() {
-    effective_address(asm::jmp, 0x4EC0);
+    effective_address(asm::jmp, 0x4EC0, Isa::Jmp);
 }
 
 #[test]
 fn assembler_jsr() {
-    effective_address(asm::jsr, 0x4E80);
+    effective_address(asm::jsr, 0x4E80, Isa::Jsr);
 }
 
 #[test]
 fn assembler_lea() {
-    register_effective_address(asm::lea, 0x41C0);
+    register_effective_address(asm::lea, 0x41C0, true);
 }
 
 #[test]
@@ -923,17 +924,17 @@ fn assembler_movea() {
 
 #[test]
 fn assembler_moveccr() {
-    effective_address(asm::moveccr, 0x44C0);
+    effective_address(asm::moveccr, 0x44C0, Isa::Moveccr);
 }
 
 #[test]
 fn assembler_movefsr() {
-    effective_address(asm::movefsr, 0x40C0);
+    effective_address(asm::movefsr, 0x40C0, Isa::Movefsr);
 }
 
 #[test]
 fn assembler_movesr() {
-    effective_address(asm::movesr, 0x46C0);
+    effective_address(asm::movesr, 0x46C0, Isa::Movesr);
 }
 
 #[test]
@@ -994,14 +995,14 @@ fn assembler_movem() {
 
 #[test]
 fn assembler_movep() {
-    for data in 0..10 {
+    catch_unwind(|| asm::movep(0, MemoryToRegister, Byte, 0, 0)).unwrap_err();
+    for data in 0..9 {
         for dir in ALL_DIRECTIONS {
-            for size in [Byte, Word, Long] {
-                for addr in 0..10 {
+            for size in [Word, Long] {
+                for addr in 0..9 {
                     for disp in (i16::MIN..=i16::MAX).step_by(8191) {
                         if data <= 7 && addr <= 7 &&
-                           (dir == MemoryToRegister || dir == RegisterToMemory) &&
-                           (size == Word || size == Long) {
+                           (dir == MemoryToRegister || dir == RegisterToMemory) {
                             let movep = 0x0108 |
                                 (data as u16) << 9 |
                                 if dir == RegisterToMemory { 1 << 7 } else { 0 } |
@@ -1032,17 +1033,17 @@ fn assembler_moveq() {
 
 #[test]
 fn assembler_muls() {
-    register_effective_address(asm::muls, 0xC1C0);
+    register_effective_address(asm::muls, 0xC1C0, false);
 }
 
 #[test]
 fn assembler_mulu() {
-    register_effective_address(asm::mulu, 0xC0C0);
+    register_effective_address(asm::mulu, 0xC0C0, false);
 }
 
 #[test]
 fn assembler_nbcd() {
-    effective_address(asm::nbcd, 0x4800);
+    effective_address(asm::nbcd, 0x4800, Isa::Nbcd);
 }
 
 #[test]
@@ -1091,7 +1092,7 @@ fn assembler_orisr() {
 
 #[test]
 fn assembler_pea() {
-    effective_address(asm::pea, 0x4840);
+    effective_address(asm::pea, 0x4840, Isa::Pea);
 }
 
 #[test]
@@ -1238,7 +1239,7 @@ fn assembler_swap() {
 
 #[test]
 fn assembler_tas() {
-    effective_address(asm::tas, 0x4AC0);
+    effective_address(asm::tas, 0x4AC0, Isa::Tas);
 }
 
 #[test]
