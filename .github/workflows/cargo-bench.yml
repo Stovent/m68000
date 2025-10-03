@@ -1,4 +1,4 @@
-name: cargo test
+name: cargo bench
 
 on: [push, pull_request]
 
@@ -8,5 +8,5 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Run tests
-        run: cargo +nightly test
+      - name: Run benchmarks
+        run: cargo bench
