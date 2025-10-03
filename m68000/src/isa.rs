@@ -5,7 +5,7 @@
 //! ISA definition and helper structs to decode, disassemble and interpret (internal only) the instructions.
 
 use crate::decoder::DECODER;
-use crate::memory_access::{MemoryAccess, MemoryIter};
+use crate::memory_access::MemoryIterator;
 use crate::instruction::*;
 
 /// ISA of the M68000.
@@ -139,14 +139,14 @@ impl From<u16> for Isa {
 /// };
 /// ```
 #[derive(Clone, Copy)]
-pub struct IsaEntry<M: MemoryAccess + ?Sized> {
+pub struct IsaEntry<M: MemoryIterator + ?Sized> {
     // /// The ISA value.
     // pub isa: Isa,
     /// Function used to decode the instruction. See the [instruction](crate::instruction) module.
-    pub decode: fn(u16, &mut MemoryIter<M>) -> Operands,
+    pub decode: fn(u16, &mut M) -> Operands,
 }
 
-impl<M: MemoryAccess + ?Sized> IsaEntry<M> {
+impl<M: MemoryIterator + ?Sized> IsaEntry<M> {
     /// The array that maps instructions to their [IsaEntry] entry. Index it using the [Isa] enum.
     pub const ISA_ENTRY: [IsaEntry<M>; Isa::_Size as usize] = [
         IsaEntry { /* isa: Isa::Unknown,*/ decode: Operands::new_no_operands, },

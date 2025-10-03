@@ -41,11 +41,32 @@ impl MemoryAccess for Memory68070 {
     }
 
     fn get_word(&mut self, addr: u32) -> Option<u16> {
-        if self.memory_swap < 4 {
+        let addr = if self.memory_swap < 4 {
             self.memory_swap += 1;
-            Some((self.get_byte(addr + 0x40_0000)? as u16) << 8 | self.get_byte(addr + 0x40_0001)? as u16)
+            addr + 0x40_0000
         } else {
-            Some((self.get_byte(addr)? as u16) << 8 | self.get_byte(addr + 1)? as u16)
+            addr
+        } as usize;
+
+        if addr < self.ram.len() { // addr is even so no need to subtract 1.
+            Some(u16::from_be_bytes(self.ram[addr..addr + 2].try_into().unwrap()))
+        } else {
+            None
+        }
+    }
+
+    fn get_long(&mut self, addr: u32) -> Option<u32> {
+        let addr = if self.memory_swap < 4 {
+            self.memory_swap += 2;
+            addr + 0x40_0000
+        } else {
+            addr
+        } as usize;
+
+        if addr < self.ram.len() - 3 {
+            Some(u32::from_be_bytes(self.ram[addr..addr + 4].try_into().unwrap()))
+        } else {
+            None
         }
     }
 

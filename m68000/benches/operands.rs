@@ -19,7 +19,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let bra = 0x60FE_u16;
         let mut code_bra = [bra];
         c.bench_function("displacement byte", |b| b.iter(|| {
-            let mut memory_iter = code_bra.iter_u16(2);
+            let mut memory_iter = code_bra.iter_u16(2).unwrap();
             black_box(displacement(black_box(bra), &mut memory_iter));
         }));
     }
@@ -28,7 +28,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let bra = 0x6000_u16;
         let mut code_bra = [bra, 0xFFFE];
         c.bench_function("displacement word", |b| b.iter(|| {
-            let mut memory_iter = code_bra.iter_u16(2);
+            let mut memory_iter = code_bra.iter_u16(2).unwrap();
             black_box(displacement(black_box(bra), &mut memory_iter));
         }));
     }
@@ -37,7 +37,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let stop = 0x4E72_u16;
         let mut code_stop = [stop, 0x0700];
         c.bench_function("immediate", |b| b.iter(|| {
-            let mut memory_iter = code_stop.iter_u16(2);
+            let mut memory_iter = code_stop.iter_u16(2).unwrap();
             black_box(immediate(black_box(&mut memory_iter)));
         }));
     }
@@ -46,7 +46,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         let andi = 0x02B9; // Long, absolute long EA.
         let mut code_andi = [andi, 0x0000, 0x0000, 0x0000, 0x0000];
         c.bench_function("size_effective_address_immediate", |b| b.iter(|| {
-            let mut memory_iter = code_andi.iter_u16(2);
+            let mut memory_iter = code_andi.iter_u16(2).unwrap();
             black_box(size_effective_address_immediate(black_box(andi), &mut memory_iter));
         }));
     }

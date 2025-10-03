@@ -19,7 +19,7 @@ pub fn criterion_benchmark(c: &mut Criterion) {
     let mut code = [illegal];
 
     c.bench_function("instruction decoding", |b| b.iter(|| {
-        let mut memory_iter = code.iter_u16(0);
+        let mut memory_iter = code.iter_u16(0).unwrap();
         black_box(Instruction::from_memory(black_box(&mut memory_iter)).unwrap());
     }));
 }
