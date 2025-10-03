@@ -9,7 +9,8 @@
 use m68000::decoder::DECODER;
 use m68000::disassembler::DLUT;
 use m68000::instruction::Instruction;
-use m68000::memory_access::MemoryAccess;
+use m68000::memory_access::{MemoryAccess, MemoryIterator};
+use m68000::utils::IsEven;
 
 use std::borrow::BorrowMut;
 use std::fs::File;
@@ -51,8 +52,9 @@ fn main() {
     let mut data = Vec::new();
     infile.read_to_end(&mut data).unwrap();
 
+    assert!(beg.is_even(), "begin position must be even");
     let mut i = beg;
-    let mut iter = data.iter_u16(i as u32);
+    let mut iter = data.iter_u16(i as u32).unwrap();
     while i < end {
         let inst = Instruction::from_memory(&mut iter).unwrap();
 
@@ -62,6 +64,6 @@ fn main() {
         } else {
             println!("{:#X} {}", i, disassemble(&inst));
         }
-        i = iter.next_addr as usize;
+        i = iter.next_address() as usize;
     }
 }

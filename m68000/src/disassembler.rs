@@ -531,7 +531,7 @@ pub fn disassemble_unlk(inst: &Instruction) -> String {
 ///
 /// let mut data: Vec<u8> = Vec::new();
 /// data.resize(4, 0); // Load the binary in data.
-/// let mut iter = data.iter_u16(0);
+/// let mut iter = data.iter_u16(0).unwrap();
 /// let inst = Instruction::from_memory(&mut iter).unwrap();
 /// let disassemble = DLUT[DECODER[inst.opcode as usize] as usize];
 /// println!("{:#X} {}", inst.pc, disassemble(&inst));

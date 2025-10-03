@@ -4,6 +4,8 @@
 
 //! Memory access-related traits and structs.
 
+use std::num::Wrapping;
+
 use crate::{CpuDetails, M68000};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::{ACCESS_ERROR, ADDRESS_ERROR};
@@ -64,34 +66,98 @@ pub trait MemoryAccess {
 
     /// Not meant to be overridden.
     /// Returns a [MemoryIter] starting at the given address that will be used to decode instructions.
-    #[must_use]
-    fn iter_u16(&mut self, addr: u32) -> MemoryIter<'_, Self> {
-        MemoryIter { memory: self, next_addr: addr }
+    ///
+    /// Returns `Err(ADDRESS_ERROR)` if `addr` is not even.
+    #[inline]
+    fn iter_u16(&mut self, addr: u32) -> Result<MemoryIter<'_, Self>, u8> {
+        MemoryIter::new(self, addr)
     }
 
     /// Called when the CPU executes a RESET instruction.
     fn reset_instruction(&mut self);
 }
 
+/// Iterator over aligned words in memory where knowing the address is necessary.
+pub trait MemoryIterator : Iterator<Item = u16> {
+    /// Returns the address of the next data to be read.
+    ///
+    /// The address is guaranteed to be word-aligned.
+    fn next_address(&self) -> u32;
+}
+
 /// Iterator over 16-bits values in memory.
 pub struct MemoryIter<'a, M: MemoryAccess + ?Sized> {
     /// The memory system that will be used to get the values.
-    pub memory: &'a mut M,
-    /// The address of the next value to be returned.
-    pub next_addr: u32,
+    memory: &'a mut M,
+    /// The address of the next value to be returned, guaranteed to be word-aligned.
+    next_addr: Wrapping<u32>,
+}
+
+impl<M: MemoryAccess + ?Sized> MemoryIter<'_, M> {
+    /// Returns `Err(ADDRESS_ERROR)` if `addr` is not even.
+    #[inline]
+    pub fn new(memory: &mut M, addr: u32) -> Result<MemoryIter<'_, M>, u8> {
+        if addr.is_even() {
+            Ok(MemoryIter { memory, next_addr: Wrapping(addr) })
+        } else {
+            Err(ADDRESS_ERROR)
+        }
+    }
 }
 
 impl<M: MemoryAccess + ?Sized> Iterator for MemoryIter<'_, M> {
-    type Item = GetResult<u16>;
+    type Item = u16;
 
+    #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        if self.next_addr.is_even() {
-            let data = self.memory.get_word(self.next_addr);
-            self.next_addr = self.next_addr.wrapping_add(2);
-            Some(data.ok_or(ACCESS_ERROR))
+        let data = self.memory.get_word(self.next_addr.0);
+        self.next_addr += 2;
+        data
+    }
+}
+
+impl<M: MemoryAccess + ?Sized> MemoryIterator for MemoryIter<'_, M> {
+    #[inline(always)]
+    fn next_address(&self) -> u32 {
+        self.next_addr.0
+    }
+}
+
+/// Iterator tied to the Program Counter of the CPU.
+pub struct PcIter<'pc, 'm, M: MemoryAccess + ?Sized> {
+    /// The memory system that will be used to get the values.
+    memory: &'m mut M,
+    /// The Program Counter of the CPU, guaranteed to be word-aligned.
+    pc: &'pc mut Wrapping<u32>,
+}
+
+impl<'pc, 'm, M: MemoryAccess + ?Sized> PcIter<'pc, 'm, M> {
+    /// Returns `Err(ADDRESS_ERROR)` if `pc` is not even.
+    #[inline]
+    pub fn new(memory: &'m mut M, pc: &'pc mut Wrapping<u32>) -> Result<Self, u8> {
+        if pc.0.is_even() {
+            Ok(PcIter { memory, pc })
         } else {
-            Some(Err(ADDRESS_ERROR))
+            Err(ADDRESS_ERROR)
         }
+    }
+}
+
+impl<M: MemoryAccess + ?Sized> Iterator for PcIter<'_, '_, M> {
+    type Item = u16;
+
+    #[inline]
+    fn next(&mut self) -> Option<Self::Item> {
+        let word = self.memory.get_word(self.pc.0);
+        *self.pc += 2;
+        word
+    }
+}
+
+impl<M: MemoryAccess + ?Sized> MemoryIterator for PcIter<'_, '_, M> {
+    #[inline(always)]
+    fn next_address(&self) -> u32 {
+        self.pc.0
     }
 }
 
@@ -223,8 +289,9 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     /// Creates a new memory iterator starting at the current Program Counter.
-    pub(super) fn iter_from_pc<'a, M: MemoryAccess + ?Sized>(&self, memory: &'a mut M) -> MemoryIter<'a, M> {
-        memory.iter_u16(self.regs.pc.0)
+    #[inline]
+    pub(super) fn iter_from_pc<'m, M: MemoryAccess + ?Sized>(&mut self, memory: &'m mut M) -> Result<PcIter<'_, 'm, M>, u8> {
+        PcIter::new(memory, &mut self.regs.pc)
     }
 }
 

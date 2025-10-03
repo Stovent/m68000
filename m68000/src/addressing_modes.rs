@@ -4,8 +4,8 @@
 
 //! Addressing mode-related structs, enums and functions.
 
-use crate::{CpuDetails, M68000, MemoryAccess};
-use crate::memory_access::MemoryIter;
+use crate::{CpuDetails, M68000};
+use crate::memory_access::MemoryIterator;
 use crate::instruction::Size;
 use crate::utils::{bit, bits};
 
@@ -45,31 +45,37 @@ pub enum AddressingMode {
 
 impl AddressingMode {
     /// New addressing mode from memory iterator.
-    pub fn from_memory<M: MemoryAccess + ?Sized>(mode: u16, reg: u8, size: Option<Size>, memory: &mut MemoryIter<M>) -> Self {
+    pub fn from_memory<M: MemoryIterator + ?Sized>(mode: u16, reg: u8, size: Option<Size>, memory: &mut M) -> Self {
         match mode {
             0 => Self::Drd(reg),
             1 => Self::Ard(reg),
             2 => Self::Ari(reg),
             3 => Self::Ariwpo(reg),
             4 => Self::Ariwpr(reg),
-            5 => Self::Ariwd(reg, memory.next().unwrap().expect("An Access Error occured in Ariwd.") as i16),
-            6 => Self::Ariwi8(reg, BriefExtensionWord(memory.next().unwrap().expect("An Access Error occured in Ariwi8."))),
+            5 => Self::Ariwd(reg, memory.next().expect("An Access Error occured in Ariwd.") as i16),
+            6 => Self::Ariwi8(reg, BriefExtensionWord(memory.next().expect("An Access Error occured in Ariwi8."))),
             7 => match reg {
-                0 => Self::AbsShort(memory.next().unwrap().expect("An Access Error occured in AbsShort.")),
+                0 => Self::AbsShort(memory.next().expect("An Access Error occured in AbsShort.")),
                 1 => {
-                    let high = (memory.next().unwrap().expect("An Access Error occured in AbsLong high.") as u32) << 16;
-                    let low = memory.next().unwrap().expect("An Access Error occured in AbsLong low.") as u32;
+                    let high = (memory.next().expect("An Access Error occured in AbsLong high.") as u32) << 16;
+                    let low = memory.next().expect("An Access Error occured in AbsLong low.") as u32;
                     Self::AbsLong(high | low)
                 },
-                2 => Self::Pciwd(memory.next_addr, memory.next().unwrap().expect("An Access Error occured in Pciwd.") as i16),
-                3 => Self::Pciwi8(memory.next_addr, BriefExtensionWord(memory.next().unwrap().expect("An Access Error occured in Pciwi8."))),
+                2 => {
+                    let pc = memory.next_address();
+                    Self::Pciwd(pc, memory.next().expect("An Access Error occured in Pciwd.") as i16)
+                },
+                3 => {
+                    let pc = memory.next_address();
+                    Self::Pciwi8(pc, BriefExtensionWord(memory.next().expect("An Access Error occured in Pciwi8.")))
+                },
                 4 => {
                     if size.unwrap().is_long() {
-                        let high = (memory.next().unwrap().expect("An Access Error occured in Immediate high.") as u32) << 16;
-                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate low.") as u32;
+                        let high = (memory.next().expect("An Access Error occured in Immediate high.") as u32) << 16;
+                        let low = memory.next().expect("An Access Error occured in Immediate low.") as u32;
                         Self::Immediate(high | low)
                     } else {
-                        let low = memory.next().unwrap().expect("An Access Error occured in Immediate.");
+                        let low = memory.next().expect("An Access Error occured in Immediate.");
                         Self::Immediate(low as u32)
                     }
                 },
