@@ -200,7 +200,6 @@ impl MemoryAccess for m68000_callbacks_t {
         } else {
             None
         }
-
     }
 
     fn get_long(&mut self, addr: u32) -> Option<u32> {

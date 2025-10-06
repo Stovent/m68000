@@ -565,7 +565,7 @@ typedef struct RotationDirectionSizeModeRegister_Body
     uint8_t _0;
     enum m68000_direction_t _1;
     enum m68000_size_t _2;
-    uint8_t _3;
+    bool _3;
     uint8_t _4;
 } RotationDirectionSizeModeRegister_Body;
 
