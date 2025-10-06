@@ -2,7 +2,7 @@
 // License, v. 2.0. If a copy of the MPL was not distributed with this
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
-//! Benchmark for the cpudiag test ROM with the FFI interface.
+//! Benchmark for the interpreter methods with the FFI interface.
 //!
 //! Make sure the result of the benchmarked function is used,
 //! whether by sending it to black_box, or to return it from the closure.

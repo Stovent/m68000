@@ -5,9 +5,11 @@
 //! MC68000 FFI.
 
 use crate::*;
+use crate::fastmem::m68000_fastmem_t;
 
 use m68000::cpu_details::Mc68000;
 
 use paste::paste;
 
 cinterface!(mc68000, Mc68000);
+cinterface_fastmem!(mc68000, Mc68000);

@@ -5,9 +5,11 @@
 //! SCC68070 FFI.
 
 use crate::*;
+use crate::fastmem::m68000_fastmem_t;
 
 use m68000::cpu_details::Scc68070;
 
 use paste::paste;
 
 cinterface!(scc68070, Scc68070);
+cinterface_fastmem!(scc68070, Scc68070);

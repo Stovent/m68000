@@ -21,11 +21,23 @@ crate-type = ["lib", "staticlib"]
 criterion = "0.7"
 
 # [[bench]]
+# name = "cpudiag_fastmem_ffi"
+# harness = false
+
+# [[bench]]
 # name = "cpudiag_ffi"
 # harness = false
 
 [[bench]]
+name = "interpreter_fastmem_ffi"
+harness = false
+
+[[bench]]
 name = "interpreter_ffi"
+harness = false
+
+[[bench]]
+name = "memory_fastmem_ffi"
 harness = false
 
 [[bench]]
