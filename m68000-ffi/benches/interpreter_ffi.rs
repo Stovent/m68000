@@ -53,16 +53,16 @@ extern "C" fn get_long(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
     }
 }
 
-extern "C" fn set_byte(_addr: u32, _data: u8, _user_data: *mut c_void) -> m68000_memory_result_t {
-    m68000_memory_result_t { data: 0, exception: 2 }
+extern "C" fn set_byte(_addr: u32, _data: u8, _user_data: *mut c_void) -> bool {
+    false
 }
 
-extern "C" fn set_word(_addr: u32, _data: u16, _user_data: *mut c_void) -> m68000_memory_result_t {
-    m68000_memory_result_t { data: 0, exception: 2 }
+extern "C" fn set_word(_addr: u32, _data: u16, _user_data: *mut c_void) -> bool {
+    false
 }
 
-extern "C" fn set_long(_addr: u32, _data: u32, _user_data: *mut c_void) -> m68000_memory_result_t {
-    m68000_memory_result_t { data: 0, exception: 2 }
+extern "C" fn set_long(_addr: u32, _data: u32, _user_data: *mut c_void) -> bool {
+    false
 }
 
 extern "C" fn reset_instruction(_user_data: *mut c_void) {}

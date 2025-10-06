@@ -84,27 +84,27 @@ extern "C" fn get_long(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
     }
 }
 
-extern "C" fn set_byte(addr: u32, data: u8, user_data: *mut c_void) -> m68000_memory_result_t {
+extern "C" fn set_byte(addr: u32, data: u8, user_data: *mut c_void) -> bool {
     let memory = user_data as *mut Memory68070;
 
     unsafe {
         match addr {
             addr if (addr as usize) < (&*memory).ram.len() => {
                 (*memory).ram[addr as usize] = data;
-                m68000_memory_result_t { data: 0, exception: 0 }
+                true
             },
             0x8000_2011..=0x8000_2019 => {
                 if addr == 0x8000_2019 {
                     print!("{}", data as char);
                 }
-                m68000_memory_result_t { data: 0, exception: 0 }
+                true
             },
-            _ => m68000_memory_result_t { data: 0, exception: 2 },
+            _ => false,
         }
     }
 }
 
-extern "C" fn set_word(addr: u32, data: u16, user_data: *mut c_void) -> m68000_memory_result_t {
+extern "C" fn set_word(addr: u32, data: u16, user_data: *mut c_void) -> bool {
     let memory = user_data as *mut Memory68070;
 
     unsafe {
@@ -112,15 +112,15 @@ extern "C" fn set_word(addr: u32, data: u16, user_data: *mut c_void) -> m68000_m
             addr if (addr as usize) < (&*memory).ram.len() - 1 => {
                 (*memory).ram[addr as usize] = (data >> 8) as u8;
                 (*memory).ram[addr as usize + 1] = data as u8;
-                m68000_memory_result_t { data: 0, exception: 0 }
+                true
             },
-            0x8000_2011..=0x8000_2019 => m68000_memory_result_t { data: 0, exception: 0 },
-            _ => m68000_memory_result_t { data: 0, exception: 2 },
+            0x8000_2011..=0x8000_2019 => true,
+            _ => false,
         }
     }
 }
 
-extern "C" fn set_long(addr: u32, data: u32, user_data: *mut c_void) -> m68000_memory_result_t {
+extern "C" fn set_long(addr: u32, data: u32, user_data: *mut c_void) -> bool {
     let memory = user_data as *mut Memory68070;
 
     unsafe {
@@ -130,10 +130,10 @@ extern "C" fn set_long(addr: u32, data: u32, user_data: *mut c_void) -> m68000_m
                 (*memory).ram[addr as usize + 1] = (data >> 16) as u8;
                 (*memory).ram[addr as usize + 2] = (data >> 8) as u8;
                 (*memory).ram[addr as usize + 3] = data as u8;
-                m68000_memory_result_t { data: 0, exception: 0 }
+                true
             },
-            0x8000_2011..=0x8000_2019 => m68000_memory_result_t { data: 0, exception: 0 },
-            _ => m68000_memory_result_t { data: 0, exception: 2 },
+            0x8000_2011..=0x8000_2019 => true,
+            _ => false,
         }
     }
 }

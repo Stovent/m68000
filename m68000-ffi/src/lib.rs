@@ -161,6 +161,8 @@ pub struct m68000_memory_result_t {
 ///
 /// Every member must be a valid function pointer, no pointer checks are done when calling the callbacks.
 ///
+/// The set functions returns false when a bus error occured, or true when the write is successful.
+///
 /// The void* argument passed on each callback is the [user_data](Self::user_data) member,
 /// and its usage is let to the user of this library. For example, this can be used to allow the usage of C++ objects,
 /// where [user_data](Self::user_data) has the value of the `this` pointer of the object.
@@ -171,9 +173,9 @@ pub struct m68000_callbacks_t {
     pub get_word: extern "C" fn(addr: u32, user_data: *mut c_void) -> m68000_memory_result_t,
     pub get_long: extern "C" fn(addr: u32, user_data: *mut c_void) -> m68000_memory_result_t,
 
-    pub set_byte: extern "C" fn(addr: u32, data: u8, user_data: *mut c_void) -> m68000_memory_result_t,
-    pub set_word: extern "C" fn(addr: u32, data: u16, user_data: *mut c_void) -> m68000_memory_result_t,
-    pub set_long: extern "C" fn(addr: u32, data: u32, user_data: *mut c_void) -> m68000_memory_result_t,
+    pub set_byte: extern "C" fn(addr: u32, data: u8, user_data: *mut c_void) -> bool,
+    pub set_word: extern "C" fn(addr: u32, data: u16, user_data: *mut c_void) -> bool,
+    pub set_long: extern "C" fn(addr: u32, data: u32, user_data: *mut c_void) -> bool,
 
     pub reset_instruction: extern "C" fn(user_data: *mut c_void),
 
@@ -211,7 +213,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
         let res = (self.set_byte)(addr, value, self.user_data);
-        if res.exception == 0 {
+        if res {
             Some(())
         } else {
             None
@@ -220,7 +222,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_word(&mut self, addr: u32, value: u16) -> Option<()> {
         let res = (self.set_word)(addr, value, self.user_data);
-        if res.exception == 0 {
+        if res {
             Some(())
         } else {
             None
@@ -229,7 +231,7 @@ impl MemoryAccess for m68000_callbacks_t {
 
     fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
         let res = (self.set_long)(addr, value, self.user_data);
-        if res.exception == 0 {
+        if res {
             Some(())
         } else {
             None
