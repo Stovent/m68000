@@ -101,6 +101,8 @@
 //! }
 //! ```
 
+#![feature(likely_unlikely)]
+
 #![allow(clippy::missing_safety_doc)]
 
 pub mod fastmem;

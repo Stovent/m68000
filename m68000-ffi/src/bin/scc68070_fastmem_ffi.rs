@@ -117,7 +117,7 @@ struct Memory {
 
 fn make_fastmem(bios_data: Vec<u8>) -> (m68000_fastmem_t, Pin<Box<Memory>>) {
     const OFFSET_BITS: u32 = 19;
-    const RAM_BANK_SIZE: usize = 1 << 19;
+    const RAM_BANK_SIZE: usize = 1 << OFFSET_BITS;
     const OFFSET_MASK: u32 = RAM_BANK_SIZE as u32 - 1;
     const PAGE_BITS: u32 = 32 - OFFSET_BITS;
     const PAGE_COUNT: usize = 1 << PAGE_BITS;

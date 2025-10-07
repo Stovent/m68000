@@ -6,6 +6,8 @@
 //!
 //! https://wheremyfoodat.github.io/software-fastmem/
 
+use core::hint::likely;
+
 use crate::{m68000_callbacks_t, MemoryAccess};
 
 /// Fast memory access with a software paging.
@@ -27,26 +29,40 @@ pub struct m68000_fastmem_t {
 }
 
 impl m68000_fastmem_t {
-    #[inline]
-    const fn index_read_page(&self, addr: u32) -> *const u8 {
+    #[inline(always)]
+    const fn get_read_page(&self, addr: u32) -> *const u8 {
         let page_index = (addr >> self.page_shift) as usize;
         // SAFETY: it is the user's responsibility.
         unsafe { *self.page_read.wrapping_add(page_index) }
     }
 
-    #[inline]
-    const fn index_write_page(&self, addr: u32) -> *mut u8 {
+    #[inline(always)]
+    const fn get_write_page(&self, addr: u32) -> *mut u8 {
         let page_index = (addr >> self.page_shift) as usize;
         // SAFETY: it is the user's responsibility.
         unsafe { *self.page_write.wrapping_add(page_index) }
+    }
+
+    #[inline(always)]
+    const fn read_u16(&self, addr: u32, page: *const u8) -> u16 {
+        let offset = (addr & self.offset_mask) as usize;
+        let ptr = page.wrapping_add(offset).cast::<u16>();
+        unsafe { u16::from_be(ptr.read_unaligned()) }
+    }
+
+    #[inline(always)]
+    const fn write_u16(&self, addr: u32, value: u16, page: *mut u8) {
+        let offset = (addr & self.offset_mask) as usize;
+        let ptr = page.wrapping_add(offset).cast::<u16>();
+        unsafe { ptr.write_unaligned(value.to_be()); }
     }
 }
 
 impl MemoryAccess for m68000_fastmem_t {
     fn get_byte(&mut self, addr: u32) -> Option<u8> {
-        let page = self.index_read_page(addr);
+        let page = self.get_read_page(addr);
 
-        if !page.is_null() {
+        if likely(!page.is_null()) {
             let offset = (addr & self.offset_mask) as usize;
             unsafe { Some(*page.wrapping_add(offset)) }
         } else {
@@ -56,23 +72,40 @@ impl MemoryAccess for m68000_fastmem_t {
 
     // Addresses are even so it can't cross page boundaries.
     fn get_word(&mut self, addr: u32) -> Option<u16> {
-        let page = self.index_read_page(addr);
+        let page = self.get_read_page(addr);
 
-        if !page.is_null() {
-            let offset = (addr & self.offset_mask) as usize;
-            let ptr = page.wrapping_add(offset).cast::<[u8; 2]>();
-            unsafe { Some(u16::from_be_bytes(*ptr)) }
+        if likely(!page.is_null()) {
+            Some(self.read_u16(addr, page))
         } else {
             self.slow_memory.get_word(addr)
         }
     }
 
-    // get_long uses the default implementation as it seems faster and handles page crossing.
+    fn get_long(&mut self, addr: u32) -> Option<u32> {
+        let page = self.get_read_page(addr);
+        let addr_2 = addr + 2;
+        let page_2 = self.get_read_page(addr_2);
+
+        if likely(!page.is_null() && !page_2.is_null()) {
+            if likely(page == page_2) { // Same page.
+                let offset = (addr & self.offset_mask) as usize;
+                let ptr = page.wrapping_add(offset).cast::<u32>();
+                unsafe { Some(u32::from_be(ptr.read_unaligned())) }
+            } else { // consecutive pages.
+                let high = self.read_u16(addr, page) as u32;
+                let low = self.read_u16(addr_2, page_2) as u32;
+
+                Some((high << 16) | low)
+            }
+        } else {
+            self.slow_memory.get_long(addr)
+        }
+    }
 
     fn set_byte(&mut self, addr: u32, value: u8) -> Option<()> {
-        let page = self.index_write_page(addr);
+        let page = self.get_write_page(addr);
 
-        if !page.is_null() {
+        if likely(!page.is_null()) {
             let offset = (addr & self.offset_mask) as usize;
             unsafe { *page.wrapping_add(offset) = value; }
             Some(())
@@ -83,20 +116,35 @@ impl MemoryAccess for m68000_fastmem_t {
 
     // Addresses are even so it can't cross page boundaries.
     fn set_word(&mut self, addr: u32, value: u16) -> Option<()> {
-        let page = self.index_write_page(addr);
+        let page = self.get_write_page(addr);
 
-        if !page.is_null() {
-            let offset = (addr & self.offset_mask) as usize;
-            let bytes = value.to_be_bytes();
-            let ptr = page.wrapping_add(offset).cast::<[u8; 2]>();
-            unsafe { *ptr = bytes; }
+        if likely(!page.is_null()) {
+            self.write_u16(addr, value, page);
             Some(())
         } else {
             self.slow_memory.set_word(addr, value)
         }
     }
 
-    // set_long uses the default implementation as it seems faster and handles page crossing.
+    fn set_long(&mut self, addr: u32, value: u32) -> Option<()> {
+        let page = self.get_write_page(addr);
+        let addr_2 = addr + 2;
+        let page_2 = self.get_write_page(addr_2);
+
+        if likely(!page.is_null() && !page_2.is_null()) {
+            if likely(page == page_2) { // Same page.
+                let offset = (addr & self.offset_mask) as usize;
+                let ptr = page.wrapping_add(offset).cast::<u32>();
+                unsafe { ptr.write_unaligned(value.to_be()); }
+            } else { // consecutive pages.
+                self.write_u16(addr, (value >> 16) as u16, page);
+                self.write_u16(addr_2, value as u16, page_2);
+            }
+            Some(())
+        } else {
+            self.slow_memory.set_long(addr, value)
+        }
+    }
 
     fn reset_instruction(&mut self) {
         self.slow_memory.reset_instruction()
