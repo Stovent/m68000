@@ -168,7 +168,7 @@ impl Registers {
     }
 
     /// Returns a mutable reference to an address register.
-    pub fn a_mut(&mut self, reg: u8) -> &mut Wrapping<u32> {
+    pub const fn a_mut(&mut self, reg: u8) -> &mut Wrapping<u32> {
         if reg < 7 {
             &mut self.a[reg as usize]
         } else {
@@ -186,7 +186,7 @@ impl Registers {
     }
 
     /// Returns a mutable reference to the stack pointer, SSP if in supervisor mode, USP if in user mode.
-    pub fn sp_mut(&mut self) -> &mut Wrapping<u32> {
+    pub const fn sp_mut(&mut self) -> &mut Wrapping<u32> {
         if self.sr.s {
             &mut self.ssp
         } else {
