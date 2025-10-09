@@ -168,7 +168,6 @@ fn main() {
     let end = begin + test_rom.len();
     memory.ram[begin..end].copy_from_slice(&test_rom);
 
-    let memory_ptr = &raw mut *memory as *mut c_void;
     let memory_callbacks = m68000_callbacks_t {
         get_byte,
         get_word,
@@ -180,7 +179,7 @@ fn main() {
 
         reset_instruction,
 
-        user_data: memory_ptr,
+        user_data: core::ptr::null_mut(),
     };
 
     let mut scc68070 = Scc68070 {
@@ -188,6 +187,7 @@ fn main() {
         _memory: memory,
         callbacks: memory_callbacks,
     };
+    scc68070.callbacks.user_data = &raw mut *scc68070._memory as *mut _;
 
     let start = std::time::Instant::now();
 

@@ -44,7 +44,7 @@ extern "C" fn reset_instruction(_user_data: *mut c_void) {}
 
 #[test]
 fn fastmem() {
-    let (mut fastmem, memory) = make_fastmem();
+    let (mut fastmem, pages) = make_fastmem();
 
     // Test slow memory read.
     assert_eq!(fastmem.get_byte(0x8000_0000), Some(0x11));
@@ -65,16 +65,20 @@ fn fastmem() {
     // Test fastmem write.
     assert_eq!(fastmem.set_byte(SIZE, 0), Some(())); // Goes in slowmem path.
     assert_eq!(fastmem.set_word(SIZE - 2, 0x500A), Some(()));
-    assert_eq!(memory.ram1[RAM_BANK_SIZE - 2], 0x50);
-    assert_eq!(memory.ram1[RAM_BANK_SIZE - 1], 0x0A);
+    assert_eq!(pages.memory.ram1[RAM_BANK_SIZE - 2], 0x50);
+    assert_eq!(pages.memory.ram1[RAM_BANK_SIZE - 1], 0x0A);
     assert_eq!(fastmem.set_long(SIZE - 2, 0x500A), None);
 }
 
 struct Memory {
-    ram1: Pin<Box<[u8]>>,
-    _ram2: Pin<Box<[u8]>>,
+    ram1: Box<[u8]>,
+    ram2: Box<[u8]>,
+}
+
+struct Pages {
     page_read: Pin<Box<[*const u8]>>,
     page_write: Pin<Box<[*mut u8]>>,
+    memory: Pin<Box<Memory>>,
 }
 
 const OFFSET_BITS: u32 = 20;
@@ -83,38 +87,41 @@ const OFFSET_MASK: u32 = RAM_BANK_SIZE as u32 - 1;
 const PAGE_BITS: u32 = 32 - OFFSET_BITS;
 const PAGE_COUNT: usize = 1 << PAGE_BITS;
 
-fn make_fastmem() -> (m68000_fastmem_t, Pin<Box<Memory>>) {
-    let mut ram1 = Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice());
-    let mut ram2 = Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice());
-    // Setup cross page boundaries read.
-    ram1[RAM_BANK_SIZE - 2] = 0xAA;
-    ram1[RAM_BANK_SIZE - 1] = 0x55;
-    ram2[0] = 0x55;
-    ram2[1] = 0xAA;
+const RAM1_PAGE: usize = 0;
+const RAM2_PAGE: usize = RAM_BANK_SIZE >> OFFSET_BITS;
 
-    const RAM1_PAGE: usize = 0;
-    const RAM2_PAGE: usize = RAM_BANK_SIZE >> OFFSET_BITS;
+fn make_fastmem() -> (m68000_fastmem_t, Pin<Box<Pages>>) {
+    let mut memory = Box::pin(Memory {
+        ram1: vec![0; RAM_BANK_SIZE].into_boxed_slice(),
+        ram2: vec![0; RAM_BANK_SIZE].into_boxed_slice(),
+    });
+
+    // Setup cross page boundaries read.
+    memory.ram1[RAM_BANK_SIZE - 2] = 0xAA;
+    memory.ram1[RAM_BANK_SIZE - 1] = 0x55;
+    memory.ram2[0] = 0x55;
+    memory.ram2[1] = 0xAA;
+
+    let ram1_ptr = memory.ram1.as_mut_ptr();
 
     let page_read = Pin::new({
         let mut page = vec![core::ptr::null(); PAGE_COUNT].into_boxed_slice();
-        page[RAM1_PAGE] = ram1.as_ptr();
-        page[RAM2_PAGE] = ram2.as_ptr();
+        page[RAM1_PAGE] = ram1_ptr;
+        page[RAM2_PAGE] = memory.ram2.as_ptr();
         page
     });
 
     let page_write = Pin::new({
         let mut page = vec![core::ptr::null_mut(); PAGE_COUNT].into_boxed_slice();
-        page[RAM1_PAGE] = ram1.as_mut_ptr();
+        page[RAM1_PAGE] = ram1_ptr;
         page
     });
 
-    let mut memory = Box::pin(Memory {
-        ram1,
-        _ram2: ram2,
+    let mut pages = Box::pin(Pages {
         page_read,
         page_write,
+        memory: memory,
     });
-    let memory_ptr = &raw mut *memory as *mut c_void;
 
     let memory_callbacks = m68000_callbacks_t {
         get_byte,
@@ -127,14 +134,14 @@ fn make_fastmem() -> (m68000_fastmem_t, Pin<Box<Memory>>) {
 
         reset_instruction,
 
-        user_data: memory_ptr,
+        user_data: core::ptr::null_mut(),
     };
 
     (m68000_fastmem_t {
-        page_read: memory.page_read.as_ptr(),
-        page_write: memory.page_write.as_mut_ptr(),
+        page_read: pages.page_read.as_ptr(),
+        page_write: pages.page_write.as_mut_ptr(),
         page_shift: OFFSET_BITS,
         offset_mask: OFFSET_MASK,
         slow_memory: memory_callbacks,
-    }, memory)
+    }, pages)
 }

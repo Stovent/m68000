@@ -108,9 +108,9 @@ fn main() {
 }
 
 struct Memory {
-    _ram1: Pin<Box<[u8]>>,
-    _ram2: Pin<Box<[u8]>>,
-    _bios: Pin<Box<[u8]>>,
+    ram1: Pin<Box<[u8]>>,
+    ram2: Pin<Box<[u8]>>,
+    bios: Pin<Box<[u8]>>,
     page_read: Pin<Box<[*const u8]>>,
     page_write: Pin<Box<[*mut u8]>>,
 }
@@ -122,39 +122,45 @@ fn make_fastmem(bios_data: Vec<u8>) -> (m68000_fastmem_t, Pin<Box<Memory>>) {
     const PAGE_BITS: u32 = 32 - OFFSET_BITS;
     const PAGE_COUNT: usize = 1 << PAGE_BITS;
 
-    let mut ram1 = Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice());
-    let mut ram2 = Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice());
-    let mut bios = Pin::new(vec![0; RAM_BANK_SIZE * 2].into_boxed_slice());
-    bios[0..bios_data.len()].copy_from_slice(&bios_data);
-    ram1[0..8].copy_from_slice(&bios[0..8]); // Copy reset vectors.
-
     const RAM1_PAGE: usize = 0;
     const RAM2_PAGE: usize = 0x20_0000 >> OFFSET_BITS;
     const BIOS_PAGE: usize = 0x40_0000 >> OFFSET_BITS;
 
+    let mut memory = Box::pin(Memory {
+        ram1: Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice()),
+        ram2: Pin::new(vec![0; RAM_BANK_SIZE].into_boxed_slice()),
+        bios: Pin::new(vec![0; RAM_BANK_SIZE * 2].into_boxed_slice()),
+        page_read: Pin::new(vec![core::ptr::null(); 1].into_boxed_slice()), // Tempary placeholders.
+        page_write: Pin::new(vec![core::ptr::null_mut(); 1].into_boxed_slice()),
+    });
+
+    memory.bios[0..bios_data.len()].copy_from_slice(&bios_data);
+    memory.ram1[0..8].copy_from_slice(&bios_data[0..8]); // Copy reset vectors.
+
+    let ram1_ptr = memory.ram1.as_mut_ptr();
+    let ram2_ptr = memory.ram2.as_mut_ptr();
+    let bios_ptr1 = memory.bios.as_ptr(); // BIOS takes two pages.
+    let bios_ptr2 = memory.bios.as_ptr().wrapping_add(RAM_BANK_SIZE);
+
     let page_read = Pin::new({
         let mut page = vec![core::ptr::null(); PAGE_COUNT].into_boxed_slice();
-        page[RAM1_PAGE] = ram1.as_ptr();
-        page[RAM2_PAGE] = ram2.as_ptr();
-        page[BIOS_PAGE] = bios.as_ptr(); // BIOS takes two pages.
-        page[BIOS_PAGE + 1] = bios.as_ptr().wrapping_add(RAM_BANK_SIZE);
+        page[RAM1_PAGE] = ram1_ptr;
+        page[RAM2_PAGE] = ram2_ptr;
+        page[BIOS_PAGE] = bios_ptr1;
+        page[BIOS_PAGE + 1] = bios_ptr2;
         page
     });
 
     let page_write = Pin::new({
         let mut page = vec![core::ptr::null_mut(); PAGE_COUNT].into_boxed_slice();
-        page[RAM1_PAGE] = ram1.as_mut_ptr();
-        page[RAM2_PAGE] = ram2.as_mut_ptr();
+        page[RAM1_PAGE] = ram1_ptr;
+        page[RAM2_PAGE] = ram2_ptr;
         page
     });
 
-    let mut memory = Box::pin(Memory {
-        _ram1: ram1,
-        _ram2: ram2,
-        _bios: bios,
-        page_read,
-        page_write,
-    });
+    memory.page_read = page_read;
+    memory.page_write = page_write;
+
     let memory_ptr = &raw mut *memory as *mut c_void;
 
     let memory_callbacks = m68000_callbacks_t {
