@@ -109,6 +109,12 @@ impl Isa {
         use Isa::*;
         matches!(self, Andisr | Eorisr | Movesr | Moveusp | Orisr | Reset | Rte | Stop)
     }
+
+    /// Returns whether this instruction must end the block being generated.
+    pub const fn ends_block(self) -> bool {
+        use Isa::*;
+        matches!(self, Bcc | Bra | Bsr | Dbcc | Jmp | Jsr | Rte | Rtr | Rts | Stop)
+    }
 }
 
 impl From<u16> for Isa {

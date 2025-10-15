@@ -12,7 +12,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the instruction at the current Program Counter and advances it to the next instruction.
     ///
     /// If an error occurs when reading the next instruction, the Err variant contains the exception vector.
-    fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, u8> {
+    pub(crate) fn get_next_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> Result<Instruction, u8> {
         let mut iter = self.iter_from_pc(memory)?;
         let instruction = Instruction::from_memory(&mut iter)?;
         Ok(instruction)
@@ -75,6 +75,25 @@ impl<CPU: CpuDetails> M68000<CPU> {
         };
 
         (instruction.pc, dis, cycle_count, exception)
+    }
+
+    #[inline]
+    pub(crate) fn execute_instruction<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, instruction: &Instruction) -> (usize, Option<u8>) {
+        self.current_opcode = instruction.opcode;
+        let isa = Isa::from(instruction.opcode);
+
+        let trace = self.regs.sr.t;
+        match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory, instruction) {
+            Ok(cycles) => {
+                (cycles,
+                if trace && !isa.is_privileged() {
+                    Some(Vector::Trace as u8)
+                } else {
+                    None
+                })
+            },
+            Err(e) => (0, Some(e)),
+        }
     }
 
     fn instruction_unknown_instruction<M: MemoryAccess + ?Sized>(&mut self, _: &mut M, _: &Instruction) -> InterpreterResult {

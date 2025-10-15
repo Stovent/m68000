@@ -25,6 +25,8 @@ pub struct Instruction {
     pub pc: u32,
     /// The operands.
     pub operands: Operands,
+    /// The size in bytes of the instruction.
+    pub length: u32,
 }
 
 impl Instruction {
@@ -33,13 +35,16 @@ impl Instruction {
     /// Returns the decoded instruction.
     pub fn from_opcode<M: MemoryIterator + ?Sized>(opcode: u16, pc: u32, memory: &mut M) -> Self {
         let isa = Isa::from(opcode);
+        let start_pc = memory.next_address().wrapping_sub(2); // - 2 to add for the length of the opcode.
         let decode = IsaEntry::<M>::ISA_ENTRY[isa as usize].decode;
         let operands = decode(opcode, memory);
+        let length = memory.next_address().wrapping_sub(start_pc);
 
         Instruction {
             opcode,
             pc,
             operands,
+            length,
         }
     }
 
@@ -57,6 +62,13 @@ impl Instruction {
     pub fn disassemble(&self) -> String {
         let isa = Isa::from(self.opcode);
         (DLUT[isa as usize])(self)
+    }
+
+    /// Whether this instruction must end the block being generated.
+    #[inline]
+    pub fn ends_block(&self) -> bool {
+        let isa = Isa::from(self.opcode);
+        isa.ends_block()
     }
 }
 

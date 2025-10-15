@@ -96,6 +96,8 @@
 
 pub mod addressing_modes;
 pub mod assembler;
+pub mod cached_interpreter_flat_block;
+pub mod cached_interpreter_trie_block;
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
