@@ -1321,7 +1321,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     self.regs.a(eareg)
                 } else {
                     self.get_effective_address(&mut ea, &mut exec_time)
-                } 
+                }
                 .even()?;
 
             for reg in 0..8 {
