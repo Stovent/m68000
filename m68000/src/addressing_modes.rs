@@ -11,7 +11,7 @@ use crate::utils::{bit, bits};
 
 /// Addressing modes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "ffi", repr(C))]
+#[repr(u8)]
 pub enum AddressingMode {
     /// Data Register Direct.
     Drd(u8),
@@ -31,14 +31,14 @@ pub enum AddressingMode {
     AbsShort(u16),
     /// Absolute Long.
     AbsLong(u32),
-    /// Program Counter Indirect With Displacement (PC value, displacement).
+    /// Program Counter Indirect With Displacement (displacement, PC value).
     ///
     /// When using it with the assembler, the PC value is ignored.
-    Pciwd(u32, i16),
-    /// Program Counter Indirect With Index 8 (PC value, brief extension word).
+    Pciwd(i16, u32), // This order reduces the struct size.
+    /// Program Counter Indirect With Index 8 (brief extension word, PC value).
     ///
     /// When using it with the assembler, the PC value is ignored.
-    Pciwi8(u32, BriefExtensionWord),
+    Pciwi8(BriefExtensionWord, u32), // This order reduces the struct size.
     /// Immediate Data (cast this variant to the correct type when used).
     Immediate(u32),
 }
@@ -63,11 +63,11 @@ impl AddressingMode {
                 },
                 2 => {
                     let pc = memory.next_address();
-                    Self::Pciwd(pc, memory.next().expect("An Access Error occured in Pciwd.") as i16)
+                    Self::Pciwd(memory.next().expect("An Access Error occured in Pciwd.") as i16, pc)
                 },
                 3 => {
                     let pc = memory.next_address();
-                    Self::Pciwi8(pc, BriefExtensionWord(memory.next().expect("An Access Error occured in Pciwi8.")))
+                    Self::Pciwi8(BriefExtensionWord(memory.next().expect("An Access Error occured in Pciwi8.")), pc)
                 },
                 4 => {
                     if size.unwrap().is_long() {
@@ -153,8 +153,8 @@ impl AddressingMode {
             AddressingMode::Ariwi8(reg, bew) => (6 << 3 | reg as u16, Box::new([bew.0])),
             AddressingMode::AbsShort(addr) => (7 << 3, Box::new([addr])),
             AddressingMode::AbsLong(addr) => (7 << 3 | 1, Box::new([(addr >> 16) as u16, addr as u16])),
-            AddressingMode::Pciwd(_, disp) => (7 << 3 | 2, Box::new([disp as u16])),
-            AddressingMode::Pciwi8(_, bew) => (7 << 3 | 3, Box::new([bew.0])),
+            AddressingMode::Pciwd(disp, _) => (7 << 3 | 2, Box::new([disp as u16])),
+            AddressingMode::Pciwi8(bew, _) => (7 << 3 | 3, Box::new([bew.0])),
             AddressingMode::Immediate(imm) => {
                 if long {
                     (7 << 3 | 4, Box::new([(imm >> 16) as u16, imm as u16]))
@@ -221,8 +221,8 @@ impl std::fmt::Display for AddressingMode {
             AddressingMode::Ariwi8(reg, bew) => write!(f, "({}, A{reg}, {bew})", bew.disp()),
             AddressingMode::AbsShort(addr) => write!(f, "({addr:#X}).W"),
             AddressingMode::AbsLong(addr) => write!(f, "({addr:#X}).L"),
-            AddressingMode::Pciwd(_, disp) => write!(f, "({disp}, PC)"),
-            AddressingMode::Pciwi8(_, bew) => write!(f, "({}, PC, {bew})", bew.disp()),
+            AddressingMode::Pciwd(disp, _) => write!(f, "({disp}, PC)"),
+            AddressingMode::Pciwi8(bew, _) => write!(f, "({}, PC, {bew})", bew.disp()),
             AddressingMode::Immediate(imm) => write!(f, "#{imm}"),
         }
     }
@@ -250,8 +250,8 @@ impl std::fmt::UpperHex for AddressingMode {
 
 /// Raw Brief Extension Word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
-#[cfg_attr(feature = "ffi", repr(C))]
-pub struct BriefExtensionWord(pub u16);
+#[repr(transparent)]
+pub struct BriefExtensionWord(pub u16); // TODO: would it be faster if this contains decoded data?
 
 impl BriefExtensionWord {
     /// Creates a new brief extension word, to be used when using the assembler.
@@ -356,11 +356,11 @@ impl<CPU: CpuDetails> M68000<CPU> {
                     *exec_time += CPU::EA_ABSLONG;
                     Some(addr)
                 },
-                AddressingMode::Pciwd(pc, disp) => {
+                AddressingMode::Pciwd(disp, pc) => {
                     *exec_time += CPU::EA_PCIWD;
                     Some(pc.wrapping_add(disp as u32))
                 },
-                AddressingMode::Pciwi8(pc, bew) => {
+                AddressingMode::Pciwi8(bew, pc) => {
                     *exec_time += CPU::EA_PCIWI8;
                     Some(pc.wrapping_add(bew.disp() as u32).wrapping_add(self.get_index_register(bew)))
                 },
