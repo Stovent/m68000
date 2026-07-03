@@ -7,7 +7,7 @@
 use crate::instruction::{Direction, Instruction};
 use crate::isa::Isa;
 use crate::status_register::disassemble_conditional_test;
-use crate::utils::bits;
+use crate::utils::bit;
 
 pub fn disassemble_unknown_instruction(inst: &Instruction) -> String {
     format!("Unknown instruction {:04X}", inst.opcode)
@@ -102,7 +102,7 @@ pub fn disassemble_bcc(inst: &Instruction) -> String {
 
 pub fn disassemble_bchg(inst: &Instruction) -> String {
     let (am, count) = inst.operands.effective_address_count();
-    if bits(inst.opcode, 8, 8) != 0 {
+    if bit(inst.opcode, 8) {
         format!("BCHG D{count}, {am}")
     } else {
         format!("BCHG #{count}, {am}")
@@ -111,7 +111,7 @@ pub fn disassemble_bchg(inst: &Instruction) -> String {
 
 pub fn disassemble_bclr(inst: &Instruction) -> String {
     let (am, count) = inst.operands.effective_address_count();
-    if bits(inst.opcode, 8, 8) != 0 {
+    if bit(inst.opcode, 8) {
         format!("BCLR D{count}, {am}")
     } else {
         format!("BCLR #{count}, {am}")
@@ -125,7 +125,7 @@ pub fn disassemble_bra(inst: &Instruction) -> String {
 
 pub fn disassemble_bset(inst: &Instruction) -> String {
     let (am, count) = inst.operands.effective_address_count();
-    if bits(inst.opcode, 8, 8) != 0 {
+    if bit(inst.opcode, 8) {
         format!("BSET D{count}, {am}")
     } else {
         format!("BSET #{count}, {am}")
@@ -139,7 +139,7 @@ pub fn disassemble_bsr(inst: &Instruction) -> String {
 
 pub fn disassemble_btst(inst: &Instruction) -> String {
     let (am, count) = inst.operands.effective_address_count();
-    if bits(inst.opcode, 8, 8) != 0 {
+    if bit(inst.opcode, 8) {
         format!("BTST D{count}, {am}")
     } else {
         format!("BTST #{count}, {am}")
