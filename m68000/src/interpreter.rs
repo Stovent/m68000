@@ -6,7 +6,7 @@ use crate::{CpuDetails, M68000, MemoryAccess, StackFormat};
 use crate::addressing_modes::{EffectiveAddress, AddressingMode};
 use crate::exception::{ACCESS_ERROR, Vector};
 use crate::instruction::{Direction, Size};
-use crate::utils::{bits, CarryingOps, Integer, IsEven};
+use crate::utils::{bit, CarryingOps, Integer, IsEven};
 
 use std::num::Wrapping;
 
@@ -551,7 +551,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_bchg<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
-        let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
+        let mut exec_time = if bit(self.current_opcode, 8) {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCHG_DYN_REG } else { CPU::BCHG_DYN_MEM }
         } else if am.is_drd() {
@@ -578,7 +578,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_bclr<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
-        let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
+        let mut exec_time = if bit(self.current_opcode, 8) {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BCLR_DYN_REG } else { CPU::BCLR_DYN_MEM }
         } else if am.is_drd() {
@@ -615,7 +615,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_bset<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
-        let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
+        let mut exec_time = if bit(self.current_opcode, 8) {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BSET_DYN_REG } else { CPU::BSET_DYN_MEM }
         } else if am.is_drd() {
@@ -653,7 +653,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
     }
 
     pub(super) fn execute_btst<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M, am: AddressingMode, mut count: u8) -> InterpreterResult {
-        let mut exec_time = if bits(self.current_opcode, 8, 8) != 0 {
+        let mut exec_time = if bit(self.current_opcode, 8) {
             count = self.regs.d[count as usize].0 as u8;
             if am.is_drd() { CPU::BTST_DYN_REG } else { CPU::BTST_DYN_MEM }
         } else if am.is_drd() {
