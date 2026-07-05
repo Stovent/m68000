@@ -201,6 +201,8 @@ pub struct M68000<CPU: CpuDetails> {
     /// The registers of the CPU.
     pub regs: Registers,
 
+    /// The address of the current instruction being executed.
+    current_pc: Wrapping<u32>,
     /// The opcode of the instruction currently executing.
     ///
     /// Stored because it is an information of the long exception stack frame.
@@ -235,6 +237,7 @@ impl<CPU: CpuDetails> M68000<CPU> {
         Self {
             regs: Registers::default(),
 
+            current_pc: Wrapping(u32::MAX),
             current_opcode: 0xFFFF,
             stop: false,
             exceptions: BTreeSet::new(),
