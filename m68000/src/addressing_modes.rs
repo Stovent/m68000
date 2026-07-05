@@ -251,7 +251,7 @@ impl std::fmt::UpperHex for AddressingMode {
 /// Raw Brief Extension Word.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(transparent)]
-pub struct BriefExtensionWord(pub u16); // TODO: would it be faster if this contains decoded data?
+pub struct BriefExtensionWord(pub u16);
 
 impl BriefExtensionWord {
     /// Creates a new brief extension word, to be used when using the assembler.
