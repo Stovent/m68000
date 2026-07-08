@@ -5,15 +5,22 @@
 //! This is a minimal SCC68070 microcontroller emulation used to run test ROMs.
 //! It also demonstrate how to use this library in Rust projects.
 
+use m68000::cached_interpreter_flat_block::CachedInterpreterFlatBlock;
+use m68000::cached_interpreter_single_block::CachedInterpreterSingleBlock;
+use m68000::cached_interpreter_trie_block::CachedInterpreterTrieBlock;
 use m68000::M68000;
 use m68000::memory_access::MemoryAccess;
 
 use std::fs::File;
 use std::io::Read;
 
+type CpuScc68070 = m68000::cpu_details::Scc68070;
+
+use core::hint::cold_path;
+
 /// The microcontroller structure, with its CPU core and its internal peripherals memory.
 struct Scc68070 {
-    pub cpu: M68000<m68000::cpu_details::Scc68070>,
+    pub cpu: M68000<CpuScc68070>,
     pub memory: Memory68070,
 }
 
@@ -22,6 +29,9 @@ struct Memory68070 {
     pub memory_swap: usize,
     pub ram: Box<[u8]>,
 }
+
+const ROM_BEGIN: u32 = 0x40_0000;
+const ROM_END: u32 = 0x50_0000;
 
 impl MemoryAccess for Memory68070 {
     fn get_byte(&mut self, addr: u32) -> Option<u8> {
@@ -36,14 +46,18 @@ impl MemoryAccess for Memory68070 {
                     Some(0)
                 }
             },
-            _ => None,
+            _ => {
+                cold_path();
+                None
+            },
         }
     }
 
     fn get_word(&mut self, addr: u32) -> Option<u16> {
         let addr = if self.memory_swap < 4 {
+            cold_path();
             self.memory_swap += 1;
-            addr + 0x40_0000
+            addr + ROM_BEGIN
         } else {
             addr
         } as usize;
@@ -51,14 +65,16 @@ impl MemoryAccess for Memory68070 {
         if addr < self.ram.len() { // addr is even so no need to subtract 1.
             Some(u16::from_be_bytes(self.ram[addr..addr + 2].try_into().unwrap()))
         } else {
+            cold_path();
             None
         }
     }
 
     fn get_long(&mut self, addr: u32) -> Option<u32> {
         let addr = if self.memory_swap < 4 {
+            cold_path();
             self.memory_swap += 2;
-            addr + 0x40_0000
+            addr + ROM_BEGIN
         } else {
             addr
         } as usize;
@@ -66,6 +82,7 @@ impl MemoryAccess for Memory68070 {
         if addr < self.ram.len() - 3 {
             Some(u32::from_be_bytes(self.ram[addr..addr + 4].try_into().unwrap()))
         } else {
+            cold_path();
             None
         }
     }
@@ -77,12 +94,16 @@ impl MemoryAccess for Memory68070 {
                 Some(())
             },
             0x8000_2011..=0x8000_2019 => {
+                cold_path();
                 if addr == 0x8000_2019 {
                     print!("{}", value as char);
                 }
                 Some(())
             },
-            _ => None,
+            _ => {
+                cold_path();
+                None
+            },
         }
     }
 
@@ -103,7 +124,7 @@ fn main()
 
     // Load the program in memory.
     let mut bios_file = File::open("cpudiag40.rom").expect("no cpudiag40.rom");
-    match bios_file.read(&mut ram.ram[0x40_0000..]) {
+    match bios_file.read(&mut ram.ram[ROM_BEGIN as usize..]) {
         Ok(_) => (),
         Err(e) => panic!("Failed to read from cpudiag40.rom: {e}"),
     }
@@ -112,12 +133,18 @@ fn main()
         cpu: M68000::new(),
         memory: ram,
     };
+    // let mut cached_interpreter =
+    //     CachedInterpreterFlatBlock::new(M68000::<CpuScc68070>::new(), 1 << 23, 1, 0xFF_FFFF);
+    // let mut cached_interpreter = CachedInterpreterTrieBlock::new(M68000::<CpuScc68070>::new());
+    let mut cached_interpreter = CachedInterpreterSingleBlock::new(M68000::<CpuScc68070>::new(), ROM_BEGIN, ROM_END);
 
     let start = std::time::Instant::now();
 
     // Execute 1 000 000 000 instructions.
     for _ in 0..1_000_000_000 {
-        scc68070.cpu.interpreter(&mut scc68070.memory);
+        cached_interpreter.cached_interpreter(&mut scc68070.memory);
+        // scc68070.cpu.cached_interpreter_1(&mut scc68070.memory);
+        // scc68070.cpu.interpreter(&mut scc68070.memory);
         // let (dis, _) = scc68070.cpu.disassembler_interpreter(&mut scc68070.memory);
         // println!("{dis}");
     }

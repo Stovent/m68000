@@ -20,16 +20,24 @@ use crate::utils::{bit, bits};
 #[cfg_attr(feature = "ffi", repr(C))]
 pub struct Instruction {
     /// The opcode itself.
-    pub opcode: u16,
+    pub opcode: u16, // TODO: for the cached interpreter, remove this in favor of the handler function directly?
     /// The address of the instruction.
     pub pc: u32,
     /// The operands.
     pub operands: Operands,
     /// The size in bytes of the instruction.
-    pub length: u32,
+    pub length: u8,
 }
 
 impl Instruction {
+    /// An unknown instruction, usable as a default value.
+    pub const UNKNOWN: Self = Self {
+        opcode: 0xFFFF,
+        pc: 0,
+        operands: Operands::NoOperands,
+        length: 2,
+    };
+
     /// Decodes the given opcode.
     ///
     /// Returns the decoded instruction.
@@ -38,7 +46,7 @@ impl Instruction {
         let start_pc = memory.next_address().wrapping_sub(2); // - 2 to add for the length of the opcode.
         let decode = IsaEntry::<M>::ISA_ENTRY[isa as usize].decode;
         let operands = decode(opcode, memory);
-        let length = memory.next_address().wrapping_sub(start_pc);
+        let length = memory.next_address().wrapping_sub(start_pc) as u8;
 
         Instruction {
             opcode,
@@ -69,6 +77,17 @@ impl Instruction {
     pub fn ends_block(&self) -> bool {
         let isa = Isa::from(self.opcode);
         isa.ends_block()
+    }
+
+    /// Checks if this is an unknown instruction.
+    ///
+    /// ```
+    /// use m68000::instruction::Instruction;
+    /// assert!(Instruction::UNKNOWN.is_unknown());
+    /// ```
+    #[inline]
+    pub fn is_unknown(&self) -> bool {
+        Isa::from(self.opcode) == Isa::Unknown
     }
 }
 

@@ -98,8 +98,11 @@ pub enum Isa {
     Trapv,
     Tst,
     Unlk,
-    _Size,
 }
+
+/// The number of entries in the [Isa] enum.
+// TODO: replace with core::mem::variant_count when stable.
+pub const ISA_COUNT: usize = Isa::Unlk as usize + 1;
 
 impl Isa {
     /// Returns whether the instruction is privileged or not.
@@ -113,7 +116,7 @@ impl Isa {
     /// Returns whether this instruction must end the block being generated.
     pub const fn ends_block(self) -> bool {
         use Isa::*;
-        matches!(self, Bcc | Bra | Bsr | Dbcc | Jmp | Jsr | Rte | Rtr | Rts | Stop)
+        matches!(self, Unknown | Bcc | Bra | Bsr | Dbcc | Jmp | Jsr | Rte | Rtr | Rts | Stop)
     }
 }
 
@@ -154,7 +157,7 @@ pub struct IsaEntry<M: MemoryIterator + ?Sized> {
 
 impl<M: MemoryIterator + ?Sized> IsaEntry<M> {
     /// The array that maps instructions to their [IsaEntry] entry. Index it using the [Isa] enum.
-    pub const ISA_ENTRY: [IsaEntry<M>; Isa::_Size as usize] = [
+    pub const ISA_ENTRY: [IsaEntry<M>; ISA_COUNT] = [
         IsaEntry { /* isa: Isa::Unknown,*/ decode: Operands::new_no_operands, },
         IsaEntry { /* isa: Isa::Abcd,*/    decode: Operands::new_register_size_mode_register, },
         IsaEntry { /* isa: Isa::Add,*/     decode: Operands::new_register_direction_size_effective_address, },

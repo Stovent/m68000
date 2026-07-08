@@ -12,6 +12,8 @@ use std::pin::Pin;
 
 use m68000::cpu_details;
 use m68000::M68000;
+use m68000_ffi::scc68070::m68000_scc68070_fastmem_cached_interpreter_1;
+use m68000_ffi::scc68070::m68000_scc68070_fastmem_cached_interpreter_2;
 use m68000_ffi::{m68000_callbacks_t, m68000_memory_result_t};
 use m68000_ffi::scc68070::{m68000_scc68070_delete, m68000_scc68070_fastmem_interpreter, m68000_scc68070_new};
 // use m68000_ffi::scc68070::m68000_scc68070_fastmem_disassembler_interpreter_exception;
@@ -96,7 +98,9 @@ fn main() {
 
     for _ in 0..1_000_000_000 {
         unsafe {
-            m68000_scc68070_fastmem_interpreter(scc68070.cpu, &raw mut scc68070.fastmem);
+            // m68000_scc68070_fastmem_cached_interpreter_1(scc68070.cpu, &raw mut scc68070.fastmem);
+            m68000_scc68070_fastmem_cached_interpreter_2(scc68070.cpu, &raw mut scc68070.fastmem);
+            // m68000_scc68070_fastmem_interpreter(scc68070.cpu, &raw mut scc68070.fastmem);
             // let mut str: [u8; 64] = [0; 64];
             // let res = m68000_scc68070_fastmem_disassembler_interpreter_exception(scc68070.cpu, &raw mut scc68070.fastmem, str.as_mut_ptr().cast(), str.len());
             // println!("{:X} {} {:?}", res.pc, res.exception, String::from_utf8_lossy(&str[..]));

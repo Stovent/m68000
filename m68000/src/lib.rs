@@ -97,7 +97,12 @@
 pub mod addressing_modes;
 pub mod assembler;
 pub mod cached_interpreter_flat_block;
+pub mod cached_interpreter_single_block;
 pub mod cached_interpreter_trie_block;
+/*
+TODO cached:
+have a fallback for when the address can't be expected to be in the range.
+invalidate blocks on memory writes. */
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
@@ -197,8 +202,9 @@ impl Registers {
     }
 }
 
-/// A M68000 core.
+/// The state of the CPU.
 #[derive(Clone, Debug)]
+// pub struct State<CPU: CpuDetails> {
 pub struct M68000<CPU: CpuDetails> {
     /// The registers of the CPU.
     pub regs: Registers,
@@ -208,12 +214,18 @@ pub struct M68000<CPU: CpuDetails> {
     /// Stored because it is an information of the long exception stack frame.
     current_opcode: u16,
     /// True if the CPU is stopped (after a STOP instruction), false to switch back to normal instruction execution.
-    pub stop: bool,
+    pub stop: bool, // pub stopped: bool,
     /// The pending exceptions. Low priority are popped first (MC68000UM 6.2.3 Multiple Exceptions).
     exceptions: BTreeSet<exception::Exception>,
     /// The details of the emulated CPU.
     _cpu: CPU,
 }
+
+// /// A M68000 CPU with additional features for emulation.
+// #[derive(Clone, Debug)]
+// pub struct M68000<CPU: CpuDetails> {
+//     state: State<CPU>,
+// }
 
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Creates a new M68000 core.

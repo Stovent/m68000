@@ -6,7 +6,7 @@ use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::exception::{Exception, Vector};
 use crate::instruction::Instruction;
 use crate::interpreter::InterpreterResult;
-use crate::isa::Isa;
+use crate::isa::{Isa, ISA_COUNT};
 
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Returns the instruction at the current Program Counter and advances it to the next instruction.
@@ -39,6 +39,8 @@ impl<CPU: CpuDetails> M68000<CPU> {
     /// The disassembled string is empty if no instruction has been executed.
     ///
     /// To process the returned exception, call [M68000::exception].
+    ///
+    /// If the CPU is stopped, returns `(0, "", 0, None)`.
     ///
     /// See [Self::interpreter_exception] for the potential caveat.
     pub fn disassembler_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (u32, String, usize, Option<u8>) {
@@ -527,7 +529,7 @@ struct Execute<E: CpuDetails, M: MemoryAccess + ?Sized> {
 
 impl<E: CpuDetails, M: MemoryAccess + ?Sized> Execute<E, M> {
     /// Function used to execute the instruction.
-    const EXECUTE: [fn(&mut M68000<E>, &mut M, &Instruction) -> InterpreterResult; Isa::_Size as usize] = [
+    const EXECUTE: [fn(&mut M68000<E>, &mut M, &Instruction) -> InterpreterResult; ISA_COUNT] = [
         M68000::instruction_unknown_instruction,
         M68000::instruction_abcd,
         M68000::instruction_add,

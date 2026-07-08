@@ -204,6 +204,22 @@ macro_rules! cinterface_fastmem {
                 }
             }
 
+            /// Executes the next instruction, returning the cycle count necessary to execute it.
+            #[no_mangle]
+            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_cached_interpreter_1>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> usize {
+                unsafe {
+                    (*m68000).cached_interpreter_1(&mut *memory)
+                }
+            }
+
+            /// Executes the next instruction, returning the cycle count necessary to execute it.
+            #[no_mangle]
+            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_cached_interpreter_2>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> usize {
+                unsafe {
+                    (*m68000).cached_interpreter_2(&mut *memory)
+                }
+            }
+
             /// Executes the next instruction, returning the cycle count necessary to execute it,
             /// and the vector of the exception that occured during the execution if any.
             ///

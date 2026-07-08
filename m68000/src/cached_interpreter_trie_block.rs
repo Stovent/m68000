@@ -117,9 +117,6 @@ impl<CPU: CpuDetails> CachedInterpreterTrieBlock<CPU> {
 
             let (cycles, exception) = self.m68000.execute_instruction(memory, &instruction);
             cycle_count += cycles;
-            if exception.is_some() {
-                return (cycle_count, exception);
-            }
 
             if exception.is_some() {
                 // Don't store cache if an exception occured.

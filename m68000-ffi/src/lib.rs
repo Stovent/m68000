@@ -105,6 +105,7 @@
 
 #![allow(clippy::missing_safety_doc)]
 
+pub mod cached_interpreter;
 pub mod fastmem;
 pub mod mc68000;
 pub mod scc68070;

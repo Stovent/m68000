@@ -6,7 +6,7 @@ use crate::{CpuDetails, M68000, MemoryAccess};
 use crate::exception::{Exception, Vector};
 use crate::instruction::*;
 use crate::interpreter::InterpreterResult;
-use crate::isa::Isa;
+use crate::isa::{Isa, ISA_COUNT};
 
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Runs the CPU for **at least** the given number of cycles.
@@ -102,13 +102,20 @@ impl<CPU: CpuDetails> M68000<CPU> {
             cycle_count += self.process_pending_exceptions(memory);
         }
 
+        let (cycles, exception) = self.execute_interpreter_exception(memory);
+        (cycle_count + cycles, exception)
+    }
+
+    #[inline]
+    pub(crate) fn execute_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
         let opcode = match self.get_next_word(memory) {
             Ok(op) => op,
-            Err(e) => return (cycle_count, Some(e)),
+            Err(e) => return (0, Some(e)),
         };
         self.current_opcode = opcode;
         let isa = Isa::from(opcode);
 
+        let mut cycle_count = 0;
         let trace = self.regs.sr.t;
         let exception = match Execute::<CPU, M>::EXECUTE[isa as usize](self, memory) {
             Ok(cycles) => {
@@ -675,7 +682,7 @@ struct Execute<E: CpuDetails, M: MemoryAccess + ?Sized> {
 
 impl<E: CpuDetails, M: MemoryAccess + ?Sized> Execute<E, M> {
     /// Function used to execute the instruction.
-    const EXECUTE: [fn(&mut M68000<E>, &mut M) -> InterpreterResult; Isa::_Size as usize] = [
+    const EXECUTE: [fn(&mut M68000<E>, &mut M) -> InterpreterResult; ISA_COUNT] = [
         M68000::fast_unknown_instruction,
         M68000::fast_abcd,
         M68000::fast_add,
