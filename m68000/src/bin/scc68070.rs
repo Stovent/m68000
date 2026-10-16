@@ -136,13 +136,13 @@ fn main()
     // let mut cached_interpreter =
     //     CachedInterpreterFlatBlock::new(M68000::<CpuScc68070>::new(), 1 << 23, 1, 0xFF_FFFF);
     // let mut cached_interpreter = CachedInterpreterTrieBlock::new(M68000::<CpuScc68070>::new());
-    let mut cached_interpreter = CachedInterpreterSingleBlock::new(M68000::<CpuScc68070>::new(), ROM_BEGIN, ROM_END);
+    let mut cached_interpreter = CachedInterpreterSingleBlock::new(ROM_BEGIN, ROM_END);
 
     let start = std::time::Instant::now();
 
     // Execute 1 000 000 000 instructions.
     for _ in 0..1_000_000_000 {
-        cached_interpreter.cached_interpreter(&mut scc68070.memory);
+        cached_interpreter.cached_interpreter(&mut scc68070.cpu, &mut scc68070.memory);
         // scc68070.cpu.cached_interpreter_1(&mut scc68070.memory);
         // scc68070.cpu.interpreter(&mut scc68070.memory);
         // let (dis, _) = scc68070.cpu.disassembler_interpreter(&mut scc68070.memory);

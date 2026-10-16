@@ -12,6 +12,7 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use m68000::cached_interpreter_flat_block::CachedInterpreterFlatBlock;
+use m68000::cached_interpreter_single_block::CachedInterpreterSingleBlock;
 use m68000::cached_interpreter_trie_block::CachedInterpreterTrieBlock;
 use m68000::M68000;
 use m68000::cpu_details::Mc68000;
@@ -30,6 +31,8 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         0x4E71, 0x4E71,
         bra, 0xFFE2, // Bra.s
     ];
+    let code_byte_len = core::mem::size_of_val(&code);
+    assert!(code_byte_len == 40);
     let mut cpu = M68000::<Mc68000>::new();
     cpu.interpreter(code.as_mut_slice()); // Fetch the reset vectors on the first call.
     // The benchmarks executes the same instruction so no need for dedicated input management.
@@ -46,17 +49,20 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         }
     }));
 
-//     c.bench_function("cached_interpreter_1 NOPs BRA", |b| b.iter(|| {
-//         for _ in 0..15 { // NOPs + BRA
-//             black_box(cpu.cached_interpreter_1(black_box(code.as_mut_slice())));
-//         }
-//     }));
-//
-//     c.bench_function("cached_interpreter_exception_1 NOPs BRA", |b| b.iter(|| {
-//         for _ in 0..15 { // NOPs + BRA
-//             black_box(cpu.cached_interpreter_exception_1(black_box(code.as_mut_slice())));
-//         }
-//     }));
+    let mut cached_interpreter_single_block =
+        CachedInterpreterSingleBlock::new(0, code_byte_len as u32);
+
+    c.bench_function("cached_interpreter_single_block NOPs BRA", |b| b.iter(|| {
+        for _ in 0..15 { // NOPs + BRA
+            black_box(cached_interpreter_single_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
+        }
+    }));
+
+    c.bench_function("cached_interpreter_exception_single_block NOPs BRA", |b| b.iter(|| {
+        for _ in 0..15 { // NOPs + BRA
+            black_box(cached_interpreter_single_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
+        }
+    }));
 
     /// Physical bus on a 68000 is 24 bits, minus 1 for even alignment.
     const CACHE_BITS: usize = 5;
