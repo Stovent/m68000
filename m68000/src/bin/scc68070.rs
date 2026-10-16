@@ -5,9 +5,9 @@
 //! This is a minimal SCC68070 microcontroller emulation used to run test ROMs.
 //! It also demonstrate how to use this library in Rust projects.
 
-use m68000::cached_interpreter_flat_block::CachedInterpreterFlatBlock;
+// use m68000::cached_interpreter_flat_block::CachedInterpreterFlatBlock;
 use m68000::cached_interpreter_single_block::CachedInterpreterSingleBlock;
-use m68000::cached_interpreter_trie_block::CachedInterpreterTrieBlock;
+// use m68000::cached_interpreter_trie_block::CachedInterpreterTrieBlock;
 use m68000::M68000;
 use m68000::memory_access::MemoryAccess;
 
@@ -133,9 +133,8 @@ fn main()
         cpu: M68000::new(),
         memory: ram,
     };
-    // let mut cached_interpreter =
-    //     CachedInterpreterFlatBlock::new(M68000::<CpuScc68070>::new(), 1 << 23, 1, 0xFF_FFFF);
-    // let mut cached_interpreter = CachedInterpreterTrieBlock::new(M68000::<CpuScc68070>::new());
+    // let mut cached_interpreter = CachedInterpreterFlatBlock::new(ROM_BEGIN, ROM_END);
+    // let mut cached_interpreter = CachedInterpreterTrieBlock::new();
     let mut cached_interpreter = CachedInterpreterSingleBlock::new(ROM_BEGIN, ROM_END);
 
     let start = std::time::Instant::now();
@@ -143,7 +142,6 @@ fn main()
     // Execute 1 000 000 000 instructions.
     for _ in 0..1_000_000_000 {
         cached_interpreter.cached_interpreter(&mut scc68070.cpu, &mut scc68070.memory);
-        // scc68070.cpu.cached_interpreter_1(&mut scc68070.memory);
         // scc68070.cpu.interpreter(&mut scc68070.memory);
         // let (dis, _) = scc68070.cpu.disassembler_interpreter(&mut scc68070.memory);
         // println!("{dis}");

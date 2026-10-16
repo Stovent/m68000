@@ -35,45 +35,43 @@ const fn subcache_index(addr: u32) -> usize {
 /// Cached interpreter with a trie look-up table.
 ///
 /// https://web.archive.org/web/20210301060701/https://ps1.asuramaru.com/emulator-development/cached-interpreters
-pub struct CachedInterpreterTrieBlock<CPU: CpuDetails> {
-    pub m68000: M68000<CPU>,
+pub struct CachedInterpreterTrieBlock {
     /// Each element is a subrow for each PC value.
     instruction_cache: Box<[SUBCACHE]>,
 }
 
-impl<CPU: CpuDetails> CachedInterpreterTrieBlock<CPU> {
-    pub fn new(m68000: M68000<CPU>) -> Self {
+impl CachedInterpreterTrieBlock {
+    pub fn new() -> Self {
         Self {
-            m68000,
             instruction_cache: vec![EMPTY_SUBCACHE; CACHE_SIZE].into_boxed_slice(),
         }
     }
 
-    pub fn cached_interpreter<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> usize {
-        let (cycles, exception) = self.cached_interpreter_exception(memory);
+    pub fn cached_interpreter<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> usize {
+        let (cycles, exception) = self.cached_interpreter_exception(m68000, memory);
         if let Some(e) = exception {
-            self.m68000.exception(e.into());
+            m68000.exception(e.into());
         }
         cycles
     }
 
-    pub fn cached_interpreter_exception<M: MemoryAccess + ?Sized>(&mut self, memory: &mut M) -> (usize, Option<u8>) {
-        if self.m68000.stop {
+    pub fn cached_interpreter_exception<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> (usize, Option<u8>) {
+        if m68000.stop {
             return (0, None);
         }
 
         let mut cycle_count = 0;
 
-        if !self.m68000.exceptions.is_empty() {
-            cycle_count += self.m68000.process_pending_exceptions(memory);
+        if !m68000.exceptions.is_empty() {
+            cycle_count += m68000.process_pending_exceptions(memory);
         }
 
-        let pc = self.m68000.regs.pc.0;
+        let pc = m68000.regs.pc.0;
         let cache_index = cache_index(pc);
 
         // If the cache does not cover the whole address space, uncomment this.
 //         if cache_index >= self.instruction_cache.len() {
-//             return self.m68000.interpreter_exception(memory);
+//             return m68000.interpreter_exception(memory);
 //         }
 
         let subcache = if let Some(subcache) = self.instruction_cache[cache_index].as_mut() {
@@ -89,12 +87,12 @@ impl<CPU: CpuDetails> CachedInterpreterTrieBlock<CPU> {
         let subcache_index = subcache_index(pc);
         if let Some(block) = &subcache[subcache_index] {
             for instruction in block {
-                if !self.m68000.exceptions.is_empty() { // External exception.
+                if !m68000.exceptions.is_empty() { // External exception.
                     return (cycle_count, None);
                 }
 
-                self.m68000.regs.pc += instruction.length as u32;
-                let (cycles, exception) = self.m68000.execute_instruction(memory, instruction);
+                m68000.regs.pc += instruction.length as u32;
+                let (cycles, exception) = m68000.execute_instruction(memory, instruction);
                 cycle_count += cycles;
                 if exception.is_some() {
                     return (cycle_count, exception);
@@ -109,17 +107,17 @@ impl<CPU: CpuDetails> CachedInterpreterTrieBlock<CPU> {
         let mut block = Vec::with_capacity(16);
 
         loop {
-            if !self.m68000.exceptions.is_empty() { // External exception.
+            if !m68000.exceptions.is_empty() { // External exception.
                 // Don't store cache if an exception occured.
                 return (cycle_count, None);
             }
 
-            let instruction = match self.m68000.get_next_instruction(memory) {
+            let instruction = match m68000.get_next_instruction(memory) {
                 Ok(i) => i,
                 Err(e) => return (cycle_count, Some(e)),
             };
 
-            let (cycles, exception) = self.m68000.execute_instruction(memory, &instruction);
+            let (cycles, exception) = m68000.execute_instruction(memory, &instruction);
             cycle_count += cycles;
 
             if exception.is_some() {

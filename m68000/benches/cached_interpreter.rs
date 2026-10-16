@@ -64,30 +64,24 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         }
     }));
 
-    /// Physical bus on a 68000 is 24 bits, minus 1 for even alignment.
-    const CACHE_BITS: usize = 5;
-    const CACHE_SIZE: usize = 1 << CACHE_BITS;
-    const CACHE_MASK: usize = CACHE_SIZE - 1;
-
-    let mut cached_interpreter_flat_block =
-        CachedInterpreterFlatBlock::new(cpu, CACHE_SIZE, 1, CACHE_MASK);
+    let mut cached_interpreter_flat_block = CachedInterpreterFlatBlock::new(0, code_byte_len as u32);
 
     c.bench_function("cached_interpreter_flat_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_flat_block.cached_interpreter(black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_flat_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
     c.bench_function("cached_interpreter_exception_flat_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_flat_block.cached_interpreter_exception(black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_flat_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
-    let mut cached_interpreter_trie_block = CachedInterpreterTrieBlock::new(cached_interpreter_flat_block.m68000);
+    let mut cached_interpreter_trie_block = CachedInterpreterTrieBlock::new();
 
     c.bench_function("cached_interpreter_trie_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_trie_block.cached_interpreter(black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_trie_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
     c.bench_function("cached_interpreter_exception_trie_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_trie_block.cached_interpreter_exception(black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_trie_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
     }));
 }
 
