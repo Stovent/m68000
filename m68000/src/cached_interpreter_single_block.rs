@@ -30,8 +30,8 @@ impl CachedInterpreterSingleBlock {
         }
     }
 
-    pub fn cached_interpreter<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> usize {
-        let (cycles, exception) = self.cached_interpreter_exception(m68000, memory);
+    pub fn interpreter<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> usize {
+        let (cycles, exception) = self.interpreter_exception(m68000, memory);
         if let Some(e) = exception {
             cold_path();
             m68000.exception(e.into());
@@ -39,7 +39,7 @@ impl CachedInterpreterSingleBlock {
         cycles
     }
 
-    pub fn cached_interpreter_exception<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> (usize, Option<u8>) {
+    pub fn interpreter_exception<M: MemoryAccess + ?Sized, CPU: CpuDetails>(&mut self, m68000: &mut M68000<CPU>, memory: &mut M) -> (usize, Option<u8>) {
         if m68000.stop {
             return (0, None);
         }

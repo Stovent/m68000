@@ -54,34 +54,34 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
     c.bench_function("cached_interpreter_single_block NOPs BRA", |b| b.iter(|| {
         for _ in 0..15 { // NOPs + BRA
-            black_box(cached_interpreter_single_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
+            black_box(cached_interpreter_single_block.interpreter(&mut cpu, black_box(code.as_mut_slice())));
         }
     }));
 
     c.bench_function("cached_interpreter_exception_single_block NOPs BRA", |b| b.iter(|| {
         for _ in 0..15 { // NOPs + BRA
-            black_box(cached_interpreter_single_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
+            black_box(cached_interpreter_single_block.interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
         }
     }));
 
     let mut cached_interpreter_flat_block = CachedInterpreterFlatBlock::new(0, code_byte_len as u32);
 
     c.bench_function("cached_interpreter_flat_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_flat_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_flat_block.interpreter(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
     c.bench_function("cached_interpreter_exception_flat_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_flat_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_flat_block.interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
     let mut cached_interpreter_trie_block = CachedInterpreterTrieBlock::new();
 
     c.bench_function("cached_interpreter_trie_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_trie_block.cached_interpreter(&mut cpu, black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_trie_block.interpreter(&mut cpu, black_box(code.as_mut_slice())));
     }));
 
     c.bench_function("cached_interpreter_exception_trie_block NOPs BRA", |b| b.iter(|| {
-        black_box(cached_interpreter_trie_block.cached_interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
+        black_box(cached_interpreter_trie_block.interpreter_exception(&mut cpu, black_box(code.as_mut_slice())));
     }));
 }
 

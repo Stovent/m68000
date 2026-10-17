@@ -74,9 +74,9 @@ fn cached_interpreter() {
     };
 
     let cpu = m68000_mc68000_new_no_reset();
-    let single_block = m68000_new_cached_interpreter_single_block(0, mem_end);
-    let flat_block = m68000_new_cached_interpreter_flat_block(0, mem_end);
-    let trie_block = m68000_new_cached_interpreter_trie_block();
+    let single_block = m68000_cached_interpreter_single_block_new(0, mem_end);
+    let flat_block = m68000_cached_interpreter_flat_block_new(0, mem_end);
+    let trie_block = m68000_cached_interpreter_trie_block_new();
 
     unsafe {
         let regs = m68000_mc68000_registers(cpu);
@@ -104,8 +104,8 @@ fn cached_interpreter() {
         assert_eq!((*regs).pc.0, 0);
 
         m68000_mc68000_delete(cpu);
-        m68000_delete_cached_interpreter_single_block(single_block);
-        m68000_delete_cached_interpreter_flat_block(flat_block);
-        m68000_delete_cached_interpreter_trie_block(trie_block);
+        m68000_cached_interpreter_single_block_delete(single_block);
+        m68000_cached_interpreter_flat_block_delete(flat_block);
+        m68000_cached_interpreter_trie_block_delete(trie_block);
     }
 }

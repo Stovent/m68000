@@ -141,7 +141,7 @@ fn main()
 
     // Execute 1 000 000 000 instructions.
     for _ in 0..1_000_000_000 {
-        cached_interpreter.cached_interpreter(&mut scc68070.cpu, &mut scc68070.memory);
+        cached_interpreter.interpreter(&mut scc68070.cpu, &mut scc68070.memory);
         // scc68070.cpu.interpreter(&mut scc68070.memory);
         // let (dis, _) = scc68070.cpu.disassembler_interpreter(&mut scc68070.memory);
         // println!("{dis}");

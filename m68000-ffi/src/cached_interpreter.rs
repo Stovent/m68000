@@ -10,37 +10,37 @@ use m68000::cached_interpreter_trie_block::CachedInterpreterTrieBlock;
 
 /// Allocates a new flat block cached interpreter.
 #[no_mangle]
-pub extern "C" fn m68000_new_cached_interpreter_flat_block(begin: u32, end: u32) -> *mut CachedInterpreterFlatBlock {
+pub extern "C" fn m68000_cached_interpreter_flat_block_new(begin: u32, end: u32) -> *mut CachedInterpreterFlatBlock {
     Box::into_raw(Box::new(CachedInterpreterFlatBlock::new(begin, end)))
 }
 
 /// Frees a flat block cached interpreter.
 #[no_mangle]
-pub unsafe extern "C" fn m68000_delete_cached_interpreter_flat_block(ptr: *mut CachedInterpreterFlatBlock) {
+pub unsafe extern "C" fn m68000_cached_interpreter_flat_block_delete(ptr: *mut CachedInterpreterFlatBlock) {
     std::mem::drop(Box::from_raw(ptr));
 }
 
 /// Allocates a new single block cached interpreter.
 #[no_mangle]
-pub extern "C" fn m68000_new_cached_interpreter_single_block(begin: u32, end: u32) -> *mut CachedInterpreterSingleBlock {
+pub extern "C" fn m68000_cached_interpreter_single_block_new(begin: u32, end: u32) -> *mut CachedInterpreterSingleBlock {
     Box::into_raw(Box::new(CachedInterpreterSingleBlock::new(begin, end)))
 }
 
 /// Frees a single block cached interpreter.
 #[no_mangle]
-pub unsafe extern "C" fn m68000_delete_cached_interpreter_single_block(ptr: *mut CachedInterpreterSingleBlock) {
+pub unsafe extern "C" fn m68000_cached_interpreter_single_block_delete(ptr: *mut CachedInterpreterSingleBlock) {
     std::mem::drop(Box::from_raw(ptr));
 }
 
 /// Allocates a new trie block cached interpreter.
 #[no_mangle]
-pub extern "C" fn m68000_new_cached_interpreter_trie_block() -> *mut CachedInterpreterTrieBlock {
+pub extern "C" fn m68000_cached_interpreter_trie_block_new() -> *mut CachedInterpreterTrieBlock {
     Box::into_raw(Box::new(CachedInterpreterTrieBlock::new()))
 }
 
 /// Frees a trie block cached interpreter.
 #[no_mangle]
-pub unsafe extern "C" fn m68000_delete_cached_interpreter_trie_block(ptr: *mut CachedInterpreterTrieBlock) {
+pub unsafe extern "C" fn m68000_cached_interpreter_trie_block_delete(ptr: *mut CachedInterpreterTrieBlock) {
     std::mem::drop(Box::from_raw(ptr));
 }
 
@@ -52,7 +52,7 @@ macro_rules! cinterface_cached_interpreter {
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _ $cached_name _interpreter>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> usize {
                 unsafe {
-                    (*interpreter).cached_interpreter(&mut *m68000, &mut *memory)
+                    (*interpreter).interpreter(&mut *m68000, &mut *memory)
                 }
             }
 
@@ -63,7 +63,7 @@ macro_rules! cinterface_cached_interpreter {
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _ $cached_name _interpreter_exception>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
                 unsafe {
-                    let (cycles, vector) = (*interpreter).cached_interpreter_exception(&mut *m68000, &mut *memory);
+                    let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
                     m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
                 }
             }
@@ -72,7 +72,7 @@ macro_rules! cinterface_cached_interpreter {
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_ $cached_name _interpreter>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> usize {
                 unsafe {
-                    (*interpreter).cached_interpreter(&mut *m68000, &mut *memory)
+                    (*interpreter).interpreter(&mut *m68000, &mut *memory)
                 }
             }
 
@@ -83,7 +83,7 @@ macro_rules! cinterface_cached_interpreter {
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_ $cached_name _interpreter_exception>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_exception_result_t {
                 unsafe {
-                    let (cycles, vector) = (*interpreter).cached_interpreter_exception(&mut *m68000, &mut *memory);
+                    let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
                     m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
                 }
             }
