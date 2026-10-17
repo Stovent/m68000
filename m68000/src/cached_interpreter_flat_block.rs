@@ -7,13 +7,13 @@
 use crate::{CpuDetails, MemoryAccess, M68000};
 use crate::instruction::Instruction;
 
-type Subcache = Option<Vec<Instruction>>;
-const EMPTY_SUBCACHE: Subcache = None;
+type Block = Option<Vec<Instruction>>;
+const EMPTY_BLOCK: Block = None;
 
 /// Cached interpreter which stores instruction blocks in a flat array.
 pub struct CachedInterpreterFlatBlock {
     /// Indexed with program counter >> 1.
-    instruction_cache: Box<[Subcache]>,
+    instruction_cache: Box<[Block]>,
     /// The range of the chachable instructions.
     cache_range: core::range::Range<u32>,
 }
@@ -23,7 +23,7 @@ impl CachedInterpreterFlatBlock {
     pub fn new(begin: u32, end: u32) -> Self {
         let size = ((end - begin) >> 1) as usize;
         Self {
-            instruction_cache: vec![EMPTY_SUBCACHE; size].into_boxed_slice(),
+            instruction_cache: vec![EMPTY_BLOCK; size].into_boxed_slice(),
             cache_range: (begin..end).into(), // TODO: remove .into() when possible.
         }
     }

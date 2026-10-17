@@ -3,6 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Cached interpreter with a trie for block caching.
+//!
+//! # Important
+//!
+//! This cached interpreter caches the whole address space and is not invalidating.
+//! If this is an issue, use [crate::cached_interpreter_flat_block] or [crate::cached_interpreter_single_block].
 
 use crate::{CpuDetails, MemoryAccess, M68000};
 use crate::instruction::Instruction;
