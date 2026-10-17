@@ -5,7 +5,7 @@
 //! Disassembler module.
 
 use crate::instruction::{Direction, Instruction};
-use crate::isa::Isa;
+use crate::isa::ISA_COUNT;
 use crate::status_register::disassemble_conditional_test;
 use crate::utils::bits;
 
@@ -536,7 +536,7 @@ pub fn disassemble_unlk(inst: &Instruction) -> String {
 /// let disassemble = DLUT[DECODER[inst.opcode as usize] as usize];
 /// println!("{:#X} {}", inst.pc, disassemble(&inst));
 /// ```
-pub const DLUT: [fn(&Instruction) -> String; Isa::_Size as usize] = [
+pub const DLUT: [fn(&Instruction) -> String; ISA_COUNT] = [
     disassemble_unknown_instruction,
     disassemble_abcd,
     disassemble_add,

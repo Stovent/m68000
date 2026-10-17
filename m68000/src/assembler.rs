@@ -314,7 +314,7 @@ pub fn addi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
 pub fn addq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
     assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
-    assert!(data >= 1 && data <= 8, "Invalid data.");
+    assert!((1..=8).contains(&data), "Invalid data.");
     let data = if data == 8 { 0 } else { data };
     data_size_effective_address(data, 0, size, am)
 }
@@ -813,7 +813,7 @@ pub fn subi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
 pub fn subq(data: u8, size: Size, am: AddressingMode) -> Vec<u16> {
     assert!(am.verify(&MODES_01234567, &[0, 1]), "Invalid addressing mode.");
     assert!(!(am.is_ard() && size.is_byte()), "Byte size cannot be used with Address Register Direct destination operand.");
-    assert!(data >= 1 && data <= 8, "Invalid data.");
+    assert!((1..=8).contains(&data), "Invalid data.");
     let data = if data == 8 { 0 } else { data };
     data_size_effective_address(data, 1, size, am)
 }

@@ -15,7 +15,8 @@ use criterion::{criterion_group, criterion_main, Criterion};
 
 use m68000_ffi::{m68000_callbacks_t, m68000_memory_result_t};
 use m68000_ffi::fastmem::m68000_fastmem_t;
-use m68000_ffi::mc68000::{m68000_mc68000_delete, m68000_mc68000_fastmem_interpreter, m68000_mc68000_fastmem_interpreter_exception, m68000_mc68000_new};
+use m68000_ffi::mc68000::*;
+use m68000_ffi::cached_interpreter::*;
 
 type CodeArray = [u16; 6];
 
@@ -70,14 +71,19 @@ extern "C" fn set_long(_addr: u32, _data: u32, _user_data: *mut c_void) -> bool 
 extern "C" fn reset_instruction(_user_data: *mut c_void) {}
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let cpu = m68000_mc68000_new();
     let code = [
         0x00, 0x00, 0x10, 0x00, // Initial SSP
         0x00, 0x00, 0x00, 0x08, // Initial PC
         0x60, 0x00, 0xFF, 0xFE, // bra.s
     ];
+    let code_len = (code.len() << 1) as u32;
 
     let (mut fastmem, _memory) = make_fastmem(&code);
+
+    let cpu = m68000_mc68000_new();
+    let single_block = m68000_cached_interpreter_single_block_new(0, code_len);
+    let flat_block = m68000_cached_interpreter_flat_block_new(0, code_len);
+    let trie_block = m68000_cached_interpreter_trie_block_new();
 
     unsafe {
         m68000_mc68000_fastmem_interpreter(cpu, &raw mut fastmem); // Fetch the reset vectors on the first call.
@@ -89,6 +95,30 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function("m68000_mc68000_fastmem_interpreter_exception", |b| b.iter(|| {
             black_box(m68000_mc68000_fastmem_interpreter_exception(black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_flat_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_flat_block_interpreter(flat_block, black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_flat_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_flat_block_interpreter_exception(flat_block, black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_single_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_single_block_interpreter(single_block, black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_single_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_single_block_interpreter_exception(single_block, black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_trie_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_trie_block_interpreter(trie_block, black_box(cpu), black_box(&raw mut fastmem)));
+        }));
+
+        c.bench_function("m68000_mc68000_fastmem_cached_interpreter_trie_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_fastmem_cached_interpreter_trie_block_interpreter_exception(trie_block, black_box(cpu), black_box(&raw mut fastmem)));
         }));
 
         m68000_mc68000_delete(cpu);

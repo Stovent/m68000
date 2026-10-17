@@ -20,6 +20,10 @@ crate-type = ["lib", "staticlib"]
 [dev-dependencies]
 criterion = "0.7"
 
+[[bench]]
+name = "cached_interpreter"
+harness = false
+
 # [[bench]]
 # name = "cpudiag"
 # harness = false
