@@ -7,32 +7,19 @@
 use crate::{CpuDetails, MemoryAccess, M68000};
 use crate::instruction::Instruction;
 
-type SUBCACHE = Option<Vec<Instruction>>;
-const EMPTY_SUBCACHE: SUBCACHE = None;
+type Subcache = Option<Vec<Instruction>>;
+const EMPTY_SUBCACHE: Subcache = None;
 
 /// Cached interpreter which stores instruction blocks in a flat array.
 pub struct CachedInterpreterFlatBlock {
-    /// Indexed with the program counter >> 1.
-    instruction_cache: Box<[SUBCACHE]>,
+    /// Indexed with program counter >> 1.
+    instruction_cache: Box<[Subcache]>,
     /// The range of the chachable instructions.
     cache_range: core::range::Range<u32>,
 }
 
 impl CachedInterpreterFlatBlock {
-    /// Creates a new cached interpreter with the given cache size (number of addresses)
-    ///
-    /// Note that addresses are always even, so feel free to add one to your shift count if you want.
-    /// You must adapt your mask and buffer size if you do so.
-    ///
-    /// For example if your PC is only in the range `[0x1000, 0x4000)`:
-    /// - size can be 0x3000 or 0xC00 (0x3000 >> 1).
-    /// - shift can be 12 or 13.
-    /// - mask will be 3.
-    ///
-    /// Physical bus on a 68000 is 24 bits, minus 1 for even alignment, so you can use the following values:
-    /// - size = 1 << 23;
-    /// - shift = 23;
-    /// - mask = 0x7F_FFFF;
+    /// Creates a new cached interpreter with the given memory range as cachable.
     pub fn new(begin: u32, end: u32) -> Self {
         let size = ((end - begin) >> 1) as usize;
         Self {

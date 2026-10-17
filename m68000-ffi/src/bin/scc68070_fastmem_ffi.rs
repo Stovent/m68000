@@ -51,17 +51,11 @@ extern "C" fn set_byte(addr: u32, data: u8, _user_data: *mut c_void) -> bool {
 }
 
 extern "C" fn set_word(addr: u32, _data: u16, _user_data: *mut c_void) -> bool {
-    match addr {
-        0x8000_2011..=0x8000_2019 => true,
-        _ => false,
-    }
+    matches!(addr, 0x8000_2011..=0x8000_2019)
 }
 
 extern "C" fn set_long(addr: u32, _data: u32, _user_data: *mut c_void) -> bool {
-    match addr {
-        0x8000_2011..=0x8000_2019 => true,
-        _ => false,
-    }
+    matches!(addr, 0x8000_2011..=0x8000_2019)
 }
 
 extern "C" fn reset_instruction(_user_data: *mut c_void) {}

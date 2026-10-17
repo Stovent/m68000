@@ -7,10 +7,10 @@
 use crate::{CpuDetails, MemoryAccess, M68000};
 use crate::instruction::Instruction;
 
-type BLOCK = Option<Vec<Instruction>>;
-const EMPTY_BLOCK: BLOCK = None;
-type SUBCACHE = Option<Vec<BLOCK>>;
-const EMPTY_SUBCACHE: SUBCACHE = None;
+type Block = Option<Vec<Instruction>>;
+const EMPTY_BLOCK: Block = None;
+type Subcache = Option<Vec<Block>>;
+const EMPTY_SUBCACHE: Subcache = None;
 
 const SUBCACHE_BITS: usize = 12;
 const SUBCACHE_SIZE: usize = 1 << SUBCACHE_BITS;
@@ -37,7 +37,13 @@ const fn subcache_index(addr: u32) -> usize {
 /// https://web.archive.org/web/20210301060701/https://ps1.asuramaru.com/emulator-development/cached-interpreters
 pub struct CachedInterpreterTrieBlock {
     /// Each element is a subrow for each PC value.
-    instruction_cache: Box<[SUBCACHE]>,
+    instruction_cache: Box<[Subcache]>,
+}
+
+impl Default for CachedInterpreterTrieBlock {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 impl CachedInterpreterTrieBlock {

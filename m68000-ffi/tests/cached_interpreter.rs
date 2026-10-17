@@ -5,22 +5,19 @@
 //! FFI cached interpreters unit tests.
 
 use core::ffi::c_void;
-use core::pin::Pin;
 
-use m68000::MemoryAccess;
 use m68000::addressing_modes::AddressingMode;
 use m68000::assembler::{add, bra};
 use m68000::instruction::{Direction, Size};
 use m68000_ffi::cached_interpreter::*;
 use m68000_ffi::mc68000::*;
 use m68000_ffi::{m68000_callbacks_t, m68000_memory_result_t};
-use m68000_ffi::fastmem::m68000_fastmem_t;
 
 struct Memory {
     memory: Box<[u16]>,
 }
 
-extern "C" fn get_byte(addr: u32, _user_data: *mut c_void) -> m68000_memory_result_t {
+extern "C" fn get_byte(_addr: u32, _user_data: *mut c_void) -> m68000_memory_result_t {
     panic!();
 }
 
@@ -36,7 +33,7 @@ extern "C" fn get_word(addr: u32, user_data: *mut c_void) -> m68000_memory_resul
     }
 }
 
-extern "C" fn get_long(addr: u32, _user_data: *mut c_void) -> m68000_memory_result_t {
+extern "C" fn get_long(_addr: u32, _user_data: *mut c_void) -> m68000_memory_result_t {
     panic!();
 }
 
