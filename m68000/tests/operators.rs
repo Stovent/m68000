@@ -9,7 +9,7 @@
 //!
 //! Currently, `carrying_add` and `borrowing_sub` does not have the correct behaviours on signed operands.
 
-#![feature(bigint_helper_methods)]
+#![feature(signed_bigint_helpers)]
 
 macro_rules! test_operator {
     ($operator:expr, $expected:expr) => {
