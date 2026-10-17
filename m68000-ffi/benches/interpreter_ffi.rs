@@ -13,7 +13,8 @@ use std::hint::black_box;
 use criterion::{criterion_group, criterion_main, Criterion};
 
 use m68000_ffi::{m68000_callbacks_t, m68000_memory_result_t};
-use m68000_ffi::mc68000::{m68000_mc68000_delete, m68000_mc68000_interpreter, m68000_mc68000_interpreter_exception, m68000_mc68000_new};
+use m68000_ffi::mc68000::*;
+use m68000_ffi::cached_interpreter::*;
 
 type CodeArray = [u16; 6];
 
@@ -68,13 +69,13 @@ extern "C" fn set_long(_addr: u32, _data: u32, _user_data: *mut c_void) -> bool 
 extern "C" fn reset_instruction(_user_data: *mut c_void) {}
 
 pub fn criterion_benchmark(c: &mut Criterion) {
-    let cpu = m68000_mc68000_new();
     let bra = 0x6000_u16;
     let mut code: CodeArray = [
         0x0000, 0x1000, // Initial SSP
         0x0000, 0x0008, // Initial PC
         bra, 0xFFFE, // bra.s
     ];
+    let code_len = (code.len() << 1) as u32;
     let memory_ptr = &raw mut code as *mut c_void;
     let mut memory_callbacks = m68000_callbacks_t {
         get_byte,
@@ -90,6 +91,11 @@ pub fn criterion_benchmark(c: &mut Criterion) {
         user_data: memory_ptr,
     };
 
+    let cpu = m68000_mc68000_new();
+    let single_block = m68000_cached_interpreter_single_block_new(0, code_len);
+    let flat_block = m68000_cached_interpreter_flat_block_new(0, code_len);
+    let trie_block = m68000_cached_interpreter_trie_block_new();
+
     unsafe {
         m68000_mc68000_interpreter(cpu, &raw mut memory_callbacks); // Fetch the reset vectors on the first call.
         // The benchmarks executes the same instruction so no need for dedicated input management.
@@ -100,6 +106,30 @@ pub fn criterion_benchmark(c: &mut Criterion) {
 
         c.bench_function("m68000_mc68000_interpreter_exception", |b| b.iter(|| {
             black_box(m68000_mc68000_interpreter_exception(black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_flat_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_flat_block_interpreter(flat_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_flat_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_flat_block_interpreter_exception(flat_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_single_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_single_block_interpreter(single_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_single_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_single_block_interpreter_exception(single_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_trie_block_interpreter", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_trie_block_interpreter(trie_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
+        }));
+
+        c.bench_function("m68000_mc68000_cached_interpreter_trie_block_interpreter_exception", |b| b.iter(|| {
+            black_box(m68000_mc68000_cached_interpreter_trie_block_interpreter_exception(trie_block, black_box(cpu), black_box(&raw mut memory_callbacks)));
         }));
 
         m68000_mc68000_delete(cpu);
