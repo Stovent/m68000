@@ -3,6 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Cached interpreter with a single block that stores individually-cached instructions.
+//!
+//! # Important
+//!
+//! This cache is not invalidating, you must select the range of memory corresponding to ROM, or a section guaranteed
+//! to never change.
 
 use std::hint::cold_path;
 
@@ -51,7 +56,7 @@ impl CachedInterpreterSingleBlock {
         }
 
         if !m68000.regs.pc.0.is_even() {
-            return (0, Some(ADDRESS_ERROR))
+            return (cycle_count, Some(ADDRESS_ERROR))
         }
         // If we are not in the cachable range, the wrapping_sub will underflow to an impossible address, or still be out of range of the buffer.
         let cache_index = (m68000.regs.pc.0.wrapping_sub(self.cache_range.start) >> 1) as usize; // Odd addresses are impossible.

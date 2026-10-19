@@ -15,7 +15,7 @@ pub const ACCESS_ERROR: u8 = Vector::AccessError as u8;
 /// Constant equal to the AddressError vector.
 pub const ADDRESS_ERROR: u8 = Vector::AddressError as u8;
 
-/// Exception vectors of the 68000.
+/// Exception vector numbers of the 68000.
 ///
 /// You can directly cast the enum to u8 to get the vector number.
 /// ```
@@ -26,7 +26,7 @@ pub const ADDRESS_ERROR: u8 = Vector::AddressError as u8;
 /// The `FormatError` and `OnChipInterrupt` vectors are only used by the SCC68070.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord)]
 #[cfg_attr(not(feature = "ffi"), non_exhaustive)]
-#[cfg_attr(feature = "ffi", repr(C))]
+#[repr(u8)]
 pub enum Vector {
     ResetSspPc = 0,
     /// Bus error. Sent when the accessed address is not in the memory range of the system.
@@ -95,7 +95,8 @@ const fn get_vector_priority(vector: u8) -> u8 {
 
 const fn is_interrupt(vector: u8) -> bool {
     vector >= Vector::Level1Interrupt as u8 && vector <= Vector::Level7Interrupt as u8 ||
-    vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8
+    vector >= Vector::Level1OnChipInterrupt as u8 && vector <= Vector::Level7OnChipInterrupt as u8 ||
+    vector >= Vector::UserInterrupt as u8
 }
 
 /// M68000 exception, with a vector number and a priority.

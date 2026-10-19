@@ -156,7 +156,7 @@ fn size_effective_address_effective_address(size: Size, dst: AddressingMode, src
 }
 
 /// SWAP, UNLK
-fn register(bits3_15: u16, reg: u8) -> u16 {
+const fn register(bits3_15: u16, reg: u8) -> u16 {
     bits3_15 << 3 | reg as u16 & 7
 }
 
@@ -344,11 +344,11 @@ pub fn andi(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
     size_effective_address_immediate(0b0000_0010, size, am, imm)
 }
 
-pub fn andiccr(imm: u16) -> [u16; 2] {
+pub const fn andiccr(imm: u16) -> [u16; 2] {
     [0x023C, imm & 0x00FF]
 }
 
-pub fn andisr(imm: u16) -> [u16; 2] {
+pub const fn andisr(imm: u16) -> [u16; 2] {
     [0x027C, imm]
 }
 
@@ -462,7 +462,7 @@ pub fn cmpm(ax: u8, size: Size, ay: u8) -> u16 {
     0b1011_0001 << 8 | (ax as u16 & 7) << 9 | Into::<u16>::into(size) << 6 | 0b001 << 3 | ay as u16 & 7
 }
 
-pub fn dbcc(cond: Condition, reg: u8, disp: i16) -> [u16; 2] {
+pub const fn dbcc(cond: Condition, reg: u8, disp: i16) -> [u16; 2] {
     assert!(reg <= 7, "Invalid register.");
     [0b0101 << 12 | (cond as u16) << 8 | 0b1100_1 << 3 | reg as u16 & 7, disp as u16]
 }
@@ -490,11 +490,11 @@ pub fn eori(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
     size_effective_address_immediate(0b0000_1010, size, am, imm)
 }
 
-pub fn eoriccr(imm: u16) -> [u16; 2] {
+pub const fn eoriccr(imm: u16) -> [u16; 2] {
     [0x0A3C, imm & 0x00FF]
 }
 
-pub fn eorisr(imm: u16) -> [u16; 2] {
+pub const fn eorisr(imm: u16) -> [u16; 2] {
     [0x0A7C, imm]
 }
 
@@ -514,12 +514,12 @@ pub fn exg(rx: u8, dir: Direction, ry: u8) -> u16 {
 }
 
 /// `word_to_long` is true for word to long sign extension, false for byte to word sign extension.
-pub fn ext(word_to_long: bool, reg: u8) -> u16 {
+pub const fn ext(word_to_long: bool, reg: u8) -> u16 {
     assert!(reg <= 7, "Invalid register.");
     0b0100_1000_1 << 7 | (word_to_long as u16) << 6 | reg as u16 & 7
 }
 
-pub fn illegal() -> u16 {
+pub const fn illegal() -> u16 {
     0x4AFC
 }
 
@@ -539,7 +539,7 @@ pub fn lea(reg: u8, am: AddressingMode) -> Vec<u16> {
     register_effective_address(0b0100, reg as u16, 0b111, am)
 }
 
-pub fn link(reg: u8, disp: i16) -> [u16; 2] {
+pub const fn link(reg: u8, disp: i16) -> [u16; 2] {
     assert!(reg <= 7, "Invalid register.");
     [0b0100_1110_0101_0 << 3 | reg as u16 & 7, disp as u16]
 }
@@ -641,7 +641,7 @@ pub fn movep(data_reg: u8, dir: Direction, size: Size, addr_reg: u8, disp: i16) 
     [opcode, disp as u16]
 }
 
-pub fn moveq(reg: u8, data: i8) -> u16 {
+pub const fn moveq(reg: u8, data: i8) -> u16 {
     assert!(reg <= 7, "Invalid register.");
     0b0111 << 12 | (reg as u16) << 9 | data as u8 as u16
 }
@@ -673,7 +673,7 @@ pub fn negx(size: Size, am: AddressingMode) -> Vec<u16> {
     size_effective_address(0b0100_0000, size, am)
 }
 
-pub fn nop() -> u16 {
+pub const fn nop() -> u16 {
     0x4E71
 }
 
@@ -699,11 +699,11 @@ pub fn ori(size: Size, am: AddressingMode, imm: u32) -> Vec<u16> {
     size_effective_address_immediate(0b0000_0000, size, am, imm)
 }
 
-pub fn oriccr(imm: u16) -> [u16; 2] {
+pub const fn oriccr(imm: u16) -> [u16; 2] {
     [0x003C, imm & 0x00FF]
 }
 
-pub fn orisr(imm: u16) -> [u16; 2] {
+pub const fn orisr(imm: u16) -> [u16; 2] {
     [0x007C, imm]
 }
 
@@ -712,7 +712,7 @@ pub fn pea(am: AddressingMode) -> Vec<u16> {
     effective_address(0b0100_1000_01, am)
 }
 
-pub fn reset() -> u16 {
+pub const fn reset() -> u16 {
     0x4E70
 }
 
@@ -746,15 +746,15 @@ pub fn roxr(count_reg: u16, dir: Direction, size: Size, reg_shift: bool, reg: u1
     rotation_direction_size_mode_register(0b1110, count_reg, dir, size, reg_shift as u16, 0b10, reg)
 }
 
-pub fn rte() -> u16 {
+pub const fn rte() -> u16 {
     0x4E73
 }
 
-pub fn rtr() -> u16 {
+pub const fn rtr() -> u16 {
     0x4E77
 }
 
-pub fn rts() -> u16 {
+pub const fn rts() -> u16 {
     0x4E75
 }
 
@@ -781,7 +781,7 @@ pub fn scc(cond: Condition, am: AddressingMode) -> Vec<u16> {
     vec
 }
 
-pub fn stop(sr: u16) -> [u16; 2] {
+pub const fn stop(sr: u16) -> [u16; 2] {
     [0x4E72, sr]
 }
 
@@ -826,7 +826,7 @@ pub fn subx(dst: u8, size: Size, mode: Direction, src: u8) -> u16 {
     register_size_mode_register(0b1001, dst, size, 0, mode, src)
 }
 
-pub fn swap(reg: u8) -> u16 {
+pub const fn swap(reg: u8) -> u16 {
     assert!(reg <= 7, "Invalid register.");
     register(0b0100_1000_0100_0, reg)
 }
@@ -836,12 +836,12 @@ pub fn tas(am: AddressingMode) -> Vec<u16> {
     effective_address(0b0100_1010_11, am)
 }
 
-pub fn trap(vector: u8) -> u16 {
+pub const fn trap(vector: u8) -> u16 {
     assert!(vector <= 15, "Invalid TRAP vector.");
     0b0100_1110_0100 << 4 | vector as u16
 }
 
-pub fn trapv() -> u16 {
+pub const fn trapv() -> u16 {
     0x4E76
 }
 
@@ -850,7 +850,7 @@ pub fn tst(size: Size, am: AddressingMode) -> Vec<u16> {
     size_effective_address(0b0100_1010, size, am)
 }
 
-pub fn unlk(reg: u8) -> u16 {
+pub const fn unlk(reg: u8) -> u16 {
     assert!(reg <= 7, "Invalid register.");
     register(0b0100_1110_0101_1, reg)
 }

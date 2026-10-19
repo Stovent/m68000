@@ -3,6 +3,11 @@
 // file, You can obtain one at https://mozilla.org/MPL/2.0/.
 
 //! Cached interpreter which stores instruction blocks in a flat array.
+//!
+//! # Important
+//!
+//! This cache is not invalidating, you must select the range of memory corresponding to ROM, or a section guaranteed
+//! to never change.
 
 use crate::{CpuDetails, MemoryAccess, M68000};
 use crate::instruction::Instruction;
@@ -48,7 +53,8 @@ impl CachedInterpreterFlatBlock {
         }
 
         if !self.cache_range.contains(&m68000.regs.pc.0) {
-            return m68000.interpreter_exception(memory);
+            let (cycles, ex) =  m68000.interpreter_exception(memory);
+            return (cycle_count + cycles, ex);
         }
 
         // Guaranteed to be in range, wrapping_sub to avoid checks.

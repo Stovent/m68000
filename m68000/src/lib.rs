@@ -90,6 +90,8 @@
 //! - DIVS/DIVU may not always procuce the correct CCR flags when an overflow occured.
 //! - DIVS/DIVU always execute using their maximum execution time.
 //! - Long exception stack frame writes the current opcode and fills the other information with 0.
+//! - If an instruction generates an exception while tracing is enabled, this emulator does not generate the tracing
+//! instruction, only the instructionexception will be returned.
 //!
 //! ## TODO
 //! - Let memory access return extra read or write cycles for accuracy.
@@ -99,10 +101,6 @@ pub mod assembler;
 pub mod cached_interpreter_flat_block;
 pub mod cached_interpreter_single_block;
 pub mod cached_interpreter_trie_block;
-/*
-TODO cached:
-have a fallback for when the address can't be expected to be in the range.
-invalidate blocks on memory writes. */
 pub mod decoder;
 pub mod disassembler;
 pub mod exception;
@@ -220,12 +218,6 @@ pub struct M68000<CPU: CpuDetails> {
     /// The details of the emulated CPU.
     _cpu: CPU,
 }
-
-// /// A M68000 CPU with additional features for emulation.
-// #[derive(Clone, Debug)]
-// pub struct M68000<CPU: CpuDetails> {
-//     state: State<CPU>,
-// }
 
 impl<CPU: CpuDetails> M68000<CPU> {
     /// Creates a new M68000 core.
