@@ -12,4 +12,3 @@
 !include/
 !m68000/
 !m68000-ffi/
-!scripts/

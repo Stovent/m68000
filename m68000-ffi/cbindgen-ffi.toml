@@ -1,11 +1,11 @@
 language = "C"
-include_guard = "M68000_FFI_H"
+include_guard = "M68000_M68000_FFI_H"
 
 include_version = false
-sys_includes = ["stdint.h"]
-includes = ["m68000.h"]
+sys_includes = ["stddef.h", "stdint.h"]
+includes = []
 no_includes = true
-cpp_compat = true
+cpp_compat = false
 
 braces = "NextLine"
 line_length = 120
@@ -17,9 +17,15 @@ style = "both"
 
 usize_is_size_t = true
 
+[export]
+include = ["Registers", "StatusRegister", "Vector"]
+exclude = ["AddressingMode", "BriefExtensionWord", "Direction", "Instruction", "Operands", "Size", "WrappingU32"]
+
 [export.rename]
 "Registers" = "m68000_registers_t"
+"StatusRegister" = "m68000_status_register_t"
 "Vector" = "m68000_vector_t"
+"WrappingU32" = "uint32_t"
 
 [fn]
 args = "horizontal"
@@ -27,3 +33,12 @@ sort_by = "None"
 
 [const]
 allow_constexpr = true
+
+[parse]
+parse_deps = true
+include = ["m68000"]
+
+[parse.expand]
+crates = ["m68000", "m68000-ffi"]
+default_features = false
+features = ["m68000/ffi"]

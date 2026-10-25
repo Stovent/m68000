@@ -21,12 +21,10 @@ To change the build toolchain, add `+<toolchain name>`.
 ```sh
 cargo build --lib --release --features="ffi"
 # or
-cargo +nightly-x86_64-pc-windows-gnu build --lib --release --features="ffi"
+cargo +nightly build --lib --release --features="ffi"
 ```
 
-Then, add the `include/` folder in your header directories search path, and include the given header files `m68000/m68000.h` and `m68000/m68000-ffi.h` in your project.
-
-If you want to generate the header files from scratch, install [cargo-expand](https://github.com/dtolnay/cargo-expand) with the following command `cargo install cargo-expand`, then generate the header files using the `generate_headers.ps1` script on Windows or `generate_headers.sh` on Linux.
+Then, add the `include/` folder in your header directories search path, and include the given header file `m68000/m68000-ffi.h` in your project.
 
 ## Use the C interface
 
@@ -34,8 +32,7 @@ You need to link to the two generated libraries in your project:
 - `libm68000` which contains the Rust core of the library.
 - `libm68000_ffi` which contains the interface code between Rust and C.
 
-The `m68000.h` header contains the m68000 library data structures.
-The `m68000-ffi.h` header is the one to include in your C files and it contains the structs and functions declarations of the interface.
+The `m68000-ffi.h` header is the one to include in your C files and it contains the structs and functions declarations of the interface and of the main lib.
 
 Because the main Rust library is generic over a certain CPU type trait, and this trait is only usable in Rust code, the C interface exports both of the pre-defined CPU types.
 

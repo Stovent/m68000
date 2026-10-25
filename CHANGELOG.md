@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- cinterface: add m68000_cpu_stop_mut to get a pointer to the stop flag.
+
+### Changed
+- FFI bindings are generated during the build of m68000-ffi.
+
+### Removed:
+- cinterface: m68000.h, cbindgen.toml and the header generation scripts.
+
 ## [0.2.3] - 2025-06-11
 ### Changed
 - m68000 now builds on stable Rust instead of nightly.

@@ -51,9 +51,7 @@ macro_rules! cinterface_cached_interpreter {
             /// Executes the next instruction or block of instructions, returning the cycle count necessary to execute it.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _ $cached_name _interpreter>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> usize {
-                unsafe {
-                    (*interpreter).interpreter(&mut *m68000, &mut *memory)
-                }
+                (*interpreter).interpreter(&mut *m68000, &mut *memory)
             }
 
             /// Executes the next instruction or block of instructions, returning the cycle count necessary to execute it,
@@ -62,18 +60,14 @@ macro_rules! cinterface_cached_interpreter {
             /// To process the returned exception, call `m68000_*_exception`.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _ $cached_name _interpreter_exception>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_callbacks_t) -> m68000_exception_result_t {
-                unsafe {
-                    let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
-                }
+                let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
+                m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
             }
 
             /// Executes the next instruction or block of instructions, returning the cycle count necessary to execute it.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_ $cached_name _interpreter>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> usize {
-                unsafe {
-                    (*interpreter).interpreter(&mut *m68000, &mut *memory)
-                }
+                (*interpreter).interpreter(&mut *m68000, &mut *memory)
             }
 
             /// Executes the next instruction or block of instructions, returning the cycle count necessary to execute it,
@@ -82,10 +76,8 @@ macro_rules! cinterface_cached_interpreter {
             /// To process the returned exception, call `m68000_*_exception`.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_ $cached_name _interpreter_exception>](interpreter: *mut $cached_type, m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_exception_result_t {
-                unsafe {
-                    let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
-                }
+                let (cycles, vector) = (*interpreter).interpreter_exception(&mut *m68000, &mut *memory);
+                m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
             }
         }
     };

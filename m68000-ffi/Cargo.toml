@@ -10,12 +10,16 @@ repository = "https://github.com/Stovent/m68000"
 keywords = ["motorola", "68000", "m68k", "interpreter", "emulator"]
 categories = ["compilers", "emulators"]
 
+[lib]
+crate-type = ["lib", "staticlib"]
+
 [dependencies]
 m68000 = { path = "../m68000", features = ["ffi"] }
 paste = "1.0"
 
-[lib]
-crate-type = ["lib", "staticlib"]
+[build-dependencies]
+cbindgen = "0.29.4"
+cc = "1.0"
 
 [dev-dependencies]
 criterion = "0.7"

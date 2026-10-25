@@ -122,22 +122,25 @@ use status_register::StatusRegister;
 use std::collections::BTreeSet;
 use std::num::Wrapping;
 
+/// Alias type so that cbindgen is happy.
+type WrappingU32 = Wrapping<u32>;
+
 /// M68000 registers.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "ffi", repr(C))]
 pub struct Registers {
     /// Data registers.
-    pub d: [Wrapping<u32>; 8],
+    pub d: [WrappingU32; 8],
     /// Address registers.
-    pub a: [Wrapping<u32>; 7],
+    pub a: [WrappingU32; 7],
     /// User Stack Pointer.
-    pub usp: Wrapping<u32>,
+    pub usp: WrappingU32,
     /// System Stack Pointer.
-    pub ssp: Wrapping<u32>,
+    pub ssp: WrappingU32,
     /// Status Register.
     pub sr: StatusRegister,
     /// Program Counter.
-    pub pc: Wrapping<u32>,
+    pub pc: WrappingU32,
 }
 
 impl Registers {

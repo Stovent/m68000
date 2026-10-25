@@ -164,9 +164,7 @@ macro_rules! cinterface_fastmem {
             /// it will be executed and the 2 extra cycles will be subtracted in the next call.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_cycle>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t, cycles: usize) -> usize {
-                unsafe {
-                    (*m68000).cycle(&mut *memory, cycles)
-                }
+                (*m68000).cycle(&mut *memory, cycles)
             }
 
             /// Runs the CPU until either an exception occurs or `cycle` cycles have been executed.
@@ -178,10 +176,8 @@ macro_rules! cinterface_fastmem {
             /// it will be executed and the 2 extra cycles will be subtracted in the next call.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_cycle_until_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t, cycles: usize) -> m68000_exception_result_t {
-                unsafe {
-                    let (cycles, vector) = (*m68000).cycle_until_exception(&mut *memory, cycles);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
-                }
+                let (cycles, vector) = (*m68000).cycle_until_exception(&mut *memory, cycles);
+                m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
             }
 
             /// Runs indefinitely until an exception or STOP instruction occurs.
@@ -190,18 +186,14 @@ macro_rules! cinterface_fastmem {
             /// If exception is None, this means the CPU has executed a STOP instruction.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_loop_until_exception_stop>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_exception_result_t {
-                unsafe {
-                    let (cycles, vector) = (*m68000).loop_until_exception_stop(&mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
-                }
+                let (cycles, vector) = (*m68000).loop_until_exception_stop(&mut *memory);
+                m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
             }
 
             /// Executes the next instruction, returning the cycle count necessary to execute it.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> usize {
-                unsafe {
-                    (*m68000).interpreter(&mut *memory)
-                }
+                (*m68000).interpreter(&mut *memory)
             }
 
             /// Executes the next instruction, returning the cycle count necessary to execute it,
@@ -210,10 +202,8 @@ macro_rules! cinterface_fastmem {
             /// To process the returned exception, call `m68000_*_exception`.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_exception_result_t {
-                unsafe {
-                    let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
-                    m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
-                }
+                let (cycles, vector) = (*m68000).interpreter_exception(&mut *memory);
+                m68000_exception_result_t { cycles, exception: vector.unwrap_or(0) }
             }
 
             /// Executes and disassembles the next instruction, returning the disassembler string and the cycle count necessary to execute it.
@@ -222,24 +212,22 @@ macro_rules! cinterface_fastmem {
             /// `len` is the maximum size of the buffer, null-charactere included.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_disassembler_interpreter>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t, str: *mut c_char, len: usize) -> m68000_disassembler_result_t {
-                unsafe {
-                    let (pc, dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
+                let (pc, dis, cycles) = (*m68000).disassembler_interpreter(&mut *memory);
 
-                    let cstring = CString::new(dis).expect("New CString for disassembler failed")
-                        .into_bytes_with_nul();
-                    let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
+                let cstring = CString::new(dis).expect("New CString for disassembler failed")
+                    .into_bytes_with_nul();
+                let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
 
-                    if cstring.len() <= len {
-                        str.copy_from_nonoverlapping(raw_cstring, cstring.len());
-                    } else {
-                        str.copy_from_nonoverlapping(raw_cstring, len - 1);
-                        *str.add(len - 1) = 0;
-                    }
+                if cstring.len() <= len {
+                    str.copy_from_nonoverlapping(raw_cstring, cstring.len());
+                } else {
+                    str.copy_from_nonoverlapping(raw_cstring, len - 1);
+                    *str.add(len - 1) = 0;
+                }
 
-                    m68000_disassembler_result_t {
-                        cycles,
-                        pc,
-                    }
+                m68000_disassembler_result_t {
+                    cycles,
+                    pc,
                 }
             }
 
@@ -252,76 +240,68 @@ macro_rules! cinterface_fastmem {
             /// `len` is the maximum size of the buffer.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_disassembler_interpreter_exception>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t, str: *mut c_char, len: usize) -> m68000_disassembler_exception_result_t {
-                unsafe {
-                    let (pc, dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
+                let (pc, dis, cycles, vector) = (*m68000).disassembler_interpreter_exception(&mut *memory);
 
-                    let cstring = CString::new(dis).expect("New CString for disassembler failed")
-                        .into_bytes_with_nul();
-                    let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
+                let cstring = CString::new(dis).expect("New CString for disassembler failed")
+                    .into_bytes_with_nul();
+                let raw_cstring = std::mem::transmute::<*const u8, *const c_char>(cstring.as_ptr());
 
-                    if cstring.len() <= len {
-                        str.copy_from_nonoverlapping(raw_cstring, cstring.len());
-                    } else {
-                        str.copy_from_nonoverlapping(raw_cstring, len - 1);
-                        *str.add(len - 1) = 0;
-                    }
-
-                    m68000_disassembler_exception_result_t {
-                        cycles,
-                        pc,
-                        exception: vector.unwrap_or(0) ,
-                    }
+                if cstring.len() <= len {
+                    str.copy_from_nonoverlapping(raw_cstring, cstring.len());
+                } else {
+                    str.copy_from_nonoverlapping(raw_cstring, len - 1);
+                    *str.add(len - 1) = 0;
                 }
-            }
 
-            /// Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
-            #[no_mangle]
-            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_get_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_memory_result_t {
-                unsafe {
-                    match (*m68000).get_next_word(&mut *memory) {
-                        Ok(data) => m68000_memory_result_t {
-                            data: data as u32,
-                            exception: 0,
-                        },
-                        Err(vec) => m68000_memory_result_t {
-                            data: 0,
-                            exception: vec,
-                        },
-                    }
-                }
-            }
-
-            /// Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
-            #[no_mangle]
-            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_get_next_long>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_memory_result_t {
-                unsafe {
-                    match (*m68000).get_next_long(&mut *memory) {
-                        Ok(data) => m68000_memory_result_t {
-                            data,
-                            exception: 0,
-                        },
-                        Err(vec) => m68000_memory_result_t {
-                            data: 0,
-                            exception: vec,
-                        },
-                    }
+                m68000_disassembler_exception_result_t {
+                    cycles,
+                    pc,
+                    exception: vector.unwrap_or(0) ,
                 }
             }
 
             /// Returns the 16-bits word at the current PC value of the given core.
             #[no_mangle]
             pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_peek_next_word>](m68000: *const M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_memory_result_t {
-                unsafe {
-                    match (*m68000).peek_next_word(&mut *memory) {
-                        Ok(data) => m68000_memory_result_t {
-                            data: data as u32,
-                            exception: 0,
-                        },
-                        Err(vec) => m68000_memory_result_t {
-                            data: 0,
-                            exception: vec,
-                        },
-                    }
+                match (*m68000).peek_next_word(&mut *memory) {
+                    Ok(data) => m68000_memory_result_t {
+                        data: data as u32,
+                        exception: 0,
+                    },
+                    Err(vec) => m68000_memory_result_t {
+                        data: 0,
+                        exception: vec,
+                    },
+                }
+            }
+
+            /// Returns the 16-bits word at the current PC value of the given core and advances PC by 2.
+            #[no_mangle]
+            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_get_next_word>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_memory_result_t {
+                match (*m68000).get_next_word(&mut *memory) {
+                    Ok(data) => m68000_memory_result_t {
+                        data: data as u32,
+                        exception: 0,
+                    },
+                    Err(vec) => m68000_memory_result_t {
+                        data: 0,
+                        exception: vec,
+                    },
+                }
+            }
+
+            /// Returns the 32-bits long at the current PC value of the given core and advances PC by 4.
+            #[no_mangle]
+            pub unsafe extern "C" fn [<m68000_ $cpu _fastmem_get_next_long>](m68000: *mut M68000<$cpu_details>, memory: *mut m68000_fastmem_t) -> m68000_memory_result_t {
+                match (*m68000).get_next_long(&mut *memory) {
+                    Ok(data) => m68000_memory_result_t {
+                        data,
+                        exception: 0,
+                    },
+                    Err(vec) => m68000_memory_result_t {
+                        data: 0,
+                        exception: vec,
+                    },
                 }
             }
         }
