@@ -1,6 +1,7 @@
 #ifndef M68000_M68000_FFI_H
 #define M68000_M68000_FFI_H
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 

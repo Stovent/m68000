@@ -2,7 +2,7 @@ language = "C"
 include_guard = "M68000_M68000_FFI_H"
 
 include_version = false
-sys_includes = ["stddef.h", "stdint.h"]
+sys_includes = ["stdbool.h", "stddef.h", "stdint.h"]
 includes = []
 no_includes = true
 cpp_compat = false
